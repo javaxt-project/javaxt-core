@@ -1,0 +1,2655 @@
+package javaxt.io;
+import java.util.*;
+import java.util.logging.*;
+import java.util.concurrent.ConcurrentHashMap;
+//******************************************************************************
+//**  Directory Class - By Peter Borissow
+//******************************************************************************
+/**
+ *   Used to represent a directory on a file system. In many ways, this class 
+ *   is an extension of the java.io.File class. However, unlike the java.io.File 
+ *   class, this object provides functions that are relevant and specific to
+ *   directories. For example, this class provides a mechanism to move and copy
+ *   directories - something not offered by the java.io.File class. In addition,
+ *   this class provides a mechanism to retrieve files and folders found in a
+ *   directory AND any subdirectories. This is accomplished via a multi-threaded
+ *   recursive search. Finally, this class provides a powerful tool to monitor
+ *   changes made to the directory (e.g. getEvents).
+ *
+ ******************************************************************************/
+
+public class Directory implements Comparable {
+    
+
+    private java.io.File Directory;
+    private boolean useCache = false;
+    private static List events = new LinkedList();
+    private FileSystemWatcher FileSystemWatcher;
+    
+    public static final String PathSeparator = System.getProperty("file.separator");
+    protected static final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
+
+    
+  //**************************************************************************
+  //** Constructors
+  //**************************************************************************   
+  /** Creates a new instance of Directory using a path to a directory. */
+    
+    public Directory(String Path) {
+
+        if (Path.startsWith("\"") && Path.endsWith("\"")){
+            Path = Path.substring(1,Path.length()-1);
+        }
+        Directory = new java.io.File(Path);
+        if (Directory.exists() && Directory.isDirectory()==false){
+            Directory = Directory.getParentFile();
+        }  
+    }
+    
+  /** Creates a new instance of Directory using a java.io.File */
+    public Directory(java.io.File File) {
+        Directory = File;
+        if (Directory.exists() && Directory.isDirectory()==false){
+            Directory = Directory.getParentFile();
+        }  
+    }
+
+
+  //**************************************************************************
+  //** getRootDirectories
+  //**************************************************************************
+  /** Returns an array of Directories that correspond to the available
+   *  filesystem roots. The array will be empty if there are no filesystem
+   *  roots or if the set of roots could not be determined.
+   */
+    public static Directory[] getRootDirectories(){
+
+        java.util.TreeSet<Directory> directories = new java.util.TreeSet<Directory>();
+        java.io.File[] files = java.io.File.listRoots();
+        if (files==null) return new Directory[0];
+        for (int i=0; i<files.length; i++){
+            directories.add(new Directory(files[i]));
+        }
+
+      //Pick up any windows mounted drives that might not have been returned
+      //from the listRoots() method (e.g. disconnected mounted drives).
+        if (isWindows){
+            javaxt.io.Shell cmd = new javaxt.io.Shell("net use");
+            cmd.run();
+
+            java.util.Iterator<String> it = cmd.getOutput().iterator();
+            boolean parse = false;
+            while (it.hasNext()){
+                String line = it.next();
+                if (line==null) break;
+                else line = line.trim();
+                if (!parse && line.startsWith("----")){
+                    parse = true;
+                    line = it.next();
+                    if (line==null) break;
+                }
+                if (line.contains(":")){
+                    line = line.substring(0, line.indexOf(":")+1);
+                    line = line.substring(line.lastIndexOf(" ")+1);
+                    directories.add(new Directory(line.trim()));
+                }
+            }
+        }
+
+        return directories.toArray(new Directory[directories.size()]);
+    }
+
+    
+  //**************************************************************************
+  //** Exists
+  //**************************************************************************
+  /**  Used to determine whether a directory exists on the file system */
+    
+    public boolean exists(){
+
+        String path = Directory.toString();
+        if (isWindows && path.startsWith("\\\\")){
+            if (path.endsWith(PathSeparator)) path = path.substring(0, path.length()-1);
+            if (!path.substring(2).contains(PathSeparator)){
+                javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + path);
+                cmd.run();
+                java.util.List errors = cmd.getErrors();
+                errors.remove(null);
+                if (errors.isEmpty()){
+                    return true;
+                }
+                else{
+                    return false;
+                }
+            }
+        }
+
+        return Directory.exists();
+    }
+    
+    
+  //**************************************************************************
+  //** Create Directory
+  //**************************************************************************
+  /**  Used to create the directory. */
+    
+    public boolean create(){
+        return Directory.mkdirs();
+    }
+    
+    
+  //**************************************************************************
+  //** Delete Directory
+  //**************************************************************************
+  /**  Used to delete the directory. */
+    
+    public boolean delete(){
+        return Directory.delete();
+    }
+    
+    
+  //**************************************************************************
+  //** Copy To
+  //**************************************************************************
+  /**  Used to copy a directory to another directory */
+    
+    public String[] copyTo(Directory Destination, boolean Overwrite){
+        
+      //Set Local Variables
+        int source = toString().length();
+        String destination = Destination.toString();
+        java.util.Vector vec = new java.util.Vector();
+        
+      //Create Directories
+        Directory[] Directories = getSubDirectories(true);
+        for (int i=0; i<Directories.length; i++){
+             new Directory(destination + Directories[i].toString().substring(source)).create();
+        }
+        
+      //Create Files
+        File[] Files = getFiles(true);
+        for (int i=0; i<Files.length; i++){
+             String FilePath = Files[i].toString();
+             File out = new File(destination + FilePath.substring(source));
+             
+             boolean CopiedFile = Files[i].copyTo(out,Overwrite);
+             
+             if (CopiedFile==false){
+                 vec.add(FilePath);
+                 //System.out.println(FilePath);
+             }
+        }
+        
+      //Create Array
+        Object[] arr = vec.toArray();
+        String[] ret = new String[arr.length];
+        for (int i=0; i<ret.length; i++){
+             ret[i] = (String) arr[i];
+        }
+        
+        return ret;
+    }
+    
+    
+  //**************************************************************************
+  //** Move To
+  //**************************************************************************
+  /**  Used to move a directory from one directory to another. */
+    
+    public void moveTo(Directory Destination, boolean Overwrite){
+        if (Overwrite){
+            Directory.renameTo(Destination.getFile()); 
+        }
+        else{
+            if (Destination.exists()==false){
+                Directory.renameTo(Destination.getFile()); 
+            }
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** Rename
+  //**************************************************************************
+  /**  Used to rename the directory. */
+    
+    public void rename(String Name){
+        String path = this.getParentDirectory().getPath() + Name;
+        Directory.renameTo(new java.io.File(path));
+    }
+    
+    
+  //**************************************************************************
+  //** getName
+  //**************************************************************************
+  /**  Returns the name of the directory (excludes path). */
+    
+    public String getName(){
+        return Directory.getName(); 
+    }
+    
+    
+  //**************************************************************************
+  //** getPath
+  //**************************************************************************
+  /**  Returns the full path to this directory, including the directory name.*/
+    
+    public String getPath(){
+        String path = "";
+        try{
+           path = Directory.getCanonicalPath().toString();
+         //return Directory.getCanonicalPath().toString() + Directory.separator;
+        }
+        catch(Exception e){
+           path = Directory.toString();
+         //return Directory.toString() + Directory.separator;
+        }
+        
+       if (path.endsWith(Directory.separator)) return path;
+       else return path + Directory.separator;
+    }
+    
+    
+  //**************************************************************************
+  //** getDate
+  //**************************************************************************
+  /**  Returns the date when the directory was last modified. */
+    
+    public java.util.Date getDate(){
+        return new javaxt.utils.Date(Directory.lastModified()).getDate();
+    }
+
+    
+  //**************************************************************************
+  //** getSize
+  //**************************************************************************
+  /**  Used to retrieve the size of the directory, in bytes. */
+    
+    public long getSize(){
+        return Directory.length();
+    }
+    
+  //**************************************************************************
+  //** isHidden
+  //**************************************************************************
+  /**  Used to determine whether this Directory is Hidden */
+    
+    public boolean isHidden(){
+        return Directory.isHidden();
+    }
+    
+    
+  //**************************************************************************
+  //** getDirectory
+  //**************************************************************************
+  /**  Used to retrieve this Directory's Parent. 
+   *   @deprecated Use the getParentDirectory() method instead.
+   */    
+    @Deprecated
+    public Directory getDirectory(){
+        return getParentDirectory();
+    }
+    
+    
+  //**************************************************************************
+  //** getParentDirectory
+  //**************************************************************************
+  /** Used to retrieve this Directory's Parent. Returns null if there is no
+   *  parent directory.
+   */
+    public Directory getParentDirectory(){
+        if (Directory.getParentFile() != null){
+            return new Directory(Directory.getParentFile());
+        }
+        else{
+            return null;
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** getFile
+  //**************************************************************************
+  /**  Used to retrieve the java.io.File representation by this object. 
+   *   @deprecated Use the toFile() method instead.
+   */
+    @Deprecated
+    public java.io.File getFile(){
+        return Directory;
+    }
+
+  //**************************************************************************
+  //** toFile
+  //**************************************************************************
+  /**  Used to retrieve the java.io.File representation by this object. */
+
+    public java.io.File toFile(){
+        return Directory;
+    }
+
+
+    
+  //**************************************************************************
+  //** getFiles
+  //**************************************************************************
+  /**  Used to retrieve an array of files found in this directory. 
+   *
+   *   @param filter A file filter. You can pass in a java.io.FileFilter, a
+   *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
+   *   Wildcard filters are supported. Note that the filter is only applied to
+   *   files, not directories.
+   */    
+    public File[] getFiles(Object filter){
+
+        if (Directory.exists()){
+
+            FileFilter fileFilter = new FileFilter(filter);
+            Object[] files = listFiles(fileFilter);
+            if (files==null){
+                return new File[0];
+            }
+            else{
+
+              //Create Vector to Store Files
+                java.util.List<javaxt.io.File> vec = new java.util.ArrayList<javaxt.io.File>();
+                for (int i=0; i<files.length; i++){
+                    java.io.File file = null;
+                    if (files[i] instanceof java.io.File){
+                        file = (java.io.File) files[i];
+                    }
+                    else{
+                        file = new java.io.File(files[i].toString());
+                    }
+                    if (file.exists() && file.isFile()){
+                        vec.add(new javaxt.io.File(file));
+                    }
+                }
+
+              //Sort the Vector
+                Collections.sort(vec, new FileComparer());
+
+              //Convert the Vector to an Array
+                javaxt.io.File[] arr = new javaxt.io.File[vec.size()];
+                for (int i=0; i<vec.size(); i++){
+                     arr[i] = (javaxt.io.File) vec.get(i);
+                }
+                return arr;
+                
+            }
+        }
+        else{
+          return new File[0];
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** getFiles
+  //**************************************************************************
+  /**  Used to retrieve an array of files found in this directory. */
+    
+    public File[] getFiles(){
+        return getFiles(null);
+    }
+    
+    
+  //**************************************************************************
+  //** getFiles
+  //**************************************************************************
+  /**  Used to retrieve an array of files found in this directory. 
+   *
+   *   @param filter A file filter. You can pass in a java.io.FileFilter, a
+   *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
+   *   Wildcard filters are supported. Note that the filter is only applied to
+   *   files, not directories.
+   *
+   *   @param RecursiveSearch If true, will include files found in
+   *   subdirectories.
+   */    
+    public File[] getFiles(Object filter, boolean RecursiveSearch){        
+
+        if (Directory.exists()){
+            if (RecursiveSearch){
+
+              //Get list of all the files and folders in the directory
+                List items = getChildren(true, filter, true);
+                
+              //Iterate through the list and remove unwanted items
+                List files = new LinkedList();
+                for (int i=0; i<items.size(); i++){
+                    Object item = items.get(i);
+                    if (item instanceof File){
+                        files.add(item);
+                    }
+                }
+                
+              //Sort the list
+                Collections.sort(files, new FileComparer());
+                
+              //Convert the list into an array of files
+                File[] array = new File[files.size()];
+                for (int i=0; i<array.length; i++){
+                     array[i] = (File) files.get(i);
+                }
+                return array;                
+            }
+            else{
+                return getFiles(filter);
+            }
+        }
+        else{
+            return new File[0];
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** getFiles
+  //**************************************************************************
+  /**  Used to retrieve an array of files found in this directory. 
+   *
+   *   @param RecursiveSearch If true, will include files found in
+   *   subdirectories.
+   */
+    public File[] getFiles(boolean RecursiveSearch){
+        return getFiles(null, RecursiveSearch);
+    }
+        
+    
+  //**************************************************************************
+  //** getDirectories
+  //**************************************************************************
+  /**  Used to retrieve an array of directories found in this directory.
+   */
+    public Directory[] getSubDirectories(){
+        if (this.exists()){
+
+
+            java.io.FileFilter fileFilter = new java.io.FileFilter() {
+                public boolean accept(java.io.File file) {
+                    if (file.isDirectory()){
+                        return true;
+                    }
+                    else{
+                        return false;
+                    }
+                }
+            };
+
+            
+            Object[] files = listFiles(new FileFilter(fileFilter));
+            if (files==null) return new Directory[0];
+            else{
+                Directory[] dirs = new Directory[files.length];
+                for (int i=0; i<files.length; i++){
+                     dirs[i] = new Directory(files[i].toString());
+                }
+                return dirs;
+            }
+        }
+        else{
+            return new Directory[0];
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** getDirectories
+  //**************************************************************************
+  /**  Used to retrieve an array of directories found in this directory.
+   *
+   *   @param RecursiveSearch If true, will include files found in the 
+   *   subdirectories.
+   */    
+    public Directory[] getSubDirectories(boolean RecursiveSearch){
+        if (this.exists()){
+        
+            if (RecursiveSearch){
+                
+              //Get list of all the files and folders in the directory
+                List items = getChildren(true);
+                
+              //Iterate through the list and remove any files
+                List directories = new LinkedList();
+                for (int i=0; i<items.size(); i++){
+                    Object item = items.get(i);
+                    if (item instanceof Directory){
+                        directories.add(item);
+                    }
+                }
+                
+              //Sort the list
+                Collections.sort(directories, new FileComparer());
+                
+              //Convert the list into an array of directories
+                Directory[] array = new Directory[directories.size()];
+                for (int i=0; i<array.length; i++){
+                     array[i] = (Directory) directories.get(i);
+                }
+                
+              //Return the array of directories
+                return array;
+                
+            }
+            else{
+                return getSubDirectories();
+            }
+        }
+        else{
+             return new Directory[0];
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** getChildren
+  //**************************************************************************
+  /**  Used to retrieve an array of both files and folders found in this 
+   *   directory. 
+   */    
+    public List getChildren(){
+        return getChildren(false);
+    }
+
+
+  //**************************************************************************
+  //** getChildren
+  //**************************************************************************
+  /**  Used to retrieve an array of both files and folders found in this
+   *   directory.
+   */
+    public List getChildren(boolean RecursiveSearch){
+        return getChildren(RecursiveSearch, null, true);
+    }
+
+
+  //**************************************************************************
+  //** getChildren
+  //**************************************************************************
+  /**  Used to retrieve an list of files and folders found in this directory.
+   *
+   *   @param RecursiveSearch If true, will include files found in the
+   *   subdirectories.
+   *
+   *   @param filter A file filter. You can pass in a java.io.FileFilter, a
+   *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
+   *   Wildcard filters are supported. Note that the filter is only applied to
+   *   files, not directories.
+   *
+   */
+    public List getChildren(boolean RecursiveSearch, Object filter){
+        return getChildren(RecursiveSearch, filter, true);
+    }
+
+    
+  //**************************************************************************
+  //** getChildren
+  //**************************************************************************
+  /**  Used to retrieve an list of files and folders found in this directory.
+   *
+   *   @param RecursiveSearch If true, will include files found in the
+   *   subdirectories.
+   *
+   *   @param filter A file filter. You can pass in a java.io.FileFilter, a
+   *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
+   *   Wildcard filters are supported. Note that the filter is only applied to
+   *   files, not directories.
+   *
+   *   @param wait Used to indicate whether to wait for the list to be fully
+   *   populated before returning the response. When traversing very a large
+   *   set of files, it maybe a good idea to process the files as they get added
+   *   to the list. In this case you should set this parameter to false. If this
+   *   parameter is set to false, a null entry will be added to the end of the
+   *   list to indicate that the directory search is complete.
+   *
+   *   Example: <pre>
+    boolean wait = false;
+    java.util.List files = directory.getChildren(true, null, wait);
+    if (wait){
+        for (int i=0; i < files.size(); i++){
+            System.out.println(files.get(i));
+        }
+    }
+    else{
+        Object obj;
+        while (true){
+            synchronized (files) {
+                while (files.isEmpty()) {
+                  try {
+                      files.wait();
+                  }
+                  catch (InterruptedException e) {
+                  }
+                }
+                obj = files.remove(0);
+            }
+
+            if (obj==null){
+                break;
+            }
+            else{
+                System.out.println(obj);
+            }
+        }
+    }</pre>
+   *
+   */
+    public List getChildren(boolean RecursiveSearch, Object filter, boolean wait){
+        
+        if (this.exists()){
+            
+            if (RecursiveSearch){
+
+              //Create list to store items found in the directory
+                List items = new LinkedList();
+
+
+                if (useCache==false){
+                    DirectorySearch.deleteCache();
+
+                  //Create a file filter
+                    FileFilter fileFilter = new FileFilter(filter);
+
+
+
+                  //Spawn threads used to crawl through the file system
+                    long directoryID = Long.valueOf(java.util.Calendar.getInstance().getTimeInMillis() + "" + new Random().nextInt(100000)).longValue();
+                    int numThreads = 20; //<-- this should be set dynamically and self tuning
+                    DirectorySearch search = new DirectorySearch(fileFilter, items, directoryID, numThreads);
+                    for (int i=0; i<numThreads; i++) {
+                         Thread t = new Thread(search);
+                         t.setName("DirectorySearch_" + directoryID + "-" + i);
+                         t.start();
+                    }
+
+
+                  //Initiate search
+                    DirectorySearch.updatePool(this);
+
+                    if (wait){
+
+                      //Wait for response
+                        java.util.List status = DirectorySearch.getStatus();
+                        while (true){
+                            synchronized (status) {
+                                while (status.isEmpty()) {
+                                  try {
+                                      status.wait();
+                                  }
+                                  catch (InterruptedException e) {
+                                  }
+                                }
+                                break;
+                            }
+                        }
+
+                      //Remove any null values
+                        while (items.contains(null)){
+                            items.remove(null);
+                        }                        
+                    }
+
+                }
+                
+              //Return list
+                return items;
+        
+        
+            }
+            else{
+                List results = new LinkedList();
+                Object[] files = listFiles(new FileFilter(filter));
+                if (files==null) {
+                    return results;
+                }
+                else{
+                    
+                    for (int i=0; i<files.length; i++){
+
+                        //System.out.println(files[i]);
+                        boolean isDirectory = false;
+
+                        java.io.File file = null;
+                        if (files[i] instanceof java.io.File){
+                            file = (java.io.File) files[i];
+                            isDirectory = file.isDirectory();
+                        }
+                        else{
+                            file = new java.io.File(files[i].toString());
+                            isDirectory = files[i].toString().replace("\\", "/").endsWith("/"); //<-- Need this check for windows sym links...
+                        }
+
+                        if (isDirectory){
+                            results.add(new Directory(file));
+                        }
+                        else{
+                             results.add(new File(file));
+                        }
+                    }
+                    Collections.sort(results, new FileComparer());
+                    return results;
+                                        
+                }
+            }
+        }
+        else{
+          //Directory does not exist, return an empty list
+            List list = new LinkedList();
+            if (!wait) list.add(null);
+            return list;
+        }
+    }
+
+
+  //**************************************************************************
+  //** listFiles
+  //**************************************************************************
+  /**  Used to return an array of java.io.Files found in this directory. */
+
+    protected Object[] listFiles(){
+        return listFiles(null);
+    }
+
+
+  //**************************************************************************
+  //** listFiles
+  //**************************************************************************
+  /**  Used to return a list of files found in this directory.
+   * 
+   *   @return An array of java.io.File or an array of String representing 
+   *   paths to files. If the input FileFilter is generated using a 
+   *   java.io.FileFilter, the method will return an array of java.io.File. 
+   *   Otherwise, this method will return an array of Strings for most cases.
+   */
+    protected Object[] listFiles(FileFilter fileFilter){
+
+
+        String path = Directory.toString();
+        
+
+      //Get a list of shared drives on a windows server (e.g. "\\192.168.0.80")
+        if (isWindows && path.startsWith("\\\\")){
+            
+            if (path.endsWith(PathSeparator)) path = path.substring(0, path.length()-1);
+            if (!path.substring(2).contains(PathSeparator)){
+                javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + path);
+                cmd.run();
+                java.util.List errors = cmd.getErrors();
+                errors.remove(null);
+                if (errors.isEmpty()){
+
+                    path += PathSeparator;
+                    java.util.List output = cmd.getOutput();
+
+
+                  //Remove empty lines from the standard output stream
+                    java.util.List<String> tmp = new java.util.Vector<String>();
+                    java.util.Iterator<String> it = output.iterator();
+                    while (it.hasNext()){
+                        String row = it.next();
+                        if (row==null || row.trim().length()==0){} else tmp.add(row);
+                    }
+                    output = tmp;
+                    tmp = null;
+
+
+                  //Parse the standard output stream and create a list of shared directories
+                    java.util.List<java.io.File> files = new java.util.Vector<java.io.File>();
+                    int x = 0;
+                    int len = -1;
+                    it = output.iterator();
+                    while (it.hasNext()){
+                        String row = it.next();
+                        if (row.startsWith("---")){
+                            String colHeader = (String) output.get(x-1);
+                            if (colHeader.startsWith("Share name") && colHeader.contains("Type")){
+                                len = colHeader.indexOf("Type");
+                            }
+                        }
+
+                        if (len>0 && row.length()>len){
+                            row = path + row.substring(0, len).trim();
+                            java.io.File file = new java.io.File(row);
+                            if (file.exists()){
+                                if (fileFilter==null) {
+                                    files.add(new java.io.File(row));
+                                }
+                                else{
+                                    if (fileFilter.accept(file)){
+                                        files.add(new java.io.File(row));
+                                    }
+                                }
+                            }
+                        }
+
+                        if (row.startsWith("The command completed successfully.")){
+                            break;
+                        }
+                        x++;
+                    }
+
+                  //Convert the list of files into an array
+                    java.io.File[] arr = new java.io.File[files.size()];
+                    for (int i=0; i<arr.length; i++){
+                        arr[i] = files.get(i);
+                    }
+                    return arr;
+
+                }
+            }
+
+            
+        }
+
+
+
+      //Generate a list of files in this directory that match the file filter
+        java.util.List files = new java.util.ArrayList();
+        path = getPath();
+        String[] list = null;
+        if (isWindows){
+            list = dir(); //<--use dir command instead of listFiles() for windows
+            if (list==null) return null;
+
+            for (int i=0; i<list.length; i++){
+
+                boolean isDirectory = list[i].endsWith("\\");
+
+                if (fileFilter==null || isDirectory){
+                    files.add(path + list[i]);
+                }
+                else{
+
+                    if (fileFilter.usesIOFilter()){
+                        java.io.File file = new java.io.File(path + list[i]);
+                        if (fileFilter.accept(file)){
+                            files.add(file);
+                        }
+                    }
+                    else{
+                        if (fileFilter.accept(list[i])){
+                            files.add(path + list[i]);
+                        }
+                    }
+                }
+            }
+
+        }
+        else { //UNIX
+            
+            java.io.File[] fs = Directory.listFiles();
+            if (fs!=null){
+            
+                for (int i=0; i<fs.length; i++){
+                    java.io.File file = fs[i];
+                    if (fileFilter==null){
+                        files.add(file);
+                    }
+                    else{
+                        if (fileFilter.accept(file)){
+                            files.add(file);
+                        }
+                    }
+                }
+            }                                     
+
+        }
+
+        if (files.size()<1) return null;
+        
+
+
+
+      //Sort the list
+        Collections.sort(files, new FileComparer());
+
+      //Convert the list to an array
+        Object[] arr = new Object[files.size()];
+        for (int i=0; i<arr.length; i++){
+             arr[i] = files.get(i);
+        }
+        return arr;
+
+
+        //return Directory.listFiles(fileFilter);
+        
+    }
+
+
+  //**************************************************************************
+  //** ls
+  //**************************************************************************
+  /** Used to list contents of a directory using a unix ls command.
+   */
+    private String[] ls(){
+
+        String path = this.getPath();        
+        java.util.List<String> files = new java.util.ArrayList<String>();
+
+      //Execute a ls command to get a directory listing
+        String[] params = new String[]{"ls", "-ap", path};
+        javaxt.io.Shell cmd = new javaxt.io.Shell(params);
+        java.util.List<String> output = cmd.getOutput();
+        cmd.run();
+
+
+
+      //Parse the output
+        String line;
+        while (true){
+            synchronized (output) {
+                while (output.isEmpty()) {
+                  try {
+                      output.wait();
+                  }
+                  catch (InterruptedException e) {
+                  }
+                }
+                line = output.remove(0);
+            }
+            if (line!=null){
+                line = line.trim();
+                if (line.length()>0){
+                    //System.out.println(line);
+                    //boolean isDirectory = (line.endsWith("/"));
+
+                    if (!line.equals("./") && !line.equals("../")){
+                        files.add(line);
+                    }
+                }
+            }
+            else{
+                break;
+            }
+        }
+
+
+      //Convert the Vector to an Array
+        String[] arr = new String[files.size()];
+        for (int i=0; i<arr.length; i++){
+            arr[i] = files.get(i);
+        }
+
+        return arr;
+    }
+    
+
+
+  //**************************************************************************
+  //** dir
+  //**************************************************************************
+  /** Listing files in using the listFiles() method is super slow on windows
+   *  when listing contents from a network share. The alternative is to use
+   *  list() method which is MUCH faster. Unfortunately, there's no way to
+   *  distinguish between files and directories in the array. My only recourse
+   *  is to shell out a "dir" command on windows.
+   */
+    private String[] dir(){
+
+        String path = this.getPath();
+        if (path.contains(" ")) path = "\"" + path + "\"";
+        java.util.List<String> files = new java.util.ArrayList<String>();
+
+      //Execute a windows shell command to get a directory listing
+        javaxt.io.Shell cmd = new javaxt.io.Shell("cmd.exe /c dir /OG " + path);
+        java.util.List<String> output = cmd.getOutput();
+        cmd.run();
+
+      //Parse files returned from the directory listing
+        boolean parseFiles = false;
+        int colWidth = -1;
+        String line;
+        while (true){
+            synchronized (output) {
+                while (output.isEmpty()) {
+                  try {
+                      output.wait();
+                  }
+                  catch (InterruptedException e) {
+                  }
+                }
+                line = output.remove(0);
+            }
+
+
+            if (line!=null){
+                if (line.length()==0 || line.startsWith(" ")){
+                    if (parseFiles==true) parseFiles = false;
+                }
+                else{
+                    if (parseFiles==false) parseFiles = true;
+
+
+                    if (parseFiles){
+
+
+                        if (colWidth<0){
+                            int offset = 20;
+                            //String date = line.substring(0, 20);
+
+                          //Get File Type
+                            String type = line.substring(offset);
+                            if (type.trim().startsWith("<")){
+                                offset += type.indexOf(">")+1;
+                                type = type.substring(type.indexOf("<"), type.indexOf(">")+1);
+                            }
+                            else{
+                                type = "";
+                            }
+                            boolean isDirectory = (type.contains("<DIR>"));
+                            boolean isSymLink = (type.contains("<SYMLINK>"));
+
+                            
+                          //Get File Name
+                            String name = line.substring(offset);
+                            while (name.substring(0, 1).equals(" ")){
+                                name = name.substring(1);
+                                offset++;
+                            }
+                            
+
+                          //Set Column Width
+                            if (isDirectory || isSymLink){
+                                colWidth = offset;
+                            }
+                            else{
+                                if (name.contains(" ")){
+                                    if (isNumeric(name.substring(0, name.indexOf(" ")))){
+                                        colWidth = offset + name.indexOf(" ")+1;
+                                    }
+                                    else{
+                                        colWidth = offset;
+                                    }
+                                }
+                                else{
+                                    colWidth = offset;
+                                }
+                            }
+                        }
+                        if (colWidth>0){
+                            //String date = line.substring(0,20);
+                            String name = line.substring(colWidth);
+                            String type = line.substring(20, colWidth);
+                            boolean isDirectory = (type.contains("<DIR>"));
+                            boolean isSymLink = (type.contains("<SYMLINK>"));
+
+                            if (isDirectory){
+                                if (!name.equals(".") && !name.equals(".."))
+                                files.add(name + this.PathSeparator);
+                            }
+                            else if (isSymLink){
+                                String link = name.substring(name.indexOf("[")+1, name.indexOf("]"));
+                                name = name.substring(0, name.indexOf("[")).trim();
+                                if (new java.io.File(link).isDirectory()) name += this.PathSeparator; //<--We're back to serializing to a file which is bad...
+                                files.add(name);
+                            }
+                            else{
+                                files.add(name);
+                            }
+                        }
+
+                    }
+
+                }
+
+            }
+            else{
+                break;
+            }
+        }
+
+
+      //Convert the Vector to an Array
+        String[] arr = new String[files.size()];
+        for (int i=0; i<arr.length; i++){
+            arr[i] = files.get(i);
+        }
+
+        return arr;
+
+    }
+
+
+  //**************************************************************************
+  //** isNumeric
+  //**************************************************************************
+  /**  Used to determine whether a string is a number. This is used in the
+   *   dir() method when parsing output from a Windows "dir" command. This
+   *   method is called to see if a string represents a file size (e.g. 12,345).
+   *   Since the number is meant to represent a file size, an attempt it made
+   *   to convert the string to a long instead of an int or double.
+   */
+    private boolean isNumeric(String str){
+        try{
+            if (str.contains(",")) str = str.replace(",", "");
+            Long.parseLong(str);
+            return true;
+        }
+        catch(Exception e){
+            return false;
+        }
+    }
+
+    
+    
+  //**************************************************************************
+  //** useCache
+  //**************************************************************************
+  /**  Used to specify whether to cache results from a directory search. */
+    
+    public void useCache(boolean useCache){
+        this.useCache = useCache;
+    }
+    
+
+    @Override
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /**  Returns the full path to this directory, including the directory name.
+   */ 
+    public String toString(){
+        return getPath();
+    }
+
+
+    @Override
+    public int hashCode(){
+        return this.Directory.hashCode();
+    }
+
+    //@Override
+    public int compareTo(Object obj){
+        if (obj==null) return -1;
+        else return -obj.toString().compareTo(getPath());
+    }
+
+
+    @Override
+  //**************************************************************************
+  //** equals
+  //**************************************************************************
+  
+    public boolean equals(Object obj){
+        if (obj instanceof Directory){
+            return Directory.equals(((Directory) obj).getFile());
+        }
+        else if (obj instanceof java.io.File){
+            if (((java.io.File) obj).isDirectory()) 
+                return Directory.equals(obj);
+            else
+                return false;
+        }
+        else{
+            return false;
+        }
+    }
+    
+    
+    
+    
+  //**************************************************************************
+  //** getEvents
+  //**************************************************************************
+  /** Used to start monitoring changes made to the directory. Changes include 
+   *  creating, modifying or deleting files/folders found in this directory.
+   *
+   *  @param dll A fully qualified path to the FileSystemWatcher.dll. This dll
+   *  is used on windows-based file systems. This parameter is optional. If the
+   *  dll does not exist, pass in a null value.
+   *
+   *  @return A list of Directory.Event(s). Clients can wait for new events 
+   *  using the wait() method. Recommend removing events from the list whenever 
+   *  !events.isEmpty().
+   */
+    private List getEvents(String dll) throws Exception {
+        if (FileSystemWatcher==null){            
+            new Thread(new FileSystemWatcher(this, dll)).start();
+            this.FileSystemWatcher = FileSystemWatcher;
+        }
+        return events;
+    }
+    
+    
+  //**************************************************************************
+  //** getEvents
+  //**************************************************************************
+  /** Used to start monitoring changes made to the directory. Changes include 
+   *  creating, modifying or deleting files/folders found in this directory.
+   *  Returns a list of Directory.Event(s). Clients can wait for new events
+   *  using the wait() method. Recommend removing events from the list whenever
+   *  !events.isEmpty().
+   * 
+   *  Example:<pre>
+    java.util.List events = directory.getEvents();
+    while (true){
+
+        Object obj;
+        synchronized (events) {
+            while (events.isEmpty()) {
+              try {
+                  events.wait();
+              }
+              catch (InterruptedException e) {
+              }
+            }
+
+            obj = events.remove(0);
+        }
+        if (obj!=null){
+
+            javaxt.io.Directory.Event event = (javaxt.io.Directory.Event) obj;
+            System.out.println(event.toString());
+
+          //Compare files before/after the event
+            if (event.getEventID()==event.RENAME){
+                System.out.println(
+                    event.getOriginalFile().getName() + " vs " +
+                    event.getFile().getName()
+                );
+            }
+        }
+
+    }</pre>
+   */
+    public List getEvents() throws Exception {
+        
+      //Determine whether to try to load the FileSystemWatcher.dll
+        if (isWindows){
+
+          //Find the FileSystemWatcher.dll
+            Jar jar = new Jar(this);
+            Jar.Entry entry = jar.getEntry("javaxt.ntfs","FileSystemWatcher.dll");
+            java.io.File dll = entry.getFile();
+            
+          //Extract the dll next to the jar file (if necessary)
+            if (dll==null){
+                dll = new java.io.File(jar.getFile().getParentFile(),"FileSystemWatcher.dll");
+                if (dll.exists()==false){
+                    entry.extractFile(dll);
+                }
+            }
+            
+            return getEvents(dll.toString());
+        }
+        else{
+            return getEvents(null);
+        }
+        
+    }
+    
+  //**************************************************************************
+  //** Stop
+  //**************************************************************************
+  /** Used to stop any worker threads that may be running (recursive search or
+   *  event monitor).
+   */
+    public void stop(){
+        if (FileSystemWatcher!=null) FileSystemWatcher.stop();
+        //TODO: stop recursive search
+        
+        //for (int i=0; i<20; i++)
+        DirectorySearch.stop();
+    }
+    
+    
+  //**************************************************************************
+  //** Finalize
+  //**************************************************************************
+  /** Method called by Java garbage collector to dispose operating system 
+   *  resource.
+   */
+    protected void finalize() throws Throwable {
+       stop();
+    }
+    
+    
+  //**************************************************************************
+  //** addEvent
+  //**************************************************************************
+  /** Used to add a new event to the list of events. This method is called 
+   *  from the FileSystemWatcher Class via the run() method.
+   */
+    
+    protected void addEvent(String event){
+        new Event(event);
+    }
+    
+  //**************************************************************************
+  //** addEvent
+  //**************************************************************************
+  /** Used to add a new event to the list of events. This method is called 
+   *  from the FileSystemWatcher Class via the EventMonitor.
+   */
+    
+    protected void addEvent(String action, java.io.File file){
+        new Event(action,file);
+    }
+    
+    private Event LastEvent = null;
+    
+  //**************************************************************************
+  //** Event Class
+  //**************************************************************************
+  /**  Used to encapsulate a single event on the file system. 
+  */
+    public class Event{
+
+        private java.io.File file;
+        private java.io.File orgFile;
+        private java.util.Date date;
+        private String action;
+        
+        public static final int DELETE = 0;
+        public static final int CREATE = 1;
+        public static final int RENAME = 2;
+        public static final int MODIFY = 3;
+
+      //************************************************************************
+      //** Constructor
+      //************************************************************************
+      /**  Creates a new instance of FileSystemEvent by parsing a string 
+       *   returned from FileSystemWatcherNative.ReadDirectoryChangesW()
+       */
+        private Event(String event) {
+            if (event!=null){
+                event = event.trim();
+                try{
+
+                  //Parse event string
+                    String date = event.substring(1,event.indexOf("]")).trim();
+                    String text = event.substring(event.indexOf("]")+1).trim();
+                    String path = text.substring(text.indexOf(" ")).trim();
+                    String action = text.substring(0,text.indexOf(" ")).trim();
+                    
+
+                  //Set local variables
+                    this.date = parseDate(date);
+                    this.file = new java.io.File(path);
+                    this.action = action;
+                    boolean updateEvents = true;
+
+                    
+                  //Determine whether to update the events list when a file or 
+                  //folder is modified.
+                    if (action.equalsIgnoreCase("modify")){
+                        if (file.isDirectory() || file.exists()==false){
+                            updateEvents = false;
+                        }
+                        else{
+                            if (LastEvent!=null) { 
+                                if (LastEvent.getFile().equals(this.file)){
+                                    if (LastEvent.getDate().equals(this.date)){
+                                        updateEvents = false;
+                                    }
+                                }
+                                LastEvent = null;
+                            }
+                            else{
+                                LastEvent = this;
+                            }
+                        }
+                    }
+
+                    
+                  //Special Case: If a rename event is encountered, wait for the 
+                  //renam2 event before updating the events list. Note that this
+                  //is unique to the FileSystemWatcher.dll.
+                    if (action.equalsIgnoreCase("rename")){
+                        updateEvents = false;
+                        LastEvent = this;
+                    }
+                    else if(action.equalsIgnoreCase("renam2")){
+                        if (LastEvent!=null) {                            
+                            this.orgFile = LastEvent.getFile();
+                            this.action = "Rename";
+                            LastEvent = null;
+                        }
+                    }
+                    
+                    
+                  //Update events list, as needed
+                    if (updateEvents){
+                        synchronized(events){
+                            events.add(this);
+                            events.notifyAll();
+                            //System.out.println(events.size());
+                        }
+                    }
+
+
+
+                }
+                catch(Exception ex){
+                    //ex.printStackTrace();
+                }
+            }
+        }
+
+      //************************************************************************
+      //** Constructor
+      //************************************************************************
+      /**  Creates a new instance of FileSystemEvent for EventMonitor 
+       */
+        private Event(String action, java.io.File file){
+            this.date = new java.util.Date();
+            this.action = action;
+            this.file = file;
+            synchronized (events) {
+                events.add(this);
+                events.notifyAll();
+            }
+        }
+
+
+        private java.util.Date parseDate(String date){
+            try{
+                return new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss yyyy").parse(date);
+            }
+            catch(Exception e){
+                return null;
+            }        
+        }
+
+
+      //************************************************************************
+      //** getAction
+      //************************************************************************
+      /**  Returns a decription of the event (created, modified, deleted, etc.) 
+       */
+        public String getAction(){
+            return action;
+        }
+
+      //************************************************************************
+      //** getFile
+      //************************************************************************
+      /**  Returns the file or directory that was created, modified, or deleted. 
+       */
+        public java.io.File getFile(){
+            return file;
+        }
+        
+        public java.io.File getOriginalFile(){
+            return orgFile;
+        }
+        
+        public final int getEventID(){
+            if (action.equalsIgnoreCase("create")) return this.CREATE;
+            if (action.equalsIgnoreCase("delete")) return this.DELETE;
+            if (action.equalsIgnoreCase("modify")) return this.MODIFY;
+            if (action.equalsIgnoreCase("rename")) return this.RENAME;
+            return -1;
+        }
+
+      //************************************************************************
+      //** getDate
+      //************************************************************************
+      /**  Returns the date/time stamp when the event occured. */
+
+        public java.util.Date getDate(){
+            return date;
+        }
+
+      //************************************************************************
+      //** toString
+      //************************************************************************
+      /**  Returns a string representation of this event. */
+
+        public String toString(){
+          if (action.equalsIgnoreCase("rename"))
+            return "[" + date.toString() + "] " + action + " " + orgFile.getPath() + " To " + file.getPath();
+          else
+            return "[" + date.toString() + "] " + action + " " + file.getPath();
+            
+        }
+
+        public boolean equals(Object obj){
+            //return obj.toString().equalsIgnoreCase(action);
+            if (obj instanceof Event){
+                Event event = (Event) obj;
+                if (event.getFile().equals(this.file) && 
+                    event.getDate().equals(this.date) && 
+                    event.getAction().equals(this.action)){
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+    } //End Event Class
+
+    
+    
+    
+  //**************************************************************************
+  //** FileComparer Class
+  //**************************************************************************
+  /**  Used to sort a vector or list containing files/folders in alphabetical 
+   *   order. 
+   */
+    private class FileComparer implements Comparator {
+
+        public final int compare(Object a, Object b){
+            String x = a.toString().toUpperCase();
+            String y = b.toString().toUpperCase();
+            x = x.replace("\\", "/");
+            y = y.replace("\\", "/");
+            if (x.endsWith("/") && !y.endsWith("/")){
+                return -1;
+            }
+            else if (!x.endsWith("/") && y.endsWith("/")){
+                return 1;
+            }
+            else{
+                return x.compareTo(y);
+            }
+
+        }
+        
+    } //End FileComparer Class
+
+
+} //End Directory Class
+
+
+
+
+//******************************************************************************
+//**  FileFilter
+//******************************************************************************
+/**
+ *   Used to filter files and file names using regular expressions or java.io
+ *   FileFilters
+ *
+ ******************************************************************************/
+
+class FileFilter {
+
+    private java.io.FileFilter fileFilter = null;
+    private List<java.util.regex.Pattern> regex = null;
+
+
+    public FileFilter(Object filter){
+
+        if (filter==null){
+            filter = "*";
+        }
+
+        if (filter instanceof java.io.FileFilter){
+            fileFilter = (java.io.FileFilter) filter;
+        }
+
+        if (filter instanceof String){
+            filter = new String[]{(String) filter};
+        }
+
+        if (filter instanceof String[]){
+            regex = new ArrayList<java.util.regex.Pattern>();
+            String[] filters = (String[]) filter;
+
+            for (int i=0; i<filters.length; i++){
+                regex.add(
+                        java.util.regex.Pattern.compile(
+                            getRegEx(filters[i]),
+                            java.util.regex.Pattern.CASE_INSENSITIVE
+                        )
+                );
+            }
+        }
+    }
+
+
+    public boolean accept(String file){
+        if (fileFilter!=null){
+            return accept(new java.io.File(file));
+        }
+        else{
+            file = file.replace("\\", "/");
+            if (file.endsWith("/")){ //then we're dealing with a directory
+                return true;
+            }
+            else{
+                file = file.substring(file.lastIndexOf("/")+1);
+            }
+
+            for (int i=0; i<regex.size(); i++){
+                java.util.regex.Matcher matcher = regex.get(i).matcher(file);
+                if (matcher.find()){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean accept(java.io.File file){
+        if (file.isDirectory()) {
+            return true;
+        }
+        else{
+            if (fileFilter!=null){
+                return (fileFilter.accept(file));
+            }
+            else{
+                return accept(file.toString());
+            }
+        }
+    }
+
+  //**************************************************************************
+  //** usesIOFilter
+  //**************************************************************************
+  /**  Used to indicate whether this filter relies on a java.io.FileFilter
+   */
+    public boolean usesIOFilter(){
+        return (fileFilter!=null);
+    }
+
+
+  //**************************************************************************
+  //** getRegEx
+  //**************************************************************************
+  /**  Used to convert a wildcard (e.g. "*.txt") into a regular expression.
+   */
+    private String getRegEx(String wildcardSearch){
+        String regex = wildcardSearch.trim();
+        //if (!regex.startsWith("*")) regex = "^" + regex;
+        if (!regex.endsWith("*")) regex += "$";
+
+        if (regex.endsWith("*")){
+            //regex = regex.substring(0, regex.length()-1) + "/";
+            regex = regex.substring(0, regex.length()-1) + ")";
+            if (regex.contains("*")){
+                regex = regex.substring(0, regex.lastIndexOf("*")+1) + "(" + regex.substring(regex.lastIndexOf("*")+1);
+            }
+            else{
+                regex = "(" + regex;
+            }
+        }
+
+        regex = regex.replace(".", "\\.");
+        regex = regex.replace("*", ".*");
+        //System.out.println(regex);
+        return regex;
+    }
+
+}//End FileFilter Class
+
+
+//******************************************************************************
+//**  Directory Search
+//******************************************************************************
+/**
+ *   Thread used crawl through a file system and find files/folders. This is a
+ *   recursive search and may take some time to complete.
+ *
+ ******************************************************************************/
+
+class DirectorySearch implements Runnable {
+
+
+
+    private static java.util.concurrent.ConcurrentHashMap map;
+    private static java.util.concurrent.ConcurrentHashMap lut;
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /**  Creates a new instance of DirectorySearch. Note that this thread needs
+   *   to be named! Unfortunately, this has to happen outside of this class.
+   *   Example:
+   *
+   <pre>
+      Thread t = new Thread(new DirectorySearch(filter, files));
+      t.setName("DirectorySearch-"+id);
+      t.start();
+   </pre>
+   *
+   *   @param filter A file filter.    *
+   *   @param items A List (e.g. LinkedList) used to store items found in this
+   *   directory.
+   */
+    public DirectorySearch(FileFilter filter, List items, long directoryID, int numThreads) {
+
+
+        String parentThread = Thread.currentThread().getName();
+        //System.out.println(parentThread);
+
+        if (map==null) {
+            map = new ConcurrentHashMap();
+        }
+
+        
+
+        if (getVars()==null){
+            createVars(filter, items, directoryID, numThreads);
+        }
+
+
+        if (lut==null) lut = new ConcurrentHashMap();
+        synchronized(lut){
+            if (lut.get(parentThread)==null)
+                lut.put(parentThread, directoryID);
+            else{
+
+                //System.out.println(parentThread + " entering wait state...");
+                while (!lut.isEmpty()) {
+                    try {
+                        lut.wait();
+                    }
+                    catch (InterruptedException e) {
+                    }
+                }
+                //System.out.println(parentThread + " exited wait state!");
+
+                createVars(filter, items, directoryID, numThreads);
+
+                lut.put(parentThread, directoryID);
+                lut.notifyAll();
+            }
+        }
+
+        //System.out.println(parentThread + " " + lut.get(parentThread) + " vs " + directoryID);
+    }
+
+
+  //**************************************************************************
+  //** createVars
+  //**************************************************************************
+  /** Used to instantiate local variables used by this thread and it's siblings.
+   *  The variables are all stored in a hashmap and accessed via a directoryID.
+   */
+    private static void createVars(FileFilter filter, List items, long directoryID, int numThreads){
+        synchronized(map){
+            ConcurrentHashMap vars = new ConcurrentHashMap();
+            vars.put("items", items);
+            vars.put("filter", filter);
+            vars.put("pool", new java.util.LinkedList());
+            vars.put("path", new java.util.LinkedList());
+            vars.put("status", new java.util.LinkedList());
+            vars.put("threads", new LinkedList()); //<--list of active threads
+            vars.put("activatedThreads", new ConcurrentHashMap());
+            vars.put("numThreads", numThreads);
+            map.put(directoryID, vars);
+        }
+    }
+
+
+
+  //**************************************************************************
+  //** getVars
+  //**************************************************************************
+  /** Used to retrieve variables associated with this thread.
+   */
+    private static ConcurrentHashMap getVars(){
+
+        String currentThread = Thread.currentThread().getName();
+        if (currentThread.startsWith("DirectorySearch_")){
+            Long directoryID = getDirectoryID();
+            return (ConcurrentHashMap) map.get(directoryID);
+        }
+        else{
+
+            if (lut==null) return null;
+
+            Long directoryID = null;
+            synchronized(lut){
+                directoryID = (Long) lut.get(currentThread);
+            }
+
+            //System.out.println(currentThread + " vs " + directoryID);
+
+            if (directoryID==null) return null;
+            else return (ConcurrentHashMap) map.get(directoryID);            
+        }
+    }
+
+
+  //**************************************************************************
+  //** deleteCache
+  //**************************************************************************
+
+    public static void deleteCache(){
+
+        if (map!=null){
+            ConcurrentHashMap vars = getVars();
+            if (vars!=null){
+                synchronized(vars){
+                    List path = (List) vars.get("path");
+                    List items = (List) vars.get("items");
+                    List status = (List) vars.get("status");
+
+
+                    synchronized(path){ path.clear(); }
+                    synchronized(items){ items.clear(); }
+                    synchronized(status){ status.clear(); }
+
+                    vars.remove("startTime");
+                    vars.remove("root");
+                }
+            }
+        }
+    }
+
+
+    private static Long getDirectoryID(){
+        try{
+            String id = Thread.currentThread().getName();
+            id = id.substring(id.indexOf("_")+1);
+            id = id.substring(0,id.indexOf("-"));
+            //System.out.println(id + " vs " + Thread.currentThread().getName());
+            return Long.valueOf(id).longValue();
+        }
+        catch(Exception e){
+            return 0L;
+        }         
+    }
+
+
+
+
+  //**************************************************************************
+  //** Stop
+  //**************************************************************************
+  /** Used to stop the current thread. */
+
+    public static void stop(){
+        updatePool(null);
+    }
+
+
+  //**************************************************************************
+  //** updatePool
+  //**************************************************************************
+  /**  Used to add a new directory to the pool. */
+
+    public static void updatePool(Directory directory) {
+
+        ConcurrentHashMap vars = getVars();
+        Long startTime = null;
+        if (vars.get("startTime")!=null) startTime = (Long) vars.get("startTime");
+        
+
+
+      //if start time is null, then this is the first time the pool has been modified
+        if (startTime==null){
+            synchronized(vars){
+                vars.put("startTime", getStartTime());
+                vars.put("root", directory);
+            }            
+        }
+
+
+        boolean updatePool = true;
+        if (directory == null){
+            if (Thread.currentThread().getName().equalsIgnoreCase("Finalizer")){
+                updatePool = false;
+            }
+        }
+
+        if (updatePool){
+            List pool = (List) vars.get("pool");
+            synchronized (pool) {
+                pool.add(directory);
+                pool.notifyAll();
+            }
+        }
+
+
+    }
+
+
+  //**************************************************************************
+  //** Add File
+  //**************************************************************************
+  /**  Used to add a file to the list of items found. */
+
+    private static void addFile(File file) {
+
+        ConcurrentHashMap vars = getVars();
+        List items = (List) vars.get("items");
+
+        synchronized (items) {
+            items.add(file);
+            items.notifyAll();
+        }
+    }
+
+  //**************************************************************************
+  //** Add Directory
+  //**************************************************************************
+  /**  Used to add a directory to the list of items found. */
+
+    private static void addDirectory(Directory directory){
+
+        ConcurrentHashMap vars = getVars();
+        List items = (List) vars.get("items");
+        Directory root = (Directory) vars.get("root");
+
+        synchronized (items) {
+            if (!directory.equals(root)){
+                items.add(directory);
+                items.notifyAll();
+            }            
+        }
+    }
+
+
+
+
+    private static void addPath(Directory directory) {
+        List path = (List) getVars().get("path");
+        synchronized (path) {
+            path.add(directory.toString());
+        }
+    }
+
+    private static void removePath(Directory directory) {
+        List path = (List) getVars().get("path");
+        synchronized (path) {
+            path.remove(directory.toString());
+        }
+    }
+
+
+  //**************************************************************************
+  //** Get Status
+  //**************************************************************************
+  /**  Used to retrieve the status object. The status object is a List that
+   *   will remain empty until all of the threads have completed searching
+   *   the file system. While status.isEmpty() call status.wait();
+   */
+    public static List getStatus(){
+
+        ConcurrentHashMap vars = getVars();
+        List status = (List) vars.get("status");
+
+        return status;
+    }
+
+
+  //**************************************************************************
+  //** Update Status
+  //**************************************************************************
+  /**  Used to insert an entry into the status object. This is used to notify
+   *   the client that all threads have completed searching the file system.
+   */
+    private static void updateStatus(){
+
+        ConcurrentHashMap vars = getVars();
+        List status = (List) vars.get("status");
+        List items = (List) vars.get("items"); 
+        Long startTime = (Long) vars.get("startTime");
+
+        synchronized (status) {
+         status.add("ellapsedTime = " + getEllapsedTime(startTime) + " ms");
+         status.notifyAll();
+         //System.out.println(Thread.currentThread().getName() + " Updated Status!");
+        }
+        synchronized (items) {
+          items.add(null);
+          items.notifyAll();
+        }
+
+
+        ((List) vars.get("pool")).clear();
+        ((List) vars.get("path")).clear();
+        ((List) vars.get("threads")).clear();
+        ((ConcurrentHashMap) vars.get("activatedThreads")).clear();
+
+
+
+      //Update the lut
+        synchronized(lut){
+            long directoryID = getDirectoryID();
+            java.util.Iterator it = lut.keySet().iterator();
+            while (it.hasNext()){
+                String parentThread = (String) it.next();
+                if ((Long) lut.get(parentThread) == directoryID){
+                    lut.remove(parentThread);
+                    lut.notifyAll();
+                    break;
+                }
+            }
+        }
+
+    }
+
+
+  //**************************************************************************
+  //** Get Items
+  //**************************************************************************
+  /**  Used to retrieve a list of files and folders found in this directory.
+   */
+    public static List getItems(){
+        return (List) getVars().get("items");
+    }
+
+
+
+
+
+
+  //**************************************************************************
+  //** Run
+  //**************************************************************************
+  /** Processes entries in the pool. Waits and add children to the array. */
+
+    public void run() {
+
+      //Get shared variables
+        ConcurrentHashMap vars = getVars();
+        if (vars==null) return; //<--This should never happen!
+        
+        List threads = (List) vars.get("threads");
+        ConcurrentHashMap activatedThreads = (ConcurrentHashMap) vars.get("activatedThreads");
+        List path = (List) vars.get("path");
+        List pool = (List) vars.get("pool");
+        FileFilter filter = (FileFilter) vars.get("filter");
+        int numThreads = (Integer) vars.get("numThreads");
+        String threadID = Thread.currentThread().getName();
+
+
+
+        while (true) {
+            Directory dir;
+
+          //Wait for new directories to be added to the pool
+            synchronized (pool) {
+                while (pool.isEmpty()) {
+                    try {
+                        pool.wait();
+                    }
+                    catch (InterruptedException e) {
+                    }
+                }
+
+              //Update the list of active threads
+                synchronized (threads){threads.add(threadID);}
+                synchronized (activatedThreads){
+                    if (activatedThreads.get(threadID)==null){
+                        activatedThreads.put(threadID, true);
+                    }
+                }
+
+
+
+                Object obj = pool.get(0);
+                if (obj==null){
+                    //System.out.println("Terminating Thread: " + threadID);
+                    synchronized (threads){threads.remove(threadID);}
+                    synchronized(activatedThreads){
+                        activatedThreads.replace(threadID, false);                        
+                        if (activatedThreads.size()==numThreads){
+                            if (!activatedThreads.containsValue(true)){
+                                updateStatus();
+                            }
+                        }
+                    }
+                    return;
+                }
+                else{
+                    dir = (Directory) obj;
+                    pool.remove(obj);
+                    pool.notifyAll();
+                }
+            }
+
+
+          //Process directory
+            if (dir!=null) {
+
+              //Notify Path/Status Object of new task
+                addPath(dir);
+
+
+
+              //Add subdirectories to the processing pool and insert files into file array
+                Object[] items = dir.listFiles();
+                if (items!=null){
+                    boolean addedDirectory = false;
+                    for (int i=0; i<items.length; i++){
+                        Object obj = items[i];
+                        java.io.File item = null;
+                        boolean accept = false;
+                        if (obj instanceof String){
+                            accept = filter.accept((String)obj);
+                            if (accept) item = new java.io.File(obj.toString());
+                        }
+                        else if (obj instanceof java.io.File){
+                            item = (java.io.File) obj;
+                            accept = filter.accept(item);
+                        }
+                       
+                       if (accept){
+                           
+                           if (item.isDirectory()){
+                               updatePool(new Directory(item));
+                           }
+                           else{
+
+                             //Add Current Directory to the array
+                               if (!addedDirectory){
+                                   addDirectory(dir);
+                                   addedDirectory = true;
+                               }
+
+                             //Add File to the array
+                               addFile(new File(item));
+
+                           }
+                       }
+                    }
+                }
+
+
+
+              //Notify Path/Status Object of task completion
+                removePath(dir);
+
+
+                synchronized (threads){
+                  threads.remove(threadID);
+                }
+
+
+              //Check whether we're done processing all the directories and notify the client
+                synchronized (path) {
+                  if (path.isEmpty()){
+                      synchronized (pool) {
+                          if (pool.isEmpty()){
+                              synchronized (threads){
+                                if (threads.isEmpty()){
+                                    //System.out.println("Terminating Thread: " + threadID + "*");
+                                    synchronized(activatedThreads){activatedThreads.replace(threadID, false);}
+                                    updatePool(null);
+                                    return;
+                                }
+                              }
+                          }
+                      }
+                  }
+                }
+
+
+
+            }
+            /*
+            else{
+              //Found null entry. This is our que to stop waiting for new directories...
+                //System.out.println("Terminating Thread: " + Thread.currentThread().getName());
+
+
+                
+
+                synchronized (threads){
+                    String threadID = Thread.currentThread().getName();
+                    threads.remove(threadID);
+                }
+
+                
+                synchronized (activatedThreads){
+                    activatedThreads.replace(Thread.currentThread().getName(), false);
+                    if (activatedThreads.containsValue(true)){
+                        updatePool(null);
+                    }
+                    else{
+                        
+                        if (activatedThreads.size()<numThreads){
+                            updatePool(null);
+                        }
+                        else{
+                            //System.out.println(this.getDirectoryID() + " activated " + activatedThreads.size() + " threads");
+                            updateStatus();
+                        }
+                    }
+                }
+
+                return;
+            }
+            */
+
+
+        }//end while
+
+
+    } // end run
+
+
+
+  //**************************************************************************
+  //** Get Start Time
+  //**************************************************************************
+  /**  Used to set the start time. Returns the current time in milliseconds. */
+
+    private static long getStartTime(){
+        return java.util.Calendar.getInstance().getTimeInMillis();
+    }
+
+
+  //**************************************************************************
+  //** Get Ellapsed Time
+  //**************************************************************************
+  /**  Used to compute the ellapsed time in milliseconds. */
+
+    private static long getEllapsedTime(long StartTime){
+        try{
+            long endTime = java.util.Calendar.getInstance().getTimeInMillis();
+            return endTime-StartTime;
+        }
+        catch(Exception e){
+            return 0;
+        }
+    }
+
+}//End Directory Search
+
+
+
+
+
+
+
+//******************************************************************************
+//**  FileSystemWatcher Class - By Peter Borissow
+//******************************************************************************
+/**
+ *   Used to watch changes made to files and folders (subdirectories) found in 
+ *   a directory. Provides an option to monitor NTFS events on Windows-based 
+ *   machines. This is an extremely efficient way to monitor a file system. 
+ *   Unlike more traditional methods, this approach minimizes the amount of disk 
+ *   i/o required and significantly reduces memory consumption. Note that this 
+ *   approach only works on Windows 2000, XP, or later and you need a dynamic 
+ *   link library called FileSystemWatch.dll. Again, this is just an option. 
+ *   For non-Windows operation systems, the FileWatcher class will periodically
+ *   scan the file system for updates. 
+ *
+ ******************************************************************************/
+
+class FileSystemWatcher implements Runnable {
+    
+    private Directory directory;
+    private Timer timer;
+
+    
+    private File dll; //Path to FileSystemWatcher.dll
+    private boolean includeSubdirectories = true;
+    private boolean terminationRequested = false;
+    private Long osHandle = null;
+        
+    
+  //**************************************************************************
+  //** Constructors
+  //**************************************************************************   
+  /** Creates a new instance of FileSystemWatcher using a directory and a dll.
+   */ 
+    public FileSystemWatcher(Directory directory, String dll) throws Exception {
+        this.directory = directory;
+        if (dll!=null){ 
+            dll = dll.trim();
+            if (dll.length()>0)
+                setLibraryPath(new File(dll.trim()));
+        }
+    }
+    
+    
+    
+  //**************************************************************************
+  //** setLibraryPath
+  //**************************************************************************
+  /** Used to set the path to the FileSystemWatcher.dll used to monitor NTFS 
+   *  events.
+   */
+    private void setLibraryPath(File dll){
+        if (dll!=null && dll.exists()){
+            if (dll.getExtension().equalsIgnoreCase("dll")){
+                this.dll = dll;
+            }
+        }
+    }
+
+    
+    
+  //**************************************************************************
+  //** loadLibrary
+  //**************************************************************************
+  /** Used to load the FileSystemWatcher.dll used to monitor NTFS events. 
+   *  Returns a boolean value used to indicate whether the library has been 
+   *  accessed (loaded) successfully.
+   */
+    private boolean loadLibrary(){
+        
+        boolean useDLL = false;
+        if (Directory.isWindows){
+            if (dll!=null){
+                try{
+                    System.load(dll.toString()); 
+                    //Runtime.getRuntime().load(dll.toString());
+                    useDLL = true;
+                }
+                catch(Exception e){
+                }
+            }
+        }
+        
+        return useDLL;
+        
+        
+    }
+
+    
+  //**************************************************************************
+  //** Run
+  //**************************************************************************
+    
+    public final void run(){ 
+        
+        if (loadLibrary()==false){
+
+            System.out.println("Failed to load FileSystemWatcher.dll...");
+            this.timer = new Timer();
+            timer.schedule( new EventMonitor(), new java.util.Date(), 1000 );
+
+        }
+        else{
+            
+            try {
+
+                long osWaitHandle = FileSystemWatcherNative.FindFirstChangeNotification(
+                    directory.getPath(), includeSubdirectories, -1);
+                this.osHandle = new Long(osWaitHandle);
+
+
+                while (true) {
+                    FileSystemWatcherNative.FindNextChangeNotification(osWaitHandle);
+
+                    String event = null;
+                    while(( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
+                        directory.addEvent(event);
+                    }
+                    
+                  //Sometimes there is a bit of a delay retrieving new events so we try again
+                    Thread.sleep(25);
+                    while(( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
+                        directory.addEvent(event);
+                    }                    
+
+                    if (FileSystemWatcherNative.WaitForSingleObject(osWaitHandle, 
+                        FileSystemWatcherNative.INFINITE) !=  FileSystemWatcherNative.WAIT_OBJECT_0) {
+                        throw new Exception("Wait failed while waiting for OS to signal file system event.");  
+                    }
+
+
+                    if (terminationRequested) {
+                        break;
+                    }
+
+                } //end while
+
+            }
+            catch (Exception ex) {
+
+            //nothing can be done here except logging the error.
+              Logger.getLogger("FileSystemWatcher").log(Level.WARNING, "Exception encountered.", ex);
+
+            }
+            finally {
+
+                if (this.osHandle != null) {
+                    try {
+                      FileSystemWatcherNative.FindCloseChangeNotification(this.osHandle.longValue());
+                    }
+                    catch (Exception ex2) {
+                    //nothing can be done here except logging the error.
+                      Logger.getLogger("FileSystemWatcher").log(Level.WARNING, 
+                        "Unable to close file system watch handle.", ex2);
+                    }
+                  this.osHandle = null;
+                }       
+            }
+
+        }
+
+
+    }
+    
+    
+  //**************************************************************************
+  //** Stop
+  //**************************************************************************
+    
+    public void stop(){
+        terminationRequested = true;
+        
+        if (timer!=null){
+            timer.cancel();
+            timer = null;
+        }
+    }
+
+    
+  //**************************************************************************
+  //** EventMonitor
+  //**************************************************************************
+  /**  Used to periodically check for changes made to the file system. This 
+   *   class is only used on non-windows machines.
+   */
+    
+    private class EventMonitor extends TimerTask {
+        
+        private List index = new LinkedList();
+        private long lastUpdate = 0;
+        private long interval = 0;
+    
+        public EventMonitor(){
+            this.index = createIndex();
+        }
+        
+        public final void run() {
+            //System.out.println((lastEvent-lastUpdate) + " vs " + interval);
+            long startTime = java.util.Calendar.getInstance().getTimeInMillis();
+            if (interval==0) interval = 100;
+            if ((startTime-lastUpdate)>(interval*2)){
+                //System.out.println((startTime-lastUpdate) + " vs " + (interval));
+                
+                List orgIndex = index;
+                List newIndex = createIndex();
+                
+                for (int i=0; i<newIndex.size(); i++){
+                     Item item = (Item) newIndex.get(i);
+                     if (orgIndex.contains(item)){
+                         int x = orgIndex.indexOf(item);
+                         Item orgItem = (Item) orgIndex.get(x); 
+                         orgIndex.remove(x);
+                         if (item.isDirectory()==false){
+                             if (item.getSize()!=orgItem.getSize() || 
+                                 item.getDate()!=orgItem.getDate())
+                             {
+                                 directory.addEvent("Modify",item.getFile());
+                             }
+                         }
+                     }
+                     else{
+                         directory.addEvent("Create",item.getFile());
+                     }
+                }
+                if (orgIndex.size()>0){ 
+                    for (int i=0; i<orgIndex.size(); i++){
+                         Item item = (Item) orgIndex.get(i);
+                         directory.addEvent("Delete",item.getFile());
+                    }
+                    orgIndex.clear();
+                }
+                
+                index = newIndex;
+                    
+              //Remove these 4 lines
+                long endTime = java.util.Calendar.getInstance().getTimeInMillis();
+                interval = startTime-endTime;  
+                //System.out.println(interval);
+                lastUpdate = endTime;
+
+                
+            }// end if
+        }// end run
+        
+        
+
+      //************************************************************************
+      //** createIndex
+      //************************************************************************
+      /** Used to create an array of files and folders found in a directory. 
+       *   Also used to update the interval variable used by the EventMonitor.
+       */
+        private List createIndex(){
+            List index = new LinkedList();
+            List array = directory.getChildren(true);
+            for (int i=0; i<array.size(); i++){
+                 index.add( new Item(array.get(i)) );
+            }
+            return index;
+        }
+        
+        
+        
+      //************************************************************************
+      //** Item Class
+      //************************************************************************
+      /**  Used to represent a single file or folder. Records the size and date 
+       *   of the file/folder at the time this object is instantiated. This 
+       *   information is used to determine which items have changed state 
+       *   within the EventMonitor class.
+       */
+        private class Item {
+
+            private java.io.File file;
+            private String name;
+            private String path;
+            private long size;
+            private long date;
+            private boolean isDirectory;
+
+            public Item(Object obj){
+
+                java.io.File file = null;
+
+                if (obj instanceof File) file=((File) obj).getFile();
+                else if (obj instanceof Directory) file=((Directory) obj).getFile();
+                else if (obj instanceof java.io.File) file=(java.io.File) obj;
+
+                if (file!=null){
+                    this.file = file;
+                    this.name = file.getName();
+                    this.path = file.getPath();
+                    this.size = file.length();
+                    this.date = file.lastModified();
+                    this.isDirectory = file.isDirectory();
+                }
+            }
+
+
+          /** Returns a java.io.File representation of this object. Note that
+           *  some of the properties of the file will vary from this object.
+           */
+            public java.io.File getFile() { return file; }
+            public String getName() { return name; }
+            public String getPath() { return path; }
+            public long getSize() {  return size; }
+            public long getDate() { return date; }
+            public boolean isDirectory() { return isDirectory; }
+            public String toString(){ return path; }
+
+            public boolean equals(Object obj){
+
+                if (obj instanceof Item){
+                    Item item = (Item) obj;
+                    return item.getPath().equals(this.getPath());
+                }
+                else{
+                    return false;
+                }
+            }
+
+        } // End Item
+        
+    } //End EventMonitor Class
+    
+
+    
+
+    
+
+    
+  //**************************************************************************
+  //** Finalize
+  //**************************************************************************
+  /** Method called by Java garbage collector to dispose operating system 
+   *  resource.
+   */
+    protected void finalize() throws Throwable {
+      if (this.osHandle != null) {
+          FileSystemWatcherNative.FindCloseChangeNotification(this.osHandle.longValue());
+      }
+    }
+
+} //End FileSystemWatcher Class
+
+
+
+//******************************************************************************
+//**  FileSystemWatcherNative Class
+//******************************************************************************
+/**
+ *   Java wrapper of Windows native APIs for file system monitoring. The name of 
+ *   the methods in this class corresponds to the name of Windows native APIs. 
+ *   You might want to check Windows Platform SDK for detailed technical 
+ *   information. <p/>
+ *
+ *   Also note that if you change the package or method name of this class, you 
+ *   need to use javah to regenerate a C header file and recompile the dll file. 
+ *   As far as I know, there is no way around it becasue of the way JVM binds to 
+ *   native dll.
+ *
+ ******************************************************************************/
+
+final class FileSystemWatcherNative {
+    
+    static {}
+    
+    public static native long FindFirstChangeNotification(String lpPathName, 
+            boolean bWatchSubtree, int dwNotifyFilter) throws Exception;
+    
+    public static native void FindNextChangeNotification(long hChangeHandle) 
+    throws Exception;
+
+    public static native void FindCloseChangeNotification(long hChangeHandle) 
+    throws Exception; 
+
+    public static native int WaitForSingleObject(long hHandle, int dwTimeoutMilliseconds); 
+   
+    public static native String ReadDirectoryChangesW();
+    
+  //**************************************************************************
+  //** Static Local Variables
+  //**************************************************************************
+    
+  /** A constant value representing infinite. */
+    public static final int INFINITE = 0xFFFFFFFF;  //(WinBase.h)
+
+  /** A wait return value indicating a failed wait. */
+    public static final int WAIT_FAILED = 0xFFFFFFFF;
+  
+  /** A wait return value indicating that the specified object is a mutex object that was not released by the thread.  */
+    public static final int WAIT_ABANDONED = 0x00000080;
+  
+  /** A wait return value indicating The state of the specified object is signaled. */
+    public static final int WAIT_OBJECT_0 = 0x00000000;
+  
+  /** The time-out interval elapsed, and the object's state is nonsignaled. */
+    public static final int WAIT_TIMEOUT = 0x00000102;
+    
+    
+} // End FileSystemWatcherNative
+    
