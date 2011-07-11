@@ -1,7 +1,7 @@
 package javaxt.sql;
 import java.sql.*;
 
-public class Table {
+public class Table implements Comparable {
     
     private DatabaseMetaData dbmd = null;
     
@@ -187,5 +187,15 @@ public class Table {
     
     public String toString(){
         return this.getName();
+    }
+
+    public int hashCode(){
+        return this.toString().hashCode();
+    }
+
+    //@Override
+    public int compareTo(Object obj){
+        if (obj==null) return -1;
+        else return -obj.toString().compareTo(toString());
     }
 }

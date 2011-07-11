@@ -532,7 +532,7 @@ public class File implements Comparable {
   //**************************************************************************
   //** getXML
   //**************************************************************************
-  /** Returns an XML DOM Document */
+  /** Returns an XML DOM Document (org.w3c.dom.Document) */
     
     public org.w3c.dom.Document getXML(){
         try{
@@ -896,6 +896,7 @@ public class File implements Comparable {
         if (this.extensionEquals("tif,tiff")) return "image/tiff";
         if (this.extensionEquals("xbm")) return "image/x-xbitmap";
         if (this.extensionEquals("xpm")) return "image/x-xpixmap";
+        if (this.extensionEquals("ico")) return "image/vnd.microsoft.icon";
         
       //MICROSOFT OFFICE APPLICATIONS
         if (this.extensionEquals("doc,dot")) return "application/msword";

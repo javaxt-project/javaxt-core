@@ -700,6 +700,7 @@ public class Directory implements Comparable {
                 List results = new LinkedList();
                 Object[] files = listFiles(new FileFilter(filter));
                 if (files==null) {
+                    if (!wait) results.add(null);
                     return results;
                 }
                 else{
@@ -727,8 +728,8 @@ public class Directory implements Comparable {
                         }
                     }
                     Collections.sort(results, new FileComparer());
-                    return results;
-                                        
+                    if (!wait) results.add(null);
+                    return results;                                        
                 }
             }
         }

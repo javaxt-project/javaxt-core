@@ -110,8 +110,8 @@ public class Connection {
             
         }
         catch(Exception e){
-            System.out.println("Failed");
-            System.out.println(database.getDriver().getVendor() + " ERROR: " + e.toString());
+            //System.out.println("Failed");
+            //System.out.println(database.getDriver().getVendor() + " ERROR: " + e.toString());
             isClosed = true;
         }
         
@@ -136,14 +136,15 @@ public class Connection {
             isClosed = Conn.isClosed();
         }
         catch(Exception e){
-            System.out.println("Failed");
-            System.out.println(database.getDriver().getVendor() + " ERROR: " + e.toString());
+            //System.out.println("Failed");
+            //System.out.println(database.getDriver().getVendor() + " ERROR: " + e.toString());
             isClosed = true;
         }
 
         Speed = 0;
         return isClosed;
     }
+
 
     
   //**************************************************************************

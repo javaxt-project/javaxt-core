@@ -38,10 +38,11 @@ public class Request {
     private java.net.URL url;
     private boolean useCache = false;
     private int maxRedirects = 5;
+    private String username;
+    private String password;
 
     private java.util.Map<String, List<String>> requestHeaders = null;
     private HashMap<String, List<String>> RequestProperties = new HashMap<String, List<String>>();
-
 
   //Http response properties
     private java.util.Map headers = null;
@@ -192,6 +193,26 @@ public class Request {
     }
 
 
+
+    public void setCredentials(String username, String password){
+        this.username = username;
+        this.password = password;
+    }
+    
+    public void setUserName(String username){
+        this.username = username;
+    }
+
+    public void setPassword(String password){
+        this.password = password;
+    }
+
+    private String getCredentials() throws Exception {
+        if (username==null || password==null) return null;
+        else
+            return javaxt.utils.Base64.encodeBytes(
+                (username + ":" + password).getBytes("UTF-8"));
+    }
 
 
   //**************************************************************************
@@ -350,8 +371,12 @@ public class Request {
             }
 
 
+
             conn.setUseCaches(useCache);
             if (doOutput) conn.setDoOutput(true);
+
+            String credentials = getCredentials();
+            if (credentials!=null) conn.setRequestProperty ("Authorization", "Basic " + credentials);
 
 
             java.util.Iterator<String> it = RequestProperties.keySet().iterator();

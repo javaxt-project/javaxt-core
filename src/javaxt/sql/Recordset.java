@@ -233,18 +233,27 @@ public class Recordset {
             else{
                 try{
 
+                    Driver driver = Connection.getDatabase().getDriver();
                     
                   //SYBASE Connection
-                    if (Connection.getDatabase().getDriver().equals("SYBASE")){
+                    if (driver.equals("SYBASE")){
                         if (fetchSize!=null) Conn.setAutoCommit(false);
                         stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE); //For Sybase!
                         if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                         rs = stmt.executeQuery(sqlString);
                         State = 1;
                     }
+
+                    else if (driver.equals("SQLite")){
+                        if (fetchSize!=null) Conn.setAutoCommit(false);
+                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_READ_ONLY);
+                        if (fetchSize!=null) stmt.setFetchSize(fetchSize);
+                        rs = stmt.executeQuery(sqlString);
+                        State = 1;
+                    }
                     
                   //DB2 Connection
-                    else if (Connection.getDatabase().getDriver().equals("DB2")){
+                    else if (driver.equals("DB2")){
                         //System.out.println("WARNING: DB2 JDBC Driver does not currently support the insertRow() method. " +
                         //                   "Will attempt to execute an SQL insert statement instead.");
                         try{

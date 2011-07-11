@@ -444,7 +444,6 @@ public class WSDL {
         //Extract services from WSDL:
         //definitions->service (name attribute)
         
-        
         String ServiceName = "";
         String ServiceDescription = "";
         
@@ -478,10 +477,10 @@ public class WSDL {
                     }
                 }
                 
-                
+
               //Get Service Port
                 Port = getPort(ChildNodes);
-                
+
                 
                 if (Port!=null){
                     

@@ -64,24 +64,28 @@ public class DOM {
     
     public static Document createDocument(String xml){
         xml = xml.trim();
-        String xmlHeader = xml.substring(xml.indexOf("<?"), xml.indexOf("?>"));
         String encoding = "UTF-8";
-        if (xmlHeader.contains(" encoding")){
-            encoding = xmlHeader.substring(xmlHeader.indexOf(" encoding")+" encoding".length());
-            encoding = encoding.substring(encoding.indexOf("=")+1);
-            while(encoding.substring(0, 1).equals(" ")){
-                encoding = encoding.substring(1);
+        
+        try{
+            String xmlHeader = xml.substring(xml.indexOf("<?"), xml.indexOf("?>"));
+            if (xmlHeader.contains(" encoding")){
+                encoding = xmlHeader.substring(xmlHeader.indexOf(" encoding")+" encoding".length());
+                encoding = encoding.substring(encoding.indexOf("=")+1);
+                while(encoding.substring(0, 1).equals(" ")){
+                    encoding = encoding.substring(1);
+                }
+
+                if (encoding.substring(0, 1).equals("\"")){
+                    encoding = encoding.substring(1);
+                    encoding = encoding.substring(0, encoding.indexOf("\"")).trim();
+                }
+                else{
+                    encoding = encoding.substring(0, encoding.indexOf(" ")).trim();
+                }
+
             }
-            
-            if (encoding.substring(0, 1).equals("\"")){
-                encoding = encoding.substring(1);
-                encoding = encoding.substring(0, encoding.indexOf("\"")).trim();
-            }
-            else{
-                encoding = encoding.substring(0, encoding.indexOf(" ")).trim();
-            }
-            
         }
+        catch(Exception e){}
         
         return createDocument(xml, encoding);
     }

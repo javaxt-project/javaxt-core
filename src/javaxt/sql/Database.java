@@ -20,7 +20,8 @@ public class Database {
     private String username;
     private String password;
     private Driver driver; 
-    private String url;
+    //private String url;
+    private String path;
     private String props;
 
     private java.sql.Connection Connection = null;
@@ -31,11 +32,35 @@ public class Database {
     /** Static list of drivers and corresponding metadata */
     private static Driver[] drivers = new Driver[]{
         new Driver("SQLServer","com.microsoft.sqlserver.jdbc.SQLServerDriver","jdbc:sqlserver"),
-        new Driver("DB2","com.ibm.db2.jcc.DB2Driver","jdbc:db2"),
+        new Driver("DB2","com.ibm.db2.jcc.DB2Driver","jdbc:db2"), //"COM.ibm.db2.jdbc.net.DB2Driver"
         new Driver("Sybase","com.sybase.jdbc3.jdbc.SybDriver","jdbc:sybase"),
         new Driver("PostgreSQL","org.postgresql.Driver","jdbc:postgresql"),
         new Driver("Derby","org.apache.derby.jdbc.EmbeddedDriver","jdbc:derby"),
-        new Driver("MS Access","sun.jdbc.odbc.JdbcOdbcDriver","jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)}")
+        new Driver("SQLite","org.sqlite.JDBC","jdbc:sqlite"),
+        new Driver("Microsoft Access","sun.jdbc.odbc.JdbcOdbcDriver","jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)}"),
+
+      //The rest of these drivers have not been tested
+        new Driver("FrontBase", "com.frontbase.jdbc.FBJDriver", "jdbc:FrontBase"),
+        new Driver("Informix", "com.informix.jdbc.IfxDriver", "jdbc:informix-sqli"),
+        new Driver("Cache", "com.intersys.jdbc.CacheDriver", "jdbc:Cache"),
+        new Driver("microsoft", "com.microsoft.jdbc.sqlserver.SQLServerDriver", "jdbc:microsoft"),
+        new Driver("Mimer", "com.mimer.jdbc.Driver", "jdbc:mimer"),
+        new Driver("MySQL", "com.mysql.jdbc.Driver", "jdbc:mysql"),
+        new Driver("Teradata", "com.ncr.teradata.TeraDriver", "jdbc:teradata"),
+        new Driver("Pervasive", "com.pervasive.jdbc.v2.Driver", "jdbc:pervasive"),
+        new Driver("Pointbase", "com.pointbase.jdbc.jdbcUniversalDriver", "jdbc:pointbase"),
+        new Driver("pointbase micro", "com.pointbase.me.jdbc.jdbcDriver", "jdbc:pointbase:micro"),
+        new Driver("Daffodil", "in.co.daffodil.db.jdbc.DaffodilDBDriver", "jdbc:daffodil"),
+        new Driver("daffodilDB", "in.co.daffodil.db.rmi.RmiDaffodilDBDriver", "jdbc:daffodilDB"),
+        new Driver("JTDS", "net.sourceforge.jtds.jdbc.Driver", "jdbc:jtds"), //Open source JDBC 3.0 type 4 driver for Microsoft SQL Server and Sybase ASE
+        new Driver("Oracle", "oracle.jdbc.driver.OracleDriver", "jdbc:oracle"),
+        new Driver("derby net", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby:net"),
+        //new Driver("derby //", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby://"),
+        new Driver("Firebird", "org.firebirdsql.jdbc.FBDriver", "jdbc:firebirdsql"),
+        new Driver("H2", "org.h2.Driver", "jdbc:h2"),
+        new Driver("HyperSQL", "org.hsqldb.jdbcDriver", "jdbc:hsqldb"),
+        new Driver("odbc", "sun.jdbc.odbc.JdbcOdbcDriver", "jdbc:odbc")
+
     };
     
     
@@ -44,8 +69,38 @@ public class Database {
     public static Driver Sybase = findDriver("Sybase");
     public static Driver PostgreSQL = findDriver("PostgreSQL");
     public static Driver Derby = findDriver("Derby");
-    public static Driver Access = findDriver("MS Access");
+    public static Driver SQLite = findDriver("SQLite");
+    public static Driver Access = findDriver("Microsoft Access");
     
+    public static Driver FrontBase = findDriver("FrontBase");
+    public static Driver Informix = findDriver("Informix");
+    public static Driver Cache = findDriver("Cache");
+    public static Driver Mimer = findDriver("Mimer");
+    public static Driver MySQL = findDriver("MySQL");
+    public static Driver Teradata = findDriver("Teradata");
+    public static Driver Pervasive = findDriver("Pervasive");
+    public static Driver Pointbase = findDriver("Pointbase");
+    //public static Driver pointbase micro = findDriver("pointbase micro");
+    public static Driver Daffodil = findDriver("Daffodil");
+    //public static Driver daffodilDB = findDriver("daffodilDB");
+    public static Driver JTDS = findDriver("JTDS");
+    public static Driver Oracle = findDriver("Oracle");
+    public static Driver Firebird = findDriver("Firebird");
+    public static Driver H2 = findDriver("H2");
+    public static Driver HyperSQL = findDriver("HyperSQL");
+    public static Driver ODBC = findDriver("odbc");
+
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /**  Creates a new instance of this class. Note that you will need to set the
+   *   name, host, port, username, password, and driver in order to create
+   *   a connection to the database.
+   */
+    public Database(){
+    }
 
 
   //**************************************************************************
@@ -65,10 +120,8 @@ public class Database {
         this.username = username;
         this.password = password;
         this.driver = driver;
-        this.url = this.getURL();
+        //this.url = this.getURL();
     }
-
-
 
 
   //**************************************************************************
@@ -79,107 +132,104 @@ public class Database {
     public Database(java.sql.Connection conn){
         try{
             this.Connection = conn;
-
             DatabaseMetaData dbmd = conn.getMetaData();
             this.name = conn.getCatalog();
             this.username = dbmd.getUserName();
-
-            javaxt.utils.URL url = new javaxt.utils.URL(dbmd.getURL());
-            this.host = url.getHost();
-            this.port = url.getPort(); 
-            this.driver = findDriver(url.getProtocol());
-            this.url = this.getURL();            
+            parseURL(dbmd.getURL());
+            //dbmd.getDriverName();
         }
         catch(Exception e){
             e.printStackTrace();
         }
     }
-    
+
+
     
   //**************************************************************************
   //** Constructor 
   //**************************************************************************
-  /**  Creates a new instance of Database using a jdbc connection string.
+  /** Creates a new instance of Database using a jdbc connection string.
+   *  Username and password may be appended to the end of the connection string
+   *  in the property list.
    *  @param connStr A jdbc connection string/url. All connection URLs
    *  have the following form:
    *  <pre> jdbc:[dbVendor]://[dbName][propertyList] </pre>
    *
-   *  Example:
+   *  Examples:
+   *  <p>Derby:</p>
    *  <pre> jdbc:derby://temp/my.db;user=admin;password=mypassword </pre>
+   *  <p>SQL Server:</p>
+   *  <pre> jdbc:sqlserver://192.168.0.80;databaseName=master;user=admin;password=mypassword </pre>
    */
     public Database(String connStr){
-        
-        StringBuffer props = null;
-        
+        parseURL(connStr);
+    }
+    
+
+
+
+    
+  //**************************************************************************
+  //** parseURL 
+  //**************************************************************************
+  /** Used to parse a JDBC connection string (url)
+   */
+    private void parseURL(String connStr){
+
         String[] arrConnStr = connStr.split(";");
-        for (int i=0; i<arrConnStr.length; i++) {
-            
-            
-            if (i==0){
-                
-                javaxt.utils.URL url = new javaxt.utils.URL(arrConnStr[0]);
-                this.name = url.getPath();
-                this.host = url.getHost();
-                this.port = url.getPort();
-                this.url = url.toString();
-                this.driver = findDriver(url.getProtocol());
-                
-              //Update Name
-                if (this.name !=null && this.name.startsWith("/")){
-                    this.name = this.name.substring(1);
-                }
+        String jdbcURL = arrConnStr[0];
 
-                
-            }
-            else{
+      //Update jdbc url for URL parser
+        if (!jdbcURL.contains("//")){
+            String protocol = jdbcURL.substring(jdbcURL.indexOf(":")+1);
 
-              //Find username/password
-                
-                String[] arrParams = arrConnStr[i].split("=");
-                String paramName = arrParams[0].toLowerCase();
-                String paramValue = arrParams[1];
-
-                if (paramName.equals("database")){
-                    this.name = paramValue;
-                }
-                else if (paramName.equals("user")){
-                    this.username = paramValue;
-                }
-                else if (paramName.equals("password")){
-                    this.password = paramValue;
-                }
-                else if (paramName.equalsIgnoreCase("derby.system.home")){
-                    //if (System.getProperty("derby.system.home")==null)
-                    System.setProperty("derby.system.home", paramValue);
-                }
-                else{
-                  //Extract addional properties
-                    if (props==null) props = new StringBuffer();
-                    props.append(arrParams[0] + "=" + arrParams[1] + ";");
-                }
-                
-            }
-            
+            protocol = "jdbc:" + protocol.substring(0, protocol.indexOf(":")) + ":";
+            String path = jdbcURL.substring(protocol.length());
+            jdbcURL = protocol + "//" + path;
         }
 
+      //Parse url and extract connection parameters
+        javaxt.utils.URL url = new javaxt.utils.URL(jdbcURL);
+        host = url.getHost();
+        port = url.getPort();
+        driver = findDriver(url.getProtocol());        
+        if (name==null){
+            name = url.getPath();
+            if (this.name!=null && this.name.startsWith("/")){
+                this.name = this.name.substring(1);
+            }
+        }
         
+
+      //Extract additional connection parameters
+        StringBuffer props = null;
+        for (int i=1; i<arrConnStr.length; i++) {
+
+            String[] arrParams = arrConnStr[i].split("=");
+            String paramName = arrParams[0].toLowerCase();
+            String paramValue = arrParams[1];
+
+            if (paramName.equals("database")){
+                this.name = paramValue;
+            }
+            else if (paramName.equals("user")){
+                this.username = paramValue;
+            }
+            else if (paramName.equals("password")){
+                this.password = paramValue;
+            }
+            else if (paramName.equalsIgnoreCase("derby.system.home")){
+                //if (System.getProperty("derby.system.home")==null)
+                System.setProperty("derby.system.home", paramValue);
+            }
+            else{
+              //Extract additional properties
+                if (props==null) props = new StringBuffer();
+                props.append(arrParams[0] + "=" + arrParams[1] + ";");
+            }
+        }
         if (props!=null) this.props = props.toString();
-
     }
-    
-
-
-  //**************************************************************************
-  //** Constructor
-  //**************************************************************************
-  /**  Creates a new instance of this class. Note that you will need to set the
-   *   name, host, port, username, password, and driver in order to create
-   *   a connection to the database.
-   */
-    public Database(){
-    }
-    
-
     
     
     
@@ -209,13 +259,21 @@ public class Database {
   //**************************************************************************
   //** setHost
   //**************************************************************************
-  /** Sets the name of the server. */
+  /** Used to set the path to the database (server name and port). */
 
     public void setHost(String host, int port){
         this.host = host;
         this.port = port;
     }
-    
+
+
+  //**************************************************************************
+  //** setHost
+  //**************************************************************************
+  /** Used to set the path to the database.
+   *  @param host Server name/port (e.g. localhost:9080) or a path to a file
+   *  (e.g. /temp/firebird.db)
+   */
     public void setHost(String host){
         host = host.trim();
         if (host.contains(":")){
@@ -239,12 +297,14 @@ public class Database {
   //**************************************************************************
   //** getHost
   //**************************************************************************
-  /** Returns the name or IP address of the server. */
-    
+  /** Returns the name or IP address of the server or a physical path to the 
+   *  database file.
+   */
     public String getHost(){
         return host;
     }
-    
+
+
     
   //**************************************************************************
   //** setPort
@@ -270,6 +330,12 @@ public class Database {
     public void setDriver(String driver){
         this.driver = findDriver(driver);
     }
+
+    public void setDriver(java.sql.Driver driver){
+        this.Driver = driver;
+        this.driver = findDriver(driver.getClass().getCanonicalName());
+    }
+
     
     
   //**************************************************************************
@@ -345,17 +411,23 @@ public class Database {
         return path;
         
     }
-    
 
     
+  //**************************************************************************
+  //** getURL
+  //**************************************************************************
+  /** Used to construct a JDBC connection string
+   */
     private String getURL(){
-        
+
       //Update Server Name
         String server = host;
         if (port!=null && port>0) server += ":" + port;
-        if (driver.getVendor().equals("Derby")){
+        if (driver.getVendor().equals("Derby") || driver.getVendor().equals("SQLite")){
             server = ":" + server;
         }
+
+
 
 
       //Update Initial Catalog
@@ -376,6 +448,11 @@ public class Database {
 
             }
         }
+
+
+        if (driver.getVendor().equals("SQLite")){
+            //database = path;
+        }
         
         
 
@@ -390,7 +467,7 @@ public class Database {
                 path = driver.getProtocol() + "Tds:"; 
             }
         }
-        else if (driver.getVendor().equals("Derby")){
+        else if (driver.getVendor().equals("Derby") || driver.getVendor().equals("SQLite")){
             path = driver.getProtocol();
         }
 
@@ -425,7 +502,9 @@ public class Database {
         connection.open(this);
         return connection;
     }
-    
+
+
+
     
 
     
@@ -438,29 +517,35 @@ public class Database {
    */     
     protected java.sql.Connection connect() throws Exception {
           
-        if (Driver==null){
-            
-            System.out.print("Loading Driver...");
-            //System.out.println(driver.getPackageName());
+        if (Driver==null){            
+            //System.out.print("Loading Driver...");
             Driver = (java.sql.Driver) Class.forName(driver.getPackageName()).newInstance(); 
-            //DriverManager.registerDriver(d);
-            System.out.println("Done");
-            
+            //DriverManager.registerDriver(Driver);
+            //System.out.println("Done");
         }
+        
         
         if (Connection==null || Connection.isClosed()){
-            System.out.print("Attempting to connect...");
-            Connection = DriverManager.getConnection(this.getURL(), username, password);
-            System.out.println("Done");        
+            
+            //System.out.print("Attempting to connect...");
+            String url = getURL();
+            //System.out.println(url);
+
+            java.util.Properties properties = new java.util.Properties();
+            if (username!=null){
+                properties.put("user", username);
+                properties.put("password", password);
+            }
+            
+            Connection = Driver.connect(url, properties);
+            //Connection = DriverManager.getConnection(url, username, password);
+            //System.out.println("Done");
         }
-        
+
         return Connection;
-
     }
-    
-    
 
-    
+
 
   //**************************************************************************
   //** getTables
@@ -470,23 +555,16 @@ public class Database {
    */    
     public Table[] getTables(){
         try{
-            
-            java.util.Vector tables = new java.util.Vector();
+            java.util.TreeSet<Table> tables = new java.util.TreeSet<Table>();
             DatabaseMetaData dbmd = Connection.getMetaData(); 
             ResultSet rs  = dbmd.getTables(null,null,null,new String[]{"TABLE"});
             while (rs.next()) {
                 tables.add(new Table(rs, dbmd));  
             }
             rs.close();
-            
-            Table[] array = new Table[tables.size()];
-            for (int i=0; i<array.length; i++){
-                array[i] = (Table) tables.get(i);
-            }
-            return array;
+            return tables.toArray(new Table[tables.size()]);
         }
         catch(Exception e){
-            printError(e);
             return null;
         }
     }
@@ -575,7 +653,7 @@ public class Database {
         str.append("Port: " + port + "\r\n");
         str.append("UserName: " + username + "\r\n");
         str.append("Driver: " + driver + "\r\n");
-        str.append("URL: " + url + "\r\n");
+        str.append("URL: " + getURL() + "\r\n");
         str.append("ConnStr: " + this.getConnectionString());
         return str.toString();
     }
