@@ -238,15 +238,16 @@ public class Recordset {
                   //SYBASE Connection
                     if (driver.equals("SYBASE")){
                         if (fetchSize!=null) Conn.setAutoCommit(false);
-                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE); //For Sybase!
+                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE);
                         if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                         rs = stmt.executeQuery(sqlString);
                         State = 1;
                     }
 
+                  //SQLite Connection
                     else if (driver.equals("SQLite")){
                         if (fetchSize!=null) Conn.setAutoCommit(false);
-                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_READ_ONLY);
+                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_READ_ONLY); //xerial only seems to support this cursor
                         if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                         rs = stmt.executeQuery(sqlString);
                         State = 1;
@@ -458,13 +459,14 @@ public class Recordset {
         if (State==1){
             try{
 
-              //DB2 JDBC driver doesn't support moveToInsertRow or insertRow so
-              //we'll have to create an SQL Insert statement instead. To do so,
-              //we'll use the Fields array to store new values...
-                
-                if (Connection.getDatabase().getDriver().equals("DB2")){
+              //DB2 and Xerial's SQLite JDBC driver don't seem to support
+              //moveToInsertRow or insertRow so we'll have to create an SQL
+              //Insert statement instead. To do so, we'll use the Fields array
+              //to store new values...
+                Driver driver = Connection.getDatabase().getDriver();
+                if (driver.equals("DB2") || driver.equals("SQLite")){
                     for (int i=0; i<Fields.length; i++){
-                         Fields[i].Value = null;
+                         //Fields[i].Value = null;
                     }
                 }
                 else{ //for all other cases...
@@ -488,14 +490,13 @@ public class Recordset {
         if (State==1){
             try{                
                 
-                                
               //Determine whether to use a prepared statement or a resultset to add/update records
                 boolean usePreparedStatement = false;
-                if (Connection.getDatabase().getDriver().equals("DB2")){
-                  //DB2 doesn't appear to support JDBC inserts (via resultset)
+                Driver driver = Connection.getDatabase().getDriver();
+                if (driver.equals("DB2") || driver.equals("SQLite") ){
                     usePreparedStatement = true;
                 }
-                else if (Connection.getDatabase().getDriver().equals("PostgreSQL")){
+                else if (driver.equals("PostgreSQL")){
                   //PostGIS doesn't support JDBC inserts either...
                     for (int i=0; i<Fields.length; i++ ) { 
                          Object value = null;
@@ -547,6 +548,8 @@ public class Recordset {
                             if (FieldType.indexOf("Bool")>=0)
                             rs.updateBoolean(FieldName, FieldValue.toBoolean() );
 
+                            if (FieldType.indexOf("Object")>=0)
+                            rs.updateObject(FieldName, FieldValue.toObject());
 
                             if (FieldValue!=null){
                                 if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
@@ -634,6 +637,8 @@ public class Recordset {
                             if (FieldType.indexOf("Bool")>=0)
                             stmt.setBoolean(id, FieldValue.toBoolean() );
 
+                            if (FieldType.indexOf("Object")>=0)
+                            stmt.setObject(id, FieldValue.toObject() );
 
                             if (FieldValue!=null){
                                 if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
