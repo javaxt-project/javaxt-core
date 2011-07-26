@@ -79,8 +79,8 @@ public class Date { // extends java.util.Date
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**  Creates a new instance of date using a String represention of a date */
-    
+  /**  Creates a new instance of date using a String representation of a date.
+   */
     public Date(String date){
         String[] Format = new String[]
         {
@@ -164,6 +164,7 @@ public class Date { // extends java.util.Date
         
         if (d==null){ //throw exception?
             currDate = new java.util.Date();
+            parserFailed = true;
         }
 
         

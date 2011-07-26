@@ -154,7 +154,9 @@ public class Connection {
     
     public void close(){
         try{Conn.close();}
-        catch(Exception e){}
+        catch(Exception e){
+            e.printStackTrace();
+        }
     } 
     
     

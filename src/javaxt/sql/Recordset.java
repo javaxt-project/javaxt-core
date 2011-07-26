@@ -560,25 +560,13 @@ public class Recordset {
                         }
 
                     }
+
+                    rs.updateRow();
                 }
-                
-
-                
-              //Commit changes
-                if (InsertOnUpdate){
-
-                    /*
-                    if (usePreparedStatement){
-                        insertRecord();
-                    }
-                    else{
-                        rs.insertRow();
-                    }
-                    */
+                else{
 
 
-
-                    java.util.Vector<String> cols = new java.util.Vector<String>();
+                    java.util.ArrayList<String> cols = new java.util.ArrayList<String>();
                     for (int i=0; i<Fields.length; i++){
                         if (Fields[i].RequiresUpdate){
                             cols.add(Fields[i].getName());
@@ -588,21 +576,38 @@ public class Recordset {
                     int numUpdates = cols.size();
 
                     StringBuffer sql = new StringBuffer();
-                    sql.append("INSERT INTO " + Fields[0].getTable() + " (");
-                    for (int i=0; i<numUpdates; i++){
-                        sql.append(cols.get(i));
-                        if (numUpdates>1 && i<numUpdates-1){
-                            sql.append(",");
+
+                    if (InsertOnUpdate){
+                        sql.append("INSERT INTO " + Fields[0].getTable() + " (");
+                        for (int i=0; i<numUpdates; i++){
+                            sql.append(cols.get(i));
+                            if (numUpdates>1 && i<numUpdates-1){
+                                sql.append(",");
+                            }
+                        }
+                        sql.append(") VALUES (");
+                        for (int i=0; i<numUpdates; i++){
+                            sql.append("?");
+                            if (numUpdates>1 && i<numUpdates-1){
+                                sql.append(",");
+                            }
+                        }
+                        sql.append(")");
+                    }
+                    else{
+                        sql.append("UPDATE " + Fields[0].getTable() + " SET ");
+                        for (int i=0; i<numUpdates; i++){
+                            sql.append(cols.get(i));
+                            sql.append("=?");
+                            if (numUpdates>1 && i<numUpdates-1){
+                                sql.append(", ");
+                            }
+                        }
+                        String where = new Parser(this.sqlString).getWhereString();
+                        if (where!=null){
+                            sql.append(" WHERE "); sql.append(where);
                         }
                     }
-                    sql.append(") VALUES (");
-                    for (int i=0; i<numUpdates; i++){
-                        sql.append("?");
-                        if (numUpdates>1 && i<numUpdates-1){
-                            sql.append(",");
-                        }
-                    }
-                    sql.append(")");
                     //System.out.println(sql);
 
                     java.sql.PreparedStatement stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
@@ -641,25 +646,32 @@ public class Recordset {
                             stmt.setObject(id, FieldValue.toObject() );
 
                             if (FieldValue!=null){
-                                if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
-                                    stmt.setObject(id, getGeometry(FieldValue));
+                                try{
+                                    if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
+                                        stmt.setObject(id, getGeometry(FieldValue));
+                                    }
                                 }
+                                catch(Exception e){}
                             }
 
                             id++;
                         }
                     }
                     stmt.executeUpdate();
-                    
-                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                    if (generatedKeys.next()) {
-                        this.GeneratedKey = new Value(generatedKeys.getString(1));
+
+
+
+                    if (InsertOnUpdate){
+                        java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                        if (generatedKeys.next()) {
+                            this.GeneratedKey = new Value(generatedKeys.getString(1));
+                        }
+
+                        InsertOnUpdate = false;
                     }
 
-                    InsertOnUpdate = false;
-                }
-                else{                    
-                    rs.updateRow();
+                    
+                    //stmt.close();
                 }
             }
             catch(Exception e){

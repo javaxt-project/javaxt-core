@@ -1,7 +1,7 @@
 package javaxt.sql;
 import java.sql.ResultSet;
 import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
+//import java.sql.DriverManager;
 
 //******************************************************************************
 //**  Database
@@ -21,7 +21,7 @@ public class Database {
     private String password;
     private Driver driver; 
     //private String url;
-    private String path;
+    //private String path;
     private String props;
 
     private java.sql.Connection Connection = null;
@@ -63,13 +63,25 @@ public class Database {
 
     };
     
-    
+    /** Microsoft SQL Server database driver. */
     public static Driver SQLServer = findDriver("SQLServer");
+
+    /** IBM DB2 database driver. */
     public static Driver DB2 = findDriver("DB2");
+
+    /** Sybase ASE database driver. */
     public static Driver Sybase = findDriver("Sybase");
+
+    /** PostgreSQL database driver. */
     public static Driver PostgreSQL = findDriver("PostgreSQL");
+
+    /** Derby database driver. */
     public static Driver Derby = findDriver("Derby");
+    
+    /** SQLite database driver. */
     public static Driver SQLite = findDriver("SQLite");
+
+    /** Microsoft Access database driver. */
     public static Driver Access = findDriver("Microsoft Access");
     
     public static Driver FrontBase = findDriver("FrontBase");
