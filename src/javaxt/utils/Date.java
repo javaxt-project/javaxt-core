@@ -111,7 +111,7 @@ public class Date { // extends java.util.Date
          "dd-MMM-yy h:mm:ss a",         // 07-Jun-76 1:02:09 PM
        //"d-MMM-yy h:mm:ss a",          // 7-Jun-76 1:02:09 PM
 
-
+         "yyyy-MM-dd HH:mm:ssZ",        // 1976-06-07T13:02:36-0500
          "yyyy-MM-dd HH:mmZ",           // 1976-06-07T13:02-0500
          "yyyy-MM-dd HH:mm",            // 1976-06-07T13:02
          "yyyy-MM-dd",                  // 1976-06-07
@@ -121,7 +121,10 @@ public class Date { // extends java.util.Date
          "dd-MMM-yyyy",                 // 07-Jun-1976
          
          "MMMMMM d, yyyy",              // June 7, 1976
-         "M/d/yyyy h:mm:ss a",          // 6/7/1976 1:02:09 PM
+
+         "M/d/yy h:mm:ss a",            // 6/7/1976 1:02:09 PM
+         "M/d/yy h:mm a",               // 6/7/1976 1:02 PM
+         
          "MM/dd/yyyy HH:mm:ss",         // 06/07/1976 13:02:09
          "MM/dd/yyyy HH:mm",            // 06/07/1976 13:02
 
@@ -134,32 +137,24 @@ public class Date { // extends java.util.Date
          "yyyyMMdd"                     // 19760607
 
         };
+
+
+      //Special Case: 1976-06-07T01:02:09.000 OR 1976-06-07T13:02-0500
+        if (date.length()>="1976-06-07T13:02".length()){
+            if (date.substring(10, 11).equalsIgnoreCase("T")){
+                date = date.replace("T", " ");
+            }
+        }
+
         
         java.util.Date d = null;
         for (int i=0; i<Format.length; i++){
              d = ParseDate(date, Format[i]);
              if (d!=null) {
-                 //super.setTime(d.getTime());
-                 //System.out.println(date + " vs " + Format[i]);
                  currDate = d;
                  break;
              }             
         }
-        
-      //Special Case: 1976-06-07T01:02:09.000 OR 1976-06-07T13:02-0500
-        if (d==null){
-            String newDate = date.replace((CharSequence)"T", (CharSequence)" ");
-            for (int i=0; i<Format.length; i++){
-                 d = ParseDate(newDate, Format[i]);
-                 if (d!=null) {
-                     //super.setTime(d.getTime());
-                     //System.out.println(date + " vs " + Format[i]);
-                     currDate = d;
-                     break;
-                 }             
-            }
-        }
-        
         
         
         if (d==null){ //throw exception?
@@ -271,17 +266,54 @@ public class Date { // extends java.util.Date
   //**************************************************************************
   //** setTimeZone
   //**************************************************************************
-  /**  Used to set the current time zone used in the toString() methods. */
+  /** Used to set the current time zone. The time zone is used when comparing
+   *  and formatting dates.
+   *  @param timeZone Name of the time zone (e.g. "UTC", "EDT", etc.)
+   *  @param preserveTimeStamp Flag used to indicate whether to preserve the
+   *  timestamp when changing time zones. Normally, when updating the timezone, 
+   *  the timestamp is updated to the new timezone. For example, if the current 
+   *  time is 4PM EST and you wish to switch to UTC, the timestamp would be
+   *  updated to 8PM. The preserveTimeStamp flag allows users to preserve the
+   *  the timestamp so that the timestamp remains fixed at 4PM.
+   */
+    public void setTimeZone(String timeZone, boolean preserveTimeStamp){
+        if (timeZone==null) return;
+        java.util.TimeZone timezone = java.util.TimeZone.getTimeZone(timeZone);
+        if (preserveTimeStamp){
 
+            SimpleDateFormat dateFormat = new SimpleDateFormat("z", currentLocale);
+
+            String z1 = dateFormat.format(currDate);
+            dateFormat.setTimeZone(timezone);
+            String z2 = dateFormat.format(currDate);
+
+            dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS z", currentLocale);
+            String d = dateFormat.format(currDate).replace(z1, z2);
+            try{
+                this.currDate = dateFormat.parse(d);
+            }
+            catch(Exception e){}
+        }
+        this.timeZone = timezone;
+    }
+
+
+  //**************************************************************************
+  //** setTimeZone
+  //**************************************************************************
+  /** Used to set the current time zone. The time zone is used when comparing
+   *  and formatting dates.
+   *  @param timeZone Name of the time zone (e.g. "UTC", "EDT", etc.)
+   */
     public void setTimeZone(String timeZone){
-        this.timeZone = java.util.TimeZone.getTimeZone(timeZone);
+        setTimeZone(timeZone, false);
     }
     
     
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /**  Used to retrieve the current date as a String */
+  /** Returns the current date as a String */
     
     public String toString(){      
         SimpleDateFormat currFormatter = 
@@ -295,18 +327,25 @@ public class Date { // extends java.util.Date
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /**  Used to retrieve the current date as a String. The format parameter 
-   *   is used to create a SimpleDateFormat to format the date.
+  /** Used to format the current date into a string.
+   *  @param format Pattern used to format the date (e.g.
+   *  "EEE MMM dd HH:mm:ss z yyyy"). Please refer to the SimpleDateFormat class
+   *  for more information.
    */
-    
-    public String toString(String Format){      
+    public String toString(String format){
         SimpleDateFormat currFormatter = 
-            new SimpleDateFormat(Format, currentLocale);
+            new SimpleDateFormat(format, currentLocale);
         if (timeZone!=null) currFormatter.setTimeZone(timeZone);
         return currFormatter.format(currDate);
     }
 
 
+  //**************************************************************************
+  //** equals
+  //**************************************************************************
+  /** Used to compare dates and determine whether they are equal.
+   *  @param obj Accepts either a java.util.Date or a javaxt.utils.Date
+   */
     public boolean equals(Object obj){
         if (obj instanceof javaxt.utils.Date){
             return ((javaxt.utils.Date) obj).getDate().equals(this.currDate);
@@ -336,22 +375,24 @@ public class Date { // extends java.util.Date
   //**************************************************************************
   //** compareTo
   //**************************************************************************
-  /**  Used to compare dates. Returns the number of intervals between two dates
-   */
-    
-    public long compareTo(javaxt.utils.Date date, String interval){            
-        return DateDiff(currDate, date.getDate(), interval);
+  /** Used to compare dates. Returns the number of intervals between two dates
+   *  @param units Units of measure (e.g. hours, minutes, seconds, weeks,
+   *  months, years, etc.)
+   */    
+    public long compareTo(javaxt.utils.Date date, String units){
+        return DateDiff(currDate, date.getDate(), units);
     }
 
     
   //**************************************************************************
   //** compareTo
   //**************************************************************************
-  /**  Used to compare dates. Returns the number of intervals between two dates
+  /** Used to compare dates. Returns the number of intervals between two dates
+   *  @param units Units of measure (e.g. hours, minutes, seconds, weeks, 
+   *  months, years, etc.)
    */
-    
-    public long compareTo(java.util.Date date, String interval){
-        return DateDiff(currDate, date, interval);
+    public long compareTo(java.util.Date date, String units){
+        return DateDiff(currDate, date, units);
     }
     
     
@@ -613,13 +654,19 @@ public class Date { // extends java.util.Date
     }
     
     
-    /*
-         
-    public long createUID(){
-        String str = FormatDate(Now(), "yyyyMMddHHmmssSSS");        
-        return Long.valueOf(str).longValue();
+
+  //**************************************************************************
+  //** hasTimeStamp
+  //**************************************************************************
+  /** Used to determine whether a date has a timestamp.
+   */
+    public boolean hasTimeStamp(){
+        java.util.Calendar cal = getCalendar();
+        int hour = cal.get(java.util.Calendar.HOUR);
+        int min = cal.get(java.util.Calendar.MINUTE);
+        int sec = cal.get(java.util.Calendar.SECOND);
+        int ms = cal.get(java.util.Calendar.MILLISECOND);
+        if (hour>0 || min>0 || sec>0 || ms>0) return true;
+        return false;
     }
-    
-    */
-   
 }

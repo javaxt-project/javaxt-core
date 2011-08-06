@@ -484,7 +484,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** getImage
   //**************************************************************************
-    
+  /** Used to open the file and read the contents into an image.
+   */
     public Image getImage(){
         if (File.exists()){
             return new Image(File);
@@ -496,10 +497,11 @@ public class File implements Comparable {
   //**************************************************************************
   //** getText
   //**************************************************************************
-    
+  /** Used to open the file and read the contents into a string.
+   */
     public String getText(){
         try{
-            return getText("ISO-8859-1"); 
+            return getText("UTF-8"); //ISO-8859-1
         }
         catch(Exception e){}
         try{
@@ -622,12 +624,12 @@ public class File implements Comparable {
     public void write(String Text){
         write(Text, null);
     }
-    
+
     
   //**************************************************************************
   //** Write Text
   //**************************************************************************
-  /**  Used to extract the contents of the file as a String. 
+  /**  Used to write text to a file.
    *   WARNING: This method will never throw an error.
    *
    *   @param charsetName Name of the character encoding used to read the file.
@@ -656,8 +658,18 @@ public class File implements Comparable {
             }
         }
     }
-    
-    
+
+
+  //**************************************************************************
+  //** Write XML
+  //**************************************************************************
+  /**  Used to write an XML DOM Document to a file. 
+   */
+    public void write(org.w3c.dom.Document xml){
+        write(javaxt.xml.DOM.getText(xml), xml.getXmlEncoding());
+    }
+
+
   //**************************************************************************
   //** Write Text
   //**************************************************************************
@@ -688,6 +700,7 @@ public class File implements Comparable {
   //**************************************************************************
   //** Write Image
   //**************************************************************************
+  /** Used to write an image to a file. */
     
     public void write(java.awt.image.BufferedImage Image){
               
