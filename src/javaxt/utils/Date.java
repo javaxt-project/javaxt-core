@@ -11,10 +11,11 @@ import java.util.Locale;
  *
  ******************************************************************************/
 
-public class Date { // extends java.util.Date
+public class Date {
     
-    private Locale currentLocale = Locale.US;    
-    private java.util.Date currDate = new java.util.Date();
+    private Locale currentLocale = Locale.getDefault();
+    private java.util.TimeZone timeZone;
+    private java.util.Date currDate;
  
     
     public static final String INTERVAL_MILLISECONDS = "S";
@@ -97,8 +98,11 @@ public class Date { // extends java.util.Date
 
          "yyyy-MM-dd HH:mm:ss.SSSZ",    // 1976-06-07 01:02:09.000-0500
          "yyyy-MM-dd HH:mm:ss.SSS",     // 1976-06-07 01:02:09.000
+
+         "yyyy-MM-dd HH:mm:ssZ",        // 1976-06-07 13:02:36-0500
          "yyyy-MM-dd HH:mm:ss",         // 1976-06-07 01:02:09
-         
+
+
          "yyyy:MM:dd HH:mm:ss",         // 1976:06:07 01:02:09 (exif metadata)
 
          "yyyy-MM-dd-HH:mm:ss.SSS",     // 1976-06-07-01:02:09.000
@@ -111,7 +115,7 @@ public class Date { // extends java.util.Date
          "dd-MMM-yy h:mm:ss a",         // 07-Jun-76 1:02:09 PM
        //"d-MMM-yy h:mm:ss a",          // 7-Jun-76 1:02:09 PM
 
-         "yyyy-MM-dd HH:mm:ssZ",        // 1976-06-07T13:02:36-0500
+         
          "yyyy-MM-dd HH:mmZ",           // 1976-06-07T13:02-0500
          "yyyy-MM-dd HH:mm",            // 1976-06-07T13:02
          "yyyy-MM-dd",                  // 1976-06-07
@@ -139,7 +143,8 @@ public class Date { // extends java.util.Date
         };
 
 
-      //Special Case: 1976-06-07T01:02:09.000 OR 1976-06-07T13:02-0500
+      //Special Case: Java fails to parse the "T" in strings like
+      //"1976-06-07T01:02:09.000" and "1976-06-07T13:02-0500"
         if (date.length()>="1976-06-07T13:02".length()){
             if (date.substring(10, 11).equalsIgnoreCase("T")){
                 date = date.replace("T", " ");
@@ -149,11 +154,18 @@ public class Date { // extends java.util.Date
         
         java.util.Date d = null;
         for (int i=0; i<Format.length; i++){
-             d = ParseDate(date, Format[i]);
-             if (d!=null) {
-                 currDate = d;
-                 break;
-             }             
+
+          //Special Case: Java fails to parse the "Z" in "1976-06-07 00:00:00Z"
+            if (date.endsWith("Z") && Format[i].endsWith("Z")){
+                date = date.substring(0, date.length()-1) + "UTC";
+            }
+
+            d = ParseDate(date, Format[i]);
+            if (d!=null) {
+                //System.out.println(Format[i]);
+                currDate = d;
+                break;
+            }
         }
         
         
@@ -251,7 +263,9 @@ public class Date { // extends java.util.Date
             SimpleDateFormat formatter = 
                     new SimpleDateFormat(format, currentLocale);
             if (this.timeZone!=null) formatter.setTimeZone(timeZone);
-            return formatter.parse(date);
+            java.util.Date d = formatter.parse(date);
+            this.timeZone = formatter.getTimeZone();
+            return d;
         }
         catch(Exception e){
             parserFailed = true;
@@ -259,9 +273,6 @@ public class Date { // extends java.util.Date
         }        
     }
 
-
-
-    private java.util.TimeZone timeZone = null;
 
   //**************************************************************************
   //** setTimeZone
@@ -316,11 +327,7 @@ public class Date { // extends java.util.Date
   /** Returns the current date as a String */
     
     public String toString(){      
-        SimpleDateFormat currFormatter = 
-            new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", currentLocale);
-
-        if (timeZone!=null) currFormatter.setTimeZone(timeZone);
-        return currFormatter.format(currDate);
+        return toString("EEE MMM dd HH:mm:ss z yyyy");
     }
 
     
@@ -452,34 +459,36 @@ public class Date { // extends java.util.Date
   //** Add
   //**************************************************************************
   /**  Used to add to (or subtract from) the current date. 
-   *   Returns a date to which a specified time interval has been added.  
+   *   Returns a date to which a specified time interval has been added.
+   *  @param units Units of measure (e.g. hours, minutes, seconds, weeks,
+   *  months, years, etc.)
    */
     
-    public java.util.Date add(int amount, String interval){
+    public java.util.Date add(int amount, String units){
 
         Calendar cal = Calendar.getInstance();
         cal.setTime(currDate);
         
         int div = 0;
-        if (interval.equals("S") || interval.toLowerCase().startsWith("sec")){
+        if (units.equals("S") || units.toLowerCase().startsWith("sec")){
             div = cal.MILLISECOND;
         }        
-        if (interval.equals("m") || interval.toLowerCase().startsWith("min")){
+        else if(units.equals("m") || units.toLowerCase().startsWith("min")){
             div = cal.MINUTE;
         }
-        if (interval.equals("H") || interval.toLowerCase().startsWith("h")){
+        else if (units.equals("H") || units.toLowerCase().startsWith("h")){
             div = cal.HOUR_OF_DAY;
         }
-        if (interval.equals("d") || interval.toLowerCase().startsWith("d")){
+        else if (units.equals("d") || units.toLowerCase().startsWith("d")){
             div = cal.DAY_OF_YEAR;
         }
-        if (interval.equals("w") || interval.toLowerCase().startsWith("w")){
+        else if (units.equals("w") || units.toLowerCase().startsWith("w")){
             div = cal.WEEK_OF_YEAR;
         }   
-        if (interval.equals("M") || interval.toLowerCase().startsWith("mon")){
+        else if (units.equals("M") || units.toLowerCase().startsWith("mon")){
             div = cal.MONTH;
         }           
-        if (interval.equals("y") || interval.toLowerCase().startsWith("y")){
+        else if (units.equals("y") || units.toLowerCase().startsWith("y")){
             div = cal.YEAR;
         }   
         cal.add(div, amount);
@@ -506,7 +515,6 @@ public class Date { // extends java.util.Date
    */
     public long getTime(){
         return getCalendar().getTimeInMillis();
-        //return currDate.getTime();
     }
 
     
