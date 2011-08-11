@@ -498,13 +498,13 @@ public class Recordset {
                 }
                 else if (driver.equals("PostgreSQL")){
                   //PostGIS doesn't support JDBC inserts either...
+                    usePreparedStatement = true;
                     for (int i=0; i<Fields.length; i++ ) { 
                          Object value = null;
                          if (Fields[i].Value!=null) value = Fields[i].Value.toObject();
                          if (value!=null){
                             //Special case for PostGIS geometry types...
-                            if (value.getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
-                                usePreparedStatement = true;
+                            if (value.getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){                                
                                 Fields[i].Value = new Value(getGeometry(value));
                                 break;
                             }
@@ -608,7 +608,6 @@ public class Recordset {
                             sql.append(" WHERE "); sql.append(where);
                         }
                     }
-                    //System.out.println(sql);
 
                     java.sql.PreparedStatement stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
                     int id = 1;

@@ -290,22 +290,21 @@ public class Date {
     public void setTimeZone(String timeZone, boolean preserveTimeStamp){
         if (timeZone==null) return;
         java.util.TimeZone timezone = java.util.TimeZone.getTimeZone(timeZone);
+
         if (preserveTimeStamp){
+            
+            String z1 = FormatDate(currDate, "z");
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("z", currentLocale);
-
-            String z1 = dateFormat.format(currDate);
             dateFormat.setTimeZone(timezone);
             String z2 = dateFormat.format(currDate);
 
-            dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS z", currentLocale);
-            String d = dateFormat.format(currDate).replace(z1, z2);
-            try{
-                this.currDate = dateFormat.parse(d);
-            }
-            catch(Exception e){}
+            String d = FormatDate(currDate, "yyyy-MM-dd HH:mm:ss.SSS z").replace(z1, z2);
+            currDate = ParseDate(d, "yyyy-MM-dd HH:mm:ss.SSS z");
         }
-        this.timeZone = timezone;
+        else{
+            this.timeZone = timezone;
+        }
     }
 
 

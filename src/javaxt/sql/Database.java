@@ -489,14 +489,11 @@ public class Database {
         String properties = "";
         if (props!=null) properties = ";" + props;
 
-
-
-        //System.out.println("Return: " + path + server + database + properties);
+        
         
       //Assemble Connection String
         return path + server + database + properties;
 
-        //return "jdbc:firebirdsql:local:c:/Data/DC Projects/SignatureAnalyst.fdb";
     }
     
     
@@ -541,7 +538,6 @@ public class Database {
             
             //System.out.print("Attempting to connect...");
             String url = getURL();
-            //System.out.println(url);
 
             java.util.Properties properties = new java.util.Properties();
             if (username!=null){
