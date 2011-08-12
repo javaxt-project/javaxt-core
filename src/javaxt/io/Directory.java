@@ -983,7 +983,7 @@ public class Directory implements Comparable {
    *  when listing contents from a network share. The alternative is to use
    *  list() method which is MUCH faster. Unfortunately, there's no way to
    *  distinguish between files and directories in the array. My only recourse
-   *  is to shell out a "dir" command on windows.
+   *  is to shell out a "dir" command on windows and parse the output.
    */
     private String[] dir(){
 
@@ -1039,7 +1039,7 @@ public class Directory implements Comparable {
                             }
                             boolean isDirectory = (type.contains("<DIR>"));
                             boolean isSymLink = (type.contains("<SYMLINK>"));
-
+                            boolean isJunction = (type.contains("<JUNCTION>"));
                             
                           //Get File Name
                             String name = line.substring(offset);
@@ -1050,7 +1050,7 @@ public class Directory implements Comparable {
                             
 
                           //Set Column Width
-                            if (isDirectory || isSymLink){
+                            if (isDirectory || isSymLink || isJunction){
                                 colWidth = offset;
                             }
                             else{
@@ -1073,15 +1073,23 @@ public class Directory implements Comparable {
                             String type = line.substring(20, colWidth);
                             boolean isDirectory = (type.contains("<DIR>"));
                             boolean isSymLink = (type.contains("<SYMLINK>"));
+                            boolean isJunction = (type.contains("<JUNCTION>"));
 
                             if (isDirectory){
                                 if (!name.equals(".") && !name.equals(".."))
                                 files.add(name + this.PathSeparator);
                             }
-                            else if (isSymLink){
-                                String link = name.substring(name.indexOf("[")+1, name.indexOf("]"));
-                                name = name.substring(0, name.indexOf("[")).trim();
-                                if (new java.io.File(link).isDirectory()) name += this.PathSeparator; //<--We're back to serializing to a file which is bad...
+                            else if (isSymLink || isJunction){
+                                java.io.File file = null; //<--Note that we're serializing to a file which is going to slow things down...
+                                if (name.contains("[") && name.contains("]")) {
+                                    String link = name.substring(name.indexOf("[")+1, name.indexOf("]"));
+                                    name = name.substring(0, name.indexOf("[")).trim();
+                                    file = new java.io.File(link);
+                                }
+                                else {
+                                    file = new java.io.File(path, name);
+                                }
+                                if (file.isDirectory()) name += this.PathSeparator;
                                 files.add(name);
                             }
                             else{
