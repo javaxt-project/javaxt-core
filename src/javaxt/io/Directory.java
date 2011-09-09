@@ -677,6 +677,7 @@ public class Directory implements Comparable {
                                       status.wait();
                                   }
                                   catch (InterruptedException e) {
+                                      break;
                                   }
                                 }
                                 break;
@@ -944,6 +945,7 @@ public class Directory implements Comparable {
                       output.wait();
                   }
                   catch (InterruptedException e) {
+                      break;
                   }
                 }
                 line = output.remove(0);
@@ -1007,6 +1009,7 @@ public class Directory implements Comparable {
                       output.wait();
                   }
                   catch (InterruptedException e) {
+                      break;
                   }
                 }
                 line = output.remove(0);
@@ -1749,6 +1752,7 @@ class DirectorySearch implements Runnable {
                         lut.wait();
                     }
                     catch (InterruptedException e) {
+                        break;
                     }
                 }
                 //System.out.println(parentThread + " exited wait state!");
@@ -2072,6 +2076,7 @@ class DirectorySearch implements Runnable {
                         pool.wait();
                     }
                     catch (InterruptedException e) {
+                        return;
                     }
                 }
 

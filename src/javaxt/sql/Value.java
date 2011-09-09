@@ -130,9 +130,14 @@ public class Value {
         if (toDouble()==null) return false;
         else return true;
     }
+
     
-    
-    
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /** Returns a string representation of the object by calling the object's
+   *  native toString() method. Returns a null if the object itself is null.
+   */
     public String toString(){
         if (value==null) return null;
         else return value.toString();

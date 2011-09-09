@@ -1,12 +1,11 @@
 package javaxt.html;
-
 import javaxt.xml.DOM;
 
 //******************************************************************************
 //**  HTML Parser
 //******************************************************************************
 /**
- *   A simple html parser used to extract blocks of html from a document
+ *   A simple html parser used to extract blocks of html from a document.
  *
  ******************************************************************************/
 
@@ -17,12 +16,11 @@ public class Parser {
     
     
   //**************************************************************************
-  //** Creates a new instance of html
+  //** Creates a new instance of the html parser
   //**************************************************************************
     
     public Parser(String html){
         HTML = html;
-
     }
     
   //**************************************************************************

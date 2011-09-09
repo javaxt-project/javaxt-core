@@ -884,7 +884,7 @@ public class Recordset {
         }
         catch(Exception e){
             tryAgain = true;
-            System.err.println("ERROR Move: " + e.toString());
+            //System.err.println("ERROR Move: " + e.toString());
         } 
         
         
