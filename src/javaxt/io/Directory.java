@@ -670,18 +670,19 @@ public class Directory implements Comparable {
 
                       //Wait for response
                         java.util.List status = DirectorySearch.getStatus();
-                        while (true){
-                            synchronized (status) {
-                                while (status.isEmpty()) {
-                                  try {
-                                      status.wait();
-                                  }
-                                  catch (InterruptedException e) {
-                                      break;
-                                  }
+                        try{
+                            while (true){
+                                synchronized (status) {
+                                    while (status.isEmpty()) {
+                                        status.wait();
+                                    }
+                                    break;
                                 }
-                                break;
                             }
+                        }
+                        catch (InterruptedException e) {
+                          // nothing to do here, it just bypasses the while loop
+                          // above so processing can complete.
                         }
 
                       //Remove any null values
@@ -925,45 +926,49 @@ public class Directory implements Comparable {
    */
     private String[] ls(){
 
-        String path = this.getPath();        
+              
         java.util.List<String> files = new java.util.ArrayList<String>();
+        try{
+            String path = this.getPath();
 
-      //Execute a ls command to get a directory listing
-        String[] params = new String[]{"ls", "-ap", path};
-        javaxt.io.Shell cmd = new javaxt.io.Shell(params);
-        java.util.List<String> output = cmd.getOutput();
-        cmd.run();
+            
+          //Execute a ls command to get a directory listing
+            String[] params = new String[]{"ls", "-ap", path};
+            javaxt.io.Shell cmd = new javaxt.io.Shell(params);
+            java.util.List<String> output = cmd.getOutput();
+            cmd.run(true);
 
 
 
-      //Parse the output
-        String line;
-        while (true){
-            synchronized (output) {
-                while (output.isEmpty()) {
-                  try {
-                      output.wait();
-                  }
-                  catch (InterruptedException e) {
-                      break;
-                  }
+          //Parse the output
+            String line;
+            while (true){
+                synchronized (output) {
+                    while (output.isEmpty()) {
+                        output.wait();
+                    }
+                    line = output.remove(0);
                 }
-                line = output.remove(0);
-            }
-            if (line!=null){
-                line = line.trim();
-                if (line.length()>0){
-                    //System.out.println(line);
-                    //boolean isDirectory = (line.endsWith("/"));
+                if (line!=null){
+                    line = line.trim();
+                    if (line.length()>0){
+                        //System.out.println(line);
+                        //boolean isDirectory = (line.endsWith("/"));
 
-                    if (!line.equals("./") && !line.equals("../")){
-                        files.add(line);
+                        if (!line.equals("./") && !line.equals("../")){
+                            files.add(line);
+                        }
                     }
                 }
+                else{
+                    break;
+                }
             }
-            else{
-                break;
-            }
+        }
+      //Catch Exceptions thrown by cmd.run()
+        catch(java.io.IOException e){
+        }
+        catch(InterruptedException e){
         }
 
 
@@ -989,125 +994,128 @@ public class Directory implements Comparable {
    */
     private String[] dir(){
 
-        String path = this.getPath();
-        if (path.contains(" ")) path = "\"" + path + "\"";
         java.util.List<String> files = new java.util.ArrayList<String>();
+        try{
+            String path = this.getPath();
+            if (path.contains(" ")) path = "\"" + path + "\"";
 
-      //Execute a windows shell command to get a directory listing
-        javaxt.io.Shell cmd = new javaxt.io.Shell("cmd.exe /c dir /OG " + path);
-        java.util.List<String> output = cmd.getOutput();
-        cmd.run();
+          //Execute a windows shell command to get a directory listing
+            javaxt.io.Shell cmd = new javaxt.io.Shell("cmd.exe /c dir /OG " + path);
+            java.util.List<String> output = cmd.getOutput();
+            cmd.run(true);
 
-      //Parse files returned from the directory listing
-        boolean parseFiles = false;
-        int colWidth = -1;
-        String line;
-        while (true){
-            synchronized (output) {
-                while (output.isEmpty()) {
-                  try {
-                      output.wait();
-                  }
-                  catch (InterruptedException e) {
-                      break;
-                  }
+          //Parse files returned from the directory listing
+            boolean parseFiles = false;
+            int colWidth = -1;
+            String line;
+            while (true){
+                synchronized (output) {
+                    while (output.isEmpty()) {
+                        output.wait();
+                    }
+                    line = output.remove(0);
                 }
-                line = output.remove(0);
-            }
 
 
-            if (line!=null){
-                if (line.length()==0 || line.startsWith(" ")){
-                    if (parseFiles==true) parseFiles = false;
-                }
-                else{
-                    if (parseFiles==false) parseFiles = true;
+                if (line!=null){
+                    if (line.length()==0 || line.startsWith(" ")){
+                        if (parseFiles==true) parseFiles = false;
+                    }
+                    else{
+                        if (parseFiles==false) parseFiles = true;
 
 
-                    if (parseFiles){
+                        if (parseFiles){
 
 
-                        if (colWidth<0){
-                            int offset = 20;
-                            //String date = line.substring(0, 20);
+                            if (colWidth<0){
+                                int offset = 20;
+                                //String date = line.substring(0, 20);
 
-                          //Get File Type
-                            String type = line.substring(offset);
-                            if (type.trim().startsWith("<")){
-                                offset += type.indexOf(">")+1;
-                                type = type.substring(type.indexOf("<"), type.indexOf(">")+1);
-                            }
-                            else{
-                                type = "";
-                            }
-                            boolean isDirectory = (type.contains("<DIR>"));
-                            boolean isSymLink = (type.contains("<SYMLINK>"));
-                            boolean isJunction = (type.contains("<JUNCTION>"));
-                            
-                          //Get File Name
-                            String name = line.substring(offset);
-                            while (name.substring(0, 1).equals(" ")){
-                                name = name.substring(1);
-                                offset++;
-                            }
-                            
+                              //Get File Type
+                                String type = line.substring(offset);
+                                if (type.trim().startsWith("<")){
+                                    offset += type.indexOf(">")+1;
+                                    type = type.substring(type.indexOf("<"), type.indexOf(">")+1);
+                                }
+                                else{
+                                    type = "";
+                                }
+                                boolean isDirectory = (type.contains("<DIR>"));
+                                boolean isSymLink = (type.contains("<SYMLINK>"));
+                                boolean isJunction = (type.contains("<JUNCTION>"));
 
-                          //Set Column Width
-                            if (isDirectory || isSymLink || isJunction){
-                                colWidth = offset;
-                            }
-                            else{
-                                if (name.contains(" ")){
-                                    if (isNumeric(name.substring(0, name.indexOf(" ")))){
-                                        colWidth = offset + name.indexOf(" ")+1;
+                              //Get File Name
+                                String name = line.substring(offset);
+                                while (name.substring(0, 1).equals(" ")){
+                                    name = name.substring(1);
+                                    offset++;
+                                }
+
+
+                              //Set Column Width
+                                if (isDirectory || isSymLink || isJunction){
+                                    colWidth = offset;
+                                }
+                                else{
+                                    if (name.contains(" ")){
+                                        if (isNumeric(name.substring(0, name.indexOf(" ")))){
+                                            colWidth = offset + name.indexOf(" ")+1;
+                                        }
+                                        else{
+                                            colWidth = offset;
+                                        }
                                     }
                                     else{
                                         colWidth = offset;
                                     }
                                 }
-                                else{
-                                    colWidth = offset;
-                                }
                             }
-                        }
-                        if (colWidth>0){
-                            //String date = line.substring(0,20);
-                            String name = line.substring(colWidth);
-                            String type = line.substring(20, colWidth);
-                            boolean isDirectory = (type.contains("<DIR>"));
-                            boolean isSymLink = (type.contains("<SYMLINK>"));
-                            boolean isJunction = (type.contains("<JUNCTION>"));
+                            if (colWidth>0){
+                                //String date = line.substring(0,20);
+                                String name = line.substring(colWidth);
+                                String type = line.substring(20, colWidth);
+                                boolean isDirectory = (type.contains("<DIR>"));
+                                boolean isSymLink = (type.contains("<SYMLINK>"));
+                                boolean isJunction = (type.contains("<JUNCTION>"));
 
-                            if (isDirectory){
-                                if (!name.equals(".") && !name.equals(".."))
-                                files.add(name + this.PathSeparator);
-                            }
-                            else if (isSymLink || isJunction){
-                                java.io.File file = null; //<--Note that we're serializing to a file which is going to slow things down...
-                                if (name.contains("[") && name.contains("]")) {
-                                    String link = name.substring(name.indexOf("[")+1, name.indexOf("]"));
-                                    name = name.substring(0, name.indexOf("[")).trim();
-                                    file = new java.io.File(link);
+                                if (isDirectory){
+                                    if (!name.equals(".") && !name.equals(".."))
+                                    files.add(name + this.PathSeparator);
                                 }
-                                else {
-                                    file = new java.io.File(path, name);
+                                else if (isSymLink || isJunction){
+                                    java.io.File file = null; //<--Note that we're serializing to a file which is going to slow things down...
+                                    if (name.contains("[") && name.contains("]")) {
+                                        String link = name.substring(name.indexOf("[")+1, name.indexOf("]"));
+                                        name = name.substring(0, name.indexOf("[")).trim();
+                                        file = new java.io.File(link);
+                                    }
+                                    else {
+                                        file = new java.io.File(path, name);
+                                    }
+                                    if (file.isDirectory()) name += this.PathSeparator;
+                                    files.add(name);
                                 }
-                                if (file.isDirectory()) name += this.PathSeparator;
-                                files.add(name);
+                                else{
+                                    files.add(name);
+                                }
                             }
-                            else{
-                                files.add(name);
-                            }
+
                         }
 
                     }
 
                 }
+                else{
+                    break;
+                }
+            }
 
-            }
-            else{
-                break;
-            }
+        }
+      //Catch Exceptions thrown by cmd.run()
+        catch(java.io.IOException e){
+        }
+        catch(InterruptedException e){
         }
 
 
@@ -1752,7 +1760,8 @@ class DirectorySearch implements Runnable {
                         lut.wait();
                     }
                     catch (InterruptedException e) {
-                        break;
+                      //If interrupted, return immediately
+                        return;
                     }
                 }
                 //System.out.println(parentThread + " exited wait state!");
@@ -2076,6 +2085,7 @@ class DirectorySearch implements Runnable {
                         pool.wait();
                     }
                     catch (InterruptedException e) {
+                      //If interrupted, return immediately
                         return;
                     }
                 }

@@ -162,10 +162,28 @@ public class Shell {
   //**************************************************************************
   //** run
   //**************************************************************************
-  /**  Used to execute the process specified in the constructor and populate
-   *   the output streams.
+  /** Used to execute the process specified in the constructor and populate
+   *  the output streams. This is an overloaded method equivalent to calling
+   *  run(false); 
    */
     public void run(){
+        try{
+            run(false);
+        }
+        catch(Exception e){
+        }
+    }
+
+  //**************************************************************************
+  //** run
+  //**************************************************************************
+  /** Used to execute the process specified in the constructor and populate
+   *  the output streams.
+   *
+   *  @param throwExceptions If true, throws out any exceptions that may have
+   *  been thrown while executing the process.
+   */
+    public void run(boolean throwExceptions) throws IOException, InterruptedException {
 
         ellapsedTime = -1;
         long startTime = new java.util.Date().getTime();
@@ -201,7 +219,12 @@ public class Shell {
             try{process.destroy();} catch(Exception ex){}
 
         }
-        catch(Exception e){
+        catch(IOException e){
+            if (throwExceptions) throw new IOException(e);
+            return;
+        }
+        catch(InterruptedException e){
+            if (throwExceptions) throw new InterruptedException(e.toString());
             return;
         }
         ellapsedTime = new java.util.Date().getTime()-startTime;
