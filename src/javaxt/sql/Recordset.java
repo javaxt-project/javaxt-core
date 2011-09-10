@@ -881,6 +881,7 @@ public class Recordset {
         
         try{
             rs.absolute(numRecords);
+            x+=numRecords;
         }
         catch(Exception e){
             tryAgain = true;
@@ -895,7 +896,13 @@ public class Recordset {
             if (tryAgain){
                 int rowPosition = rs.getRow();
                 while ( rs.getRow() < (numRecords+rowPosition)){
-                    rs.next();
+                    if (rs.next()){
+                        x++;
+                    }
+                    else{
+                        EOF = true;
+                        break;
+                    }
                 }
             }
         }
