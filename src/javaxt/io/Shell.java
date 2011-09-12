@@ -220,11 +220,11 @@ public class Shell {
 
         }
         catch(IOException e){
-            if (throwExceptions) throw new IOException(e);
+            if (throwExceptions) throw e;
             return;
         }
         catch(InterruptedException e){
-            if (throwExceptions) throw new InterruptedException(e.toString());
+            if (throwExceptions) throw e;
             return;
         }
         ellapsedTime = new java.util.Date().getTime()-startTime;
