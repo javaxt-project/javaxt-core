@@ -366,7 +366,7 @@ public class Directory implements Comparable {
                 }
 
               //Sort the Vector
-                Collections.sort(vec, new FileComparer());
+                Collections.sort(vec, new FileComparer(this));
 
               //Convert the Vector to an Array
                 javaxt.io.File[] arr = new javaxt.io.File[vec.size()];
@@ -412,26 +412,39 @@ public class Directory implements Comparable {
             if (RecursiveSearch){
 
               //Get list of all the files and folders in the directory
-                List items = getChildren(true, filter, true);
-                
-              //Iterate through the list and remove unwanted items
-                List files = new LinkedList();
-                for (int i=0; i<items.size(); i++){
-                    Object item = items.get(i);
-                    if (item instanceof File){
-                        files.add(item);
+                List items = getChildren(true, filter, false);
+                ArrayList<File> files = new ArrayList<File>();
+                Object item;
+                while (true){
+                    synchronized (items) {
+                        while (items.isEmpty()) {
+                          try {
+                              items.wait();
+                          }
+                          catch (InterruptedException e) {
+                              break;
+                          }
+                        }
+                        item = items.remove(0);
+                        items.notifyAll();
+                    }
+
+                    if (item==null){
+                        break;
+                    }
+                    else{
+                        if (item instanceof File){
+                            files.add((File) item);
+                        }
                     }
                 }
-                
+
               //Sort the list
-                Collections.sort(files, new FileComparer());
+                Collections.sort(files, new FileComparer(this));
+                
                 
               //Convert the list into an array of files
-                File[] array = new File[files.size()];
-                for (int i=0; i<array.length; i++){
-                     array[i] = (File) files.get(i);
-                }
-                return array;                
+                return files.toArray(new File[files.size()]);
             }
             else{
                 return getFiles(filter);
@@ -462,34 +475,7 @@ public class Directory implements Comparable {
   /**  Used to retrieve an array of directories found in this directory.
    */
     public Directory[] getSubDirectories(){
-        if (this.exists()){
-
-
-            java.io.FileFilter fileFilter = new java.io.FileFilter() {
-                public boolean accept(java.io.File file) {
-                    if (file.isDirectory()){
-                        return true;
-                    }
-                    else{
-                        return false;
-                    }
-                }
-            };
-
-            
-            Object[] files = listFiles(new FileFilter(fileFilter));
-            if (files==null) return new Directory[0];
-            else{
-                Directory[] dirs = new Directory[files.length];
-                for (int i=0; i<files.length; i++){
-                     dirs[i] = new Directory(files[i].toString());
-                }
-                return dirs;
-            }
-        }
-        else{
-            return new Directory[0];
-        }
+        return getSubDirectories(false);
     }
     
     
@@ -507,32 +493,57 @@ public class Directory implements Comparable {
             if (RecursiveSearch){
                 
               //Get list of all the files and folders in the directory
-                List items = getChildren(true);
-                
-              //Iterate through the list and remove any files
-                List directories = new LinkedList();
-                for (int i=0; i<items.size(); i++){
-                    Object item = items.get(i);
-                    if (item instanceof Directory){
-                        directories.add(item);
+                List items = getChildren(true, null, false);
+                ArrayList<Directory> directories = new ArrayList<Directory>();
+                Object item;
+                while (true){
+                    synchronized (items) {
+                        while (items.isEmpty()) {
+                          try {
+                              items.wait();
+                          }
+                          catch (InterruptedException e) {
+                              break;
+                          }
+                        }
+                        item = items.remove(0);
+                        items.notifyAll();
+                    }
+
+                    if (item==null){
+                        break;
+                    }
+                    else{
+                        if (item instanceof Directory){
+                            directories.add((Directory) item);
+                        }
                     }
                 }
-                
-              //Sort the list
-                Collections.sort(directories, new FileComparer());
-                
-              //Convert the list into an array of directories
-                Directory[] array = new Directory[directories.size()];
-                for (int i=0; i<array.length; i++){
-                     array[i] = (Directory) directories.get(i);
-                }
-                
-              //Return the array of directories
-                return array;
+                return directories.toArray(new Directory[directories.size()]);
                 
             }
             else{
-                return getSubDirectories();
+                java.io.FileFilter fileFilter = new java.io.FileFilter() {
+                    public boolean accept(java.io.File file) {
+                        if (file.isDirectory()){
+                            return true;
+                        }
+                        else{
+                            return false;
+                        }
+                    }
+                };
+
+
+                Object[] files = listFiles(new FileFilter(fileFilter));
+                if (files==null) return new Directory[0];
+                else{
+                    Directory[] dirs = new Directory[files.length];
+                    for (int i=0; i<files.length; i++){
+                         dirs[i] = new Directory(files[i].toString());
+                    }
+                    return dirs;
+                }
             }
         }
         else{
@@ -556,7 +567,7 @@ public class Directory implements Comparable {
   //** getChildren
   //**************************************************************************
   /**  Used to retrieve an array of both files and folders found in this
-   *   directory.
+   *   directory. 
    */
     public List getChildren(boolean RecursiveSearch){
         return getChildren(RecursiveSearch, null, true);
@@ -619,9 +630,11 @@ public class Directory implements Comparable {
                       files.wait();
                   }
                   catch (InterruptedException e) {
+                      break;
                   }
                 }
                 obj = files.remove(0);
+                items.notifyAll();
             }
 
             if (obj==null){
@@ -651,7 +664,6 @@ public class Directory implements Comparable {
                     FileFilter fileFilter = new FileFilter(filter);
 
 
-
                   //Spawn threads used to crawl through the file system
                     long directoryID = Long.valueOf(java.util.Calendar.getInstance().getTimeInMillis() + "" + new Random().nextInt(100000)).longValue();
                     int numThreads = 20; //<-- this should be set dynamically and self tuning
@@ -668,27 +680,22 @@ public class Directory implements Comparable {
 
                     if (wait){
 
-                      //Wait for response
-                        java.util.List status = DirectorySearch.getStatus();
-                        try{
-                            while (true){
-                                synchronized (status) {
-                                    while (status.isEmpty()) {
-                                        status.wait();
-                                    }
-                                    break;
-                                }
+                        synchronized (items) {
+                            while (!items.contains(null)) {
+                              try {
+                                  items.wait();
+                              }
+                              catch (InterruptedException e) {
+                                  DirectorySearch.stop();
+                                  return items;
+                              }
                             }
-                        }
-                        catch (InterruptedException e) {
-                          // nothing to do here, it just bypasses the while loop
-                          // above so processing can complete.
-                        }
 
-                      //Remove any null values
-                        while (items.contains(null)){
                             items.remove(null);
-                        }                        
+                            items.notifyAll();
+                        }
+                        
+                        Collections.sort(items, new FileComparer(this));
                     }
 
                 }
@@ -697,7 +704,7 @@ public class Directory implements Comparable {
                 return items;
         
         
-            }
+            }//end recursive search
             else{
                 List results = new LinkedList();
                 Object[] files = listFiles(new FileFilter(filter));
@@ -729,7 +736,7 @@ public class Directory implements Comparable {
                              results.add(new File(file));
                         }
                     }
-                    Collections.sort(results, new FileComparer());
+                    Collections.sort(results, new FileComparer(this));
                     if (!wait) results.add(null);
                     return results;                                        
                 }
@@ -904,7 +911,7 @@ public class Directory implements Comparable {
 
 
       //Sort the list
-        Collections.sort(files, new FileComparer());
+        Collections.sort(files, new FileComparer(null));
 
       //Convert the list to an array
         Object[] arr = new Object[files.size()];
@@ -1155,8 +1162,9 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** useCache
   //**************************************************************************
-  /**  Used to specify whether to cache results from a directory search. */
-    
+  /**  Used to specify whether to cache results from a directory search. 
+   *  @deprecated This method is no longer reliable and should not be used.
+   */
     public void useCache(boolean useCache){
         this.useCache = useCache;
     }
@@ -1545,25 +1553,57 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** FileComparer Class
   //**************************************************************************
-  /**  Used to sort a vector or list containing files/folders in alphabetical 
-   *   order. 
+  /**  Used to sort a list containing files/folders in alphabetical order.
+   *   Note that directories are listed first. 
    */
     private class FileComparer implements Comparator {
 
+        private int z;
+
+        public FileComparer(Directory dir){
+            if (dir==null) z = 0;            
+            else z = dir.toString().replace("\\", "/").length();
+        }
+
         public final int compare(Object a, Object b){
+
             String x = a.toString().toUpperCase();
             String y = b.toString().toUpperCase();
-            x = x.replace("\\", "/");
-            y = y.replace("\\", "/");
-            if (x.endsWith("/") && !y.endsWith("/")){
-                return -1;
-            }
-            else if (!x.endsWith("/") && y.endsWith("/")){
-                return 1;
+            x = x.replace("\\", "/").substring(z);
+            y = y.replace("\\", "/").substring(z);
+
+
+          //Check whether a or b is a file in the root directory.
+            if (!x.contains("/") || !y.contains("/")){
+
+              //If both a and b are files, compare file names. Use a multiplier
+              //to ensure that the file falls toward the end of the list.
+                if (!x.contains("/") && !y.contains("/")){
+                    return (x.compareTo(y)) * 10000; 
+                }
+                else{
+                    return 100000;
+                }
             }
             else{
-                return x.compareTo(y);
+              //Niether a or b are in the root directory
+
+
+              //Check whether a and b are in the same directory
+                String dir1 = x.substring(0, x.lastIndexOf("/"));
+                String dir2 = y.substring(0, y.lastIndexOf("/"));
+
+                if (!dir1.equals(dir2)){
+                    return dir1.compareTo(dir2);
+                }
+                else{
+
+                  //a and b are in the same directory
+
+                    return x.compareTo(y);
+                }
             }
+            
 
         }
         
@@ -1580,7 +1620,7 @@ public class Directory implements Comparable {
 //******************************************************************************
 /**
  *   Used to filter files and file names using regular expressions or java.io
- *   FileFilters
+ *   FileFilters. Note that directories are always returned.
  *
  ******************************************************************************/
 
@@ -1900,6 +1940,7 @@ class DirectorySearch implements Runnable {
             synchronized(vars){
                 vars.put("startTime", getStartTime());
                 vars.put("root", directory);
+                vars.notifyAll();
             }            
         }
 
