@@ -110,18 +110,10 @@ public class Response {
   //** getText
   //**************************************************************************
   /**  Used read through the entire response stream and cast it to a string.
-   *   The string is encoded using ISO-8859-1 character encoding.
+   *   The string is encoded using UTF-8 character encoding.
    */
     public String getText(){
-        try{
-            return getText("ISO-8859-1"); 
-        }
-        catch(Exception e){}
-        try{
-            return getBytes(true).toString();
-        }
-        catch(Exception e){}
-        return null;
+        return getText("UTF-8");
     }
     
     
@@ -183,7 +175,12 @@ public class Response {
    *  @param deflate Option to decompress a gzip encoded response
    */
     public ByteArrayOutputStream getBytes(boolean deflate){
+        return getBytes(this.getInputStream(), deflate);
+    }
 
+
+
+    private ByteArrayOutputStream getBytes(InputStream inputStream, boolean deflate){
         ByteArrayOutputStream bas = new ByteArrayOutputStream();
         String encoding = this.getHeader("Content-Encoding");
         if (deflate && encoding!=null){
@@ -194,7 +191,7 @@ public class Response {
                 int len;
 
                 try{
-                    gzipInputStream = new GZIPInputStream(this.getInputStream());
+                    gzipInputStream = new GZIPInputStream(inputStream);
                     while ((len = gzipInputStream.read(buf)) > 0) {
                         bas.write(buf, 0, len);
                     }
@@ -216,12 +213,12 @@ public class Response {
         }
         else{
 
-            InputStream inputStream = null;
+            //InputStream inputStream = null;
             byte[] buf = new byte[1024];
             int len=0;
 
             try{
-                inputStream = conn.getInputStream();
+                //inputStream = conn.getInputStream();
                 while((len=inputStream.read(buf,0,1024))>-1) {
                     bas.write(buf,0,len);
                 }
@@ -281,6 +278,35 @@ public class Response {
         catch(Exception e){
             return null;
         }        
+    }
+
+  //**************************************************************************
+  //** getErrorMessage
+  //**************************************************************************
+  /**  Used read through the entire error stream and cast it to a string.
+   *   The string is encoded using UTF-8 character encoding.
+   */
+    public String getErrorMessage(){
+        return getErrorMessage("UTF-8");
+    }
+
+
+  //**************************************************************************
+  //** getErrorMessage
+  //**************************************************************************
+  /**  Used read through the entire error stream and cast it to a string.
+   *
+   *   @param charsetName Name of the character encoding used to read the file.
+   *   Examples include UTF-8 and ISO-8859-1
+   */
+    public String getErrorMessage(String charsetName){
+        try{
+            return getBytes(getErrorStream(), true).toString(charsetName);
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+        return null;
     }
 
 

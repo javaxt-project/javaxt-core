@@ -215,10 +215,15 @@ public class URL {
   //**************************************************************************
   //** getParameter
   //************************************************************************** 
-  /**  Used to retrieve the value of a specific variable supplied in the query 
-   *   string.
-   *   @param key Query string parameter name. Performs a case insensitive
+  /** Used to retrieve the value of a specific variable supplied in the query 
+   *  string.
+   *
+   *  @param key Query string parameter name. Performs a case insensitive
    *   search for the keyword.
+   *
+   *  @return Returns a comma delimited list of values associated with the
+   *  given key. Returns a zero length string if the key is not found or if
+   *  the value is null.
    */ 
     public String getParameter(String key){
         StringBuffer str = new StringBuffer();

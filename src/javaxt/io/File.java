@@ -501,7 +501,7 @@ public class File implements Comparable {
    */
     public String getText(){
         try{
-            return getText("UTF-8"); //ISO-8859-1
+            return getText("UTF-8");
         }
         catch(Exception e){}
         try{
