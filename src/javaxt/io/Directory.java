@@ -414,29 +414,28 @@ public class Directory implements Comparable {
               //Get list of all the files and folders in the directory
                 List items = getChildren(true, filter, false);
                 ArrayList<File> files = new ArrayList<File>();
-                Object item;
-                while (true){
-                    synchronized (items) {
-                        while (items.isEmpty()) {
-                          try {
+                try {
+                    Object item;
+                    while (true){
+                        synchronized (items) {
+                            while (items.isEmpty()) {
                               items.wait();
-                          }
-                          catch (InterruptedException e) {
-                              break;
-                          }
+                            }
+                            item = items.remove(0);
+                            items.notifyAll();
                         }
-                        item = items.remove(0);
-                        items.notifyAll();
-                    }
 
-                    if (item==null){
-                        break;
-                    }
-                    else{
-                        if (item instanceof File){
-                            files.add((File) item);
+                        if (item==null){
+                            break;
+                        }
+                        else{
+                            if (item instanceof File){
+                                files.add((File) item);
+                            }
                         }
                     }
+                }
+                catch (InterruptedException e) {
                 }
 
               //Sort the list
@@ -495,29 +494,28 @@ public class Directory implements Comparable {
               //Get list of all the files and folders in the directory
                 List items = getChildren(true, null, false);
                 ArrayList<Directory> directories = new ArrayList<Directory>();
-                Object item;
-                while (true){
-                    synchronized (items) {
-                        while (items.isEmpty()) {
-                          try {
+                try {
+                    Object item;
+                    while (true){
+                        synchronized (items) {
+                            while (items.isEmpty()) {
                               items.wait();
-                          }
-                          catch (InterruptedException e) {
-                              break;
-                          }
+                            }
+                            item = items.remove(0);
+                            items.notifyAll();
                         }
-                        item = items.remove(0);
-                        items.notifyAll();
-                    }
 
-                    if (item==null){
-                        break;
-                    }
-                    else{
-                        if (item instanceof Directory){
-                            directories.add((Directory) item);
+                        if (item==null){
+                            break;
+                        }
+                        else{
+                            if (item instanceof Directory){
+                                directories.add((Directory) item);
+                            }
                         }
                     }
+                }
+                catch (InterruptedException e) {
                 }
                 return directories.toArray(new Directory[directories.size()]);
                 
