@@ -166,18 +166,11 @@ public class Connection {
   /** Used to execute a prepared sql statement (e.g. "delete from my_table").
    *  Returns a boolean to indicate whether the command was successful.
    */
-    public boolean execute(String sql){
-        try{
-            PreparedStatement preparedStmt = Conn.prepareStatement(sql);
-            preparedStmt.execute();
-            preparedStmt.close();
-            preparedStmt = null;
-            return true;
-        }
-        catch(Exception e){
-            System.out.println(e.toString() + "\r\nSQL: " + sql);
-            return false;
-        }
+    public void execute(String sql) throws java.sql.SQLException {
+        PreparedStatement preparedStmt = Conn.prepareStatement(sql);
+        preparedStmt.execute();
+        preparedStmt.close();
+        preparedStmt = null;
     } 
     
     
@@ -186,7 +179,7 @@ public class Connection {
   //**************************************************************************
   /** Used to explicitely commit changes made to the database. */
     
-    public void commit(){
+    public void commit() throws java.sql.SQLException {
         execute("COMMIT");
     }
     

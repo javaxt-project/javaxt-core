@@ -1,4 +1,5 @@
 package javaxt.sql;
+import java.sql.SQLException;
 
 //******************************************************************************
 //**  Recordset Class
@@ -127,7 +128,7 @@ public class Recordset {
    *   @param sql SQL Query
    *   @param conn An active connection to the database.
    */    
-    public java.sql.ResultSet open(String sql, Connection conn){
+    public java.sql.ResultSet open(String sql, Connection conn) throws SQLException {
         return open(sql,conn,true);
     }
     
@@ -141,7 +142,7 @@ public class Recordset {
    *   @param Connection An active connection to the database.
    *   @param ReadOnly Set whether the database connection is r/o or r/w
    */
-    public java.sql.ResultSet open(String sqlString, Connection Connection, boolean ReadOnly){
+    public java.sql.ResultSet open(String sqlString, Connection Connection, boolean ReadOnly) throws SQLException {
 
         rs = null;
         stmt = null;
@@ -153,162 +154,166 @@ public class Recordset {
 
 
         
-        try{
-            startTime = java.util.Calendar.getInstance().getTimeInMillis();
-            Conn = Connection.getConnection();
-            
-            
-          //Wrap table and column names in quotes (Special Case for PostgreSQL)
-            /*
-            if (Connection.getDatabase().getDriver().equals("PostgreSQL")){
-                try{
-                    Parser sqlParser = new Parser(sqlString);
-                    boolean wrapElements = false;
-                    String[] exposedElements = sqlParser.getExposedDataElements();
-                    for (int i=0; i<exposedElements.length; i++){
-                        String element = exposedElements[i];
-                        if (javaxt.utils.string.hasUpperCase(element)){
-                            wrapElements = true;
-                            break;
-                        }                    
-                    }
-                    wrapElements = false;
-                    if (wrapElements){
-                        sqlString = sqlParser.addQuotes();
-                        //System.out.println(sqlString);
+        startTime = java.util.Calendar.getInstance().getTimeInMillis();
+        Conn = Connection.getConnection();
+
+
+      //Wrap table and column names in quotes (Special Case for PostgreSQL)
+        /*
+        if (Connection.getDatabase().getDriver().equals("PostgreSQL")){
+            try{
+                Parser sqlParser = new Parser(sqlString);
+                boolean wrapElements = false;
+                String[] exposedElements = sqlParser.getExposedDataElements();
+                for (int i=0; i<exposedElements.length; i++){
+                    String element = exposedElements[i];
+                    if (javaxt.utils.string.hasUpperCase(element)){
+                        wrapElements = true;
+                        break;
                     }
                 }
-                catch(Exception e){
-                    System.out.println("WARNING: Failed to parse SQL");
-                    e.printStackTrace();
+                wrapElements = false;
+                if (wrapElements){
+                    sqlString = sqlParser.addQuotes();
+                    //System.out.println(sqlString);
                 }
             }
-            */
-            
-            
-            
-          //Read-Only Connection
-            if (ReadOnly){
-                
-                try{
+            catch(Exception e){
+                System.out.println("WARNING: Failed to parse SQL");
+                e.printStackTrace();
+            }
+        }
+        */
 
-                  //Set AutoCommit to false when fetchSize is specified.
-                  //Otherwise it will fetch back all the records at once
+
+
+      //Read-Only Connection
+        if (ReadOnly){
+
+            try{
+
+              //Set AutoCommit to false when fetchSize is specified.
+              //Otherwise it will fetch back all the records at once
+                if (fetchSize!=null) Conn.setAutoCommit(false);
+
+              //DB2 Connection
+                if (Connection.getDatabase().getDriver().equals("DB2")){
+                    stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY, rs.CONCUR_READ_ONLY);
+                }
+
+              //Default Connection
+                else{
+                    stmt = Conn.createStatement(rs.TYPE_SCROLL_INSENSITIVE, rs.CONCUR_READ_ONLY);
+                }
+
+                if (fetchSize!=null) stmt.setFetchSize(fetchSize);
+                rs = stmt.executeQuery(sqlString);
+                State = 1;
+            }
+            catch(Exception e){
+                //System.out.println("ERROR Open RecordSet: " + e.toString());
+            }
+            if (State!=1){
+                try{
                     if (fetchSize!=null) Conn.setAutoCommit(false);
-                    
-                  //DB2 Connection
-                    if (Connection.getDatabase().getDriver().equals("DB2")){
-                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY, rs.CONCUR_READ_ONLY);
-                    }
-                    
-                  //Default Connection
-                    else{
-                        stmt = Conn.createStatement(rs.TYPE_SCROLL_INSENSITIVE, rs.CONCUR_READ_ONLY);
-                    }
-                                        
+                    stmt = Conn.createStatement();
+                    if (fetchSize!=null) stmt.setFetchSize(fetchSize);
+                    rs = stmt.executeQuery(sqlString);
+                    State = 1;
+
+                }
+                catch(SQLException e){
+                    //System.out.println("ERROR Open RecordSet: " + e.toString());
+                    throw e;
+                }
+            }
+
+        }
+
+      //Read-Write Connection
+        else{
+            try{
+
+                Driver driver = Connection.getDatabase().getDriver();
+
+              //SYBASE Connection
+                if (driver.equals("SYBASE")){
+                    if (fetchSize!=null) Conn.setAutoCommit(false);
+                    stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE);
                     if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                     rs = stmt.executeQuery(sqlString);
                     State = 1;
                 }
-                catch(Exception e){
-                    //System.out.println("ERROR Open RecordSet: " + e.toString());
+
+              //SQLite Connection
+                else if (driver.equals("SQLite")){
+                    if (fetchSize!=null) Conn.setAutoCommit(false);
+                    stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_READ_ONLY); //xerial only seems to support this cursor
+                    if (fetchSize!=null) stmt.setFetchSize(fetchSize);
+                    rs = stmt.executeQuery(sqlString);
+                    State = 1;
                 }
-                if (State!=1){
+
+              //DB2 Connection
+                else if (driver.equals("DB2")){
+                    //System.out.println("WARNING: DB2 JDBC Driver does not currently support the insertRow() method. " +
+                    //                   "Will attempt to execute an SQL insert statement instead.");
                     try{
                         if (fetchSize!=null) Conn.setAutoCommit(false);
-                        stmt = Conn.createStatement();
+                        stmt = Conn.createStatement(rs.TYPE_SCROLL_SENSITIVE,rs.CONCUR_UPDATABLE);
                         if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                         rs = stmt.executeQuery(sqlString);
                         State = 1;
-                        
                     }
                     catch(Exception e){
-                        System.out.println("ERROR Open RecordSet: " + e.toString());
+                        //System.out.println("createStatement(rs.TYPE_SCROLL_SENSITIVE,rs.CONCUR_UPDATABLE) Error:");
+                        //System.out.println(e.toString());
+                        rs = null;
                     }
-                }
-            
-            }
-            
-          //Read-Write Connection
-            else{
-                try{
-
-                    Driver driver = Connection.getDatabase().getDriver();
-                    
-                  //SYBASE Connection
-                    if (driver.equals("SYBASE")){
-                        if (fetchSize!=null) Conn.setAutoCommit(false);
-                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE);
-                        if (fetchSize!=null) stmt.setFetchSize(fetchSize);
-                        rs = stmt.executeQuery(sqlString);
-                        State = 1;
-                    }
-
-                  //SQLite Connection
-                    else if (driver.equals("SQLite")){
-                        if (fetchSize!=null) Conn.setAutoCommit(false);
-                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_READ_ONLY); //xerial only seems to support this cursor
-                        if (fetchSize!=null) stmt.setFetchSize(fetchSize);
-                        rs = stmt.executeQuery(sqlString);
-                        State = 1;
-                    }
-                    
-                  //DB2 Connection
-                    else if (driver.equals("DB2")){
-                        //System.out.println("WARNING: DB2 JDBC Driver does not currently support the insertRow() method. " +
-                        //                   "Will attempt to execute an SQL insert statement instead.");
+                    if (rs==null){
                         try{
                             if (fetchSize!=null) Conn.setAutoCommit(false);
-                            stmt = Conn.createStatement(rs.TYPE_SCROLL_SENSITIVE,rs.CONCUR_UPDATABLE);
+                            stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE);
                             if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                             rs = stmt.executeQuery(sqlString);
                             State = 1;
                         }
                         catch(Exception e){
-                            //System.out.println("createStatement(rs.TYPE_SCROLL_SENSITIVE,rs.CONCUR_UPDATABLE) Error:");
+                            //System.out.println("createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE) Error:");
                             //System.out.println(e.toString());
-                            rs = null;
                         }
-                        if (rs==null){
-                            try{
-                                if (fetchSize!=null) Conn.setAutoCommit(false);
-                                stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE);
-                                if (fetchSize!=null) stmt.setFetchSize(fetchSize);
-                                rs = stmt.executeQuery(sqlString);
-                                State = 1;
-                            }
-                            catch(Exception e){
-                                //System.out.println("createStatement(rs.TYPE_FORWARD_ONLY,rs.CONCUR_UPDATABLE) Error:");
-                                //System.out.println(e.toString());
-                            }
-                        }
-
                     }
-                    
-                  //Default Connection
-                    else{
-                        if (fetchSize!=null) Conn.setAutoCommit(false);
-                        stmt = Conn.createStatement(rs.TYPE_SCROLL_SENSITIVE,rs.CONCUR_UPDATABLE);
-                        if (fetchSize!=null) stmt.setFetchSize(fetchSize);
-                        rs = stmt.executeQuery(sqlString);
-                        /*
-                        stmt.execute(sqlString, java.sql.Statement.RETURN_GENERATED_KEYS);
-                        rs = stmt.getResultSet();
-                        */
-                        State = 1;
-                    }
-                    
 
                 }
-                catch(Exception e){System.out.println("ERROR Open RecordSet (RW): " + e.toString());}
-                
-                
+
+              //Default Connection
+                else{
+                    if (fetchSize!=null) Conn.setAutoCommit(false);
+                    stmt = Conn.createStatement(rs.TYPE_SCROLL_SENSITIVE,rs.CONCUR_UPDATABLE);
+                    if (fetchSize!=null) stmt.setFetchSize(fetchSize);
+                    rs = stmt.executeQuery(sqlString);
+                    /*
+                    stmt.execute(sqlString, java.sql.Statement.RETURN_GENERATED_KEYS);
+                    rs = stmt.getResultSet();
+                    */
+                    State = 1;
+                }
+
+
             }
-            
-            
-            endTime = java.util.Calendar.getInstance().getTimeInMillis();
-            QueryResponseTime = endTime-startTime; 
-            
+            catch(SQLException e){
+                //System.out.println("ERROR Open RecordSet (RW): " + e.toString());
+                throw e;
+            }
+
+
+        }
+
+
+        endTime = java.util.Calendar.getInstance().getTimeInMillis();
+        QueryResponseTime = endTime-startTime;
+
+        try{
             
           //Create Fields 
             java.sql.ResultSetMetaData rsmd = rs.getMetaData();
@@ -367,10 +372,9 @@ public class Recordset {
             
             
         }
-        catch(Exception e){
-            //EOF = true;
-            System.out.println("ERROR Open RecordSet:");
-            e.printStackTrace();
+        catch(java.sql.SQLException e){
+            //e.printStackTrace();
+            //throw e;
         }
         
         return rs;
@@ -386,15 +390,17 @@ public class Recordset {
         if (State==1){
             try{
                 rs.close();
-                stmt.close();  
+                stmt.close();
+                State = 0;
             }
-            catch(Exception e){System.out.println("ERROR Close Recordset: " + e.toString());}
+            catch(java.sql.SQLException e){
+            }
         }
         endTime = java.util.Calendar.getInstance().getTimeInMillis();
         EllapsedTime = endTime-startTime;
     }
 
-
+  
 
   //**************************************************************************
   //** getDatabase
@@ -486,7 +492,7 @@ public class Recordset {
   //**************************************************************************  
   /** Used to add or update a record in the recordset. */
 
-    public void update(){
+    public void update() throws java.sql.SQLException {
         if (State==1){
             try{                
                 
@@ -673,9 +679,8 @@ public class Recordset {
                     //stmt.close();
                 }
             }
-            catch(Exception e){
-                System.out.println("Update ERROR: " + e.toString());
-                e.printStackTrace();
+            catch(java.sql.SQLException e){
+                throw e;
             }
         }
     }
@@ -1050,11 +1055,18 @@ public class Recordset {
         }
         catch(Exception e){
 
+            Integer numRecords = null;
+
             String sql = new Parser(sqlString).setSelect("count(*)");
             Recordset rs = new Recordset();
-            rs.open(sql, Connection);
-            Integer numRecords = rs.getValue(0).toInteger();
-            rs.close();
+            try{
+                rs.open(sql, Connection);
+                numRecords = rs.getValue(0).toInteger();
+                rs.close();
+            }
+            catch(SQLException ex){
+                rs.close();
+            }
 
             if (numRecords!=null) return numRecords;
             else return -1;
@@ -1115,5 +1127,18 @@ public class Recordset {
         
         return null;
         
+    }
+
+
+
+  //**************************************************************************
+  //** Finalize
+  //**************************************************************************
+  /** Method *should* be called by Java garbage collector once this class is
+   *  disposed.
+   */
+    protected void finalize() throws Throwable {
+       close();
+       super.finalize();
     }
 }

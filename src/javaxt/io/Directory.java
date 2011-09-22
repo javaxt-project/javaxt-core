@@ -1327,6 +1327,7 @@ public class Directory implements Comparable {
    */
     protected void finalize() throws Throwable {
        stop();
+       super.finalize();
     }
     
     
