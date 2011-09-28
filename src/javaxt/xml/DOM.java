@@ -126,9 +126,12 @@ public class DOM {
   //**************************************************************************
   //** getOuterNode
   //**************************************************************************
-    
-    public static Node getOuterNode(Document doc){
-        NodeList OuterNodes = doc.getChildNodes();
+  /** Returns the outer node for a given xml document.
+   *  @param xml A org.w3c.dom.Document
+   */
+    public static Node getOuterNode(Document xml){
+        if (xml==null) return null;
+        NodeList OuterNodes = xml.getChildNodes();
         for (int i=0; i<OuterNodes.getLength(); i++ ) {
              if (OuterNodes.item(i).getNodeType() == 1){
                  return OuterNodes.item(i);
@@ -142,14 +145,15 @@ public class DOM {
   //**************************************************************************
   //** getText
   //**************************************************************************
-  /**  Converts a DOM Document to a String */
-    
-    public static String getText(Document document){
+  /** Converts a DOM Document to a String
+   *  @param xml A org.w3c.dom.Document
+   */
+    public static String getText(Document xml){
         
         try{
             TransformerFactory factory = TransformerFactory.newInstance();
             Transformer transformer = factory.newTransformer();
-            DOMSource source = new DOMSource(document);                        
+            DOMSource source = new DOMSource(xml);
             ByteArrayOutputStream bas = new ByteArrayOutputStream();            
             StreamResult result = new StreamResult(bas);
             transformer.transform(source, result);
@@ -167,7 +171,7 @@ public class DOM {
   //**************************************************************************
   //** getText
   //**************************************************************************
-  /**  Converts a NodeList to a String */
+  /** Converts a NodeList to a String */
     
     public static String getText(NodeList nodeList){
         StringBuffer ret = new StringBuffer();
@@ -261,27 +265,20 @@ public class DOM {
   //**************************************************************************
   //** getNodeValue
   //**************************************************************************    
-    private static StringBuffer xmlTree;
+  /** Returns the value of a given node as text. If the node has children, the
+   *  method will return an xml fragment. Note that the outer node of the xml
+   *  fragment will include the input node. The outer node is provided so
+   *  that client can serialize the xml to a new DOM document.
+   */
     public static String getNodeValue(Node node){
         
         String nodeValue = "";
         
         if (hasChildren(node)) {
-            
-            /*
-            NodeList nodeList = node.getChildNodes();
-            for (int i=0; i<nodeList.getLength(); i++ ) {
-                 if (nodeList.item(i).getNodeType()==1){
-                     node = nodeList.item(i);
-                     break;
-                }            
-            }            
-            */
 
-            xmlTree = new StringBuffer();                                    
-            traverse(node);
+            StringBuffer xmlTree = new StringBuffer();
+            traverse(node, xmlTree);
             nodeValue = xmlTree.toString();
-            xmlTree = null;            
 
         }
         else{
@@ -296,20 +293,20 @@ public class DOM {
         }
     }
     
-    private static void traverse(Node tree){
+    private static void traverse(Node tree, StringBuffer xmlTree){
         if (tree.getNodeType()==1){
             String Attributes = getAttributes(tree);
             xmlTree.append("<" + tree.getNodeName() + Attributes + ">");
             if(hasChildren(tree)) {
                 
                 NodeList xmlNodeList = tree.getChildNodes();
-                for(int i=0; i<xmlNodeList.getLength(); i++){
-                        traverse(xmlNodeList.item(i));
+                for (int i=0; i<xmlNodeList.getLength(); i++){
+                    traverse(xmlNodeList.item(i), xmlTree);
                 }
 
             }
             else{
-                    xmlTree.append(tree.getTextContent());
+                xmlTree.append(tree.getTextContent());
             }
 
             xmlTree.append("</" + tree.getNodeName() + ">");  
@@ -320,9 +317,11 @@ public class DOM {
   //**************************************************************************
   //** getDocumentAttributes
   //**************************************************************************
-    
-    public static NamedNodeMap getDocumentAttributes(Document doc){
-        NodeList Definitions = doc.getChildNodes();
+  /**
+   *  @param xml A org.w3c.dom.Document
+   */
+    public static NamedNodeMap getDocumentAttributes(Document xml){
+        NodeList Definitions = xml.getChildNodes();
         for (int i=0; i<Definitions.getLength(); i++ ) {
              if (Definitions.item(i).getNodeType() == 1){
                  return Definitions.item(i).getAttributes();
@@ -330,13 +329,16 @@ public class DOM {
         }
         return null;        
     }
+
     
   //**************************************************************************
   //** getTargetNameSpace
   //**************************************************************************
-    
-    public static String getTargetNameSpace(Document doc){
-        NamedNodeMap attr = getDocumentAttributes(doc);
+  /** Returns the "targetNamespace" for a given xml document.
+   *  @param xml A org.w3c.dom.Document
+   */
+    public static String getTargetNameSpace(Document xml){
+        NamedNodeMap attr = getDocumentAttributes(xml);
         return getAttributeValue(attr,"targetNamespace");
     }
     
@@ -344,21 +346,92 @@ public class DOM {
   //**************************************************************************
   //** getNameSpaces
   //**************************************************************************
-    
-    public static java.util.HashMap getNameSpaces(Document doc){
-        java.util.HashMap Map = new java.util.HashMap();
-        NamedNodeMap attr = getDocumentAttributes(doc);
-        if (attr!=null){
-            for (int j=0; j<attr.getLength(); j++){
-                 String name = attr.item(j).getNodeName();
-                 String value = attr.item(j).getTextContent();
-                 if (name.startsWith("xmlns")){
-                     Map.put(name,value);
-                 }
-            }
-        }
-        return Map;
+  /** Returns a hashmap with all the namespaces found in a given xml document.
+   *  The hashmap key is the namespace prefix and the corresponding value is
+   *  the namespace url.
+   *
+   *  @param xml A org.w3c.dom.Document
+   */
+    public static java.util.HashMap<String, String> getNameSpaces(Document xml){
+        java.util.HashMap<String, String> namespaces = new java.util.HashMap<String, String>();
+        getNameSpaces(getOuterNode(xml), namespaces);
+        return namespaces;
     }
-    
+
+    private static void getNameSpaces(Node node, java.util.HashMap<String, String> namespaces){
+        if (node.getNodeType()==1){
+
+            NamedNodeMap attr = node.getAttributes();
+            if (attr!=null){
+                for (int j=0; j<attr.getLength(); j++){
+                     String name = attr.item(j).getNodeName();
+                     String value = attr.item(j).getTextContent();
+                     if (name.startsWith("xmlns:")){
+                         name = name.substring(6);
+                         namespaces.put(name, value);
+                     }
+                }
+            }
+
+
+            if (hasChildren(node)) {
+                NodeList childNodes = node.getChildNodes();
+                for (int i=0; i<childNodes.getLength(); i++){
+                    getNameSpaces(childNodes.item(i), namespaces);
+                }
+            }
+
+        }
+    }
+
+
+
+  //**************************************************************************
+  //** getElementsByTagName
+  //**************************************************************************
+  /** Returns an array of nodes that match a given tagName (node name). The
+   *  results will include all nodes that match, regardless of namespace. To
+   *  narrow the results to a specific namespace, simply include the namespace
+   *  prefix in the tag name (e.g. "t:Contact").
+   */
+    public static org.w3c.dom.Node[] getElementsByTagName(String tagName, Document xml){
+        return getElementsByTagName(tagName, getOuterNode(xml));
+    }
+
+  //**************************************************************************
+  //** getElementsByTagName
+  //**************************************************************************
+  /** Returns an array of nodes that match a given tagName (node name). The
+   *  results will include all nodes that match, regardless of namespace. To
+   *  narrow the results to a specific namespace, simply include the namespace
+   *  prefix in the tag name (e.g. "t:Contact").
+   */
+    public static org.w3c.dom.Node[] getElementsByTagName(String tagName, Node node){
+        java.util.ArrayList<Node> nodes = new java.util.ArrayList<Node>();
+        getElementsByTagName(tagName, node, nodes);
+        return nodes.toArray(new org.w3c.dom.Node[nodes.size()]);
+    }
+
+    private static void getElementsByTagName(String tagName, Node node, java.util.ArrayList<Node> nodes){
+        if (node.getNodeType()==1){
+
+            String nodeName = node.getNodeName().trim();
+            if (nodeName.contains(":") && !tagName.contains(":")){
+                nodeName = nodeName.substring(nodeName.indexOf(":")+1);
+            }
+
+            if (nodeName.equalsIgnoreCase(tagName)){
+                nodes.add(node);
+            }
+
+            if (hasChildren(node)) {
+                NodeList childNodes = node.getChildNodes();
+                for (int i=0; i<childNodes.getLength(); i++){
+                    getElementsByTagName(tagName, childNodes.item(i), nodes);
+                }
+            }
+
+        }
+    }
 
 }
