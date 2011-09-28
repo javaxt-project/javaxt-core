@@ -2,7 +2,7 @@ package javaxt.webservices;
 import org.w3c.dom.*;
 
 //******************************************************************************
-//**  Parameters Class - By peter.borissow
+//**  Parameters Class
 //******************************************************************************
 /**
  *   A convienance class used to represent multiple parameters.

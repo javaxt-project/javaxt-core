@@ -2,10 +2,10 @@ package javaxt.webservices;
 import org.w3c.dom.*;
 
 //******************************************************************************
-//**  Method Class - By peter.borissow
+//**  Method Class
 //******************************************************************************
 /**
- *   Enter class description here
+ *   Used to represent a web method.
  *
  ******************************************************************************/
 

@@ -1,7 +1,7 @@
 package javaxt.webservices;
 
 //******************************************************************************
-//**  Option Class - By peter.borissow
+//**  Option Class
 //******************************************************************************
 /**
  *   Enter class description here

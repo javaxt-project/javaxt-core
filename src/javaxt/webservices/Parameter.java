@@ -2,10 +2,10 @@ package javaxt.webservices;
 import org.w3c.dom.*;
 
 //******************************************************************************
-//**  Parameter Class - By peter.borissow
+//**  Parameter Class
 //******************************************************************************
 /**
- *   Enter class description here
+ *   Used to represent a parameter associated with a web method.
  *
  ******************************************************************************/
 
