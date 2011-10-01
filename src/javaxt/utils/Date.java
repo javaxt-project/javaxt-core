@@ -75,24 +75,14 @@ public class Date {
 
 
 
-
-    
-  //**************************************************************************
-  //** Constructor
-  //**************************************************************************
-  /**  Creates a new instance of date using a String representation of a date.
-   */
-    public Date(String date){
-        String[] Format = new String[]
-        {
-            
+    private static String[] SupportedFormats = new String[] {
 
          "EEE, d MMM yyyy HH:mm:ss z",  // Mon, 7 Jun 1976 13:02:09 EST
          "EEE, dd MMM yyyy HH:mm:ss z", // Mon, 07 Jun 1976 13:02:09 EST
-         
+
          "EEE MMM dd HH:mm:ss z yyyy",  // Mon Jun 07 13:02:09 EST 1976
          "EEE MMM d HH:mm:ss z yyyy",   // Mon Jun 7 13:02:09 EST 1976
-         
+
          "EEE MMM dd HH:mm:ss yyyy",    // Mon Jun 07 13:02:09 1976
          "EEE MMM d HH:mm:ss yyyy",     // Mon Jun 7 13:02:09 1976
 
@@ -107,15 +97,15 @@ public class Date {
 
          "yyyy-MM-dd-HH:mm:ss.SSS",     // 1976-06-07-01:02:09.000
          "yyyy-MM-dd-HH:mm:ss",         // 1976-06-07-01:02:09
-         
+
        //"yyyy-MM-ddTHH:mm:ss.SSS",     // 1976-06-07T01:02:09.000
        //"yyyy-MM-ddTHH:mm:ss",         // 1976-06-07T01:02:09
-         
+
          "dd-MMM-yyyy h:mm:ss a",       // 07-Jun-1976 1:02:09 PM
          "dd-MMM-yy h:mm:ss a",         // 07-Jun-76 1:02:09 PM
        //"d-MMM-yy h:mm:ss a",          // 7-Jun-76 1:02:09 PM
 
-         
+
          "yyyy-MM-dd HH:mmZ",           // 1976-06-07T13:02-0500
          "yyyy-MM-dd HH:mm",            // 1976-06-07T13:02
          "yyyy-MM-dd",                  // 1976-06-07
@@ -123,58 +113,68 @@ public class Date {
          "dd-MMM-yy",                   // 07-Jun-76
        //"d-MMM-yy",                    // 7-Jun-76
          "dd-MMM-yyyy",                 // 07-Jun-1976
-         
+
          "MMMMMM d, yyyy",              // June 7, 1976
 
          "M/d/yy h:mm:ss a",            // 6/7/1976 1:02:09 PM
          "M/d/yy h:mm a",               // 6/7/1976 1:02 PM
-         
+
          "MM/dd/yyyy HH:mm:ss",         // 06/07/1976 13:02:09
          "MM/dd/yyyy HH:mm",            // 06/07/1976 13:02
 
-         "M/d/yy",                      // 6/7/76 
-         "MM/dd/yyyy",                  // 06/07/1976  
+         "M/d/yy",                      // 6/7/76
+         "MM/dd/yyyy",                  // 06/07/1976
          "M/d/yyyy",                    // 6/7/1976
 
          "yyyyMMddHHmmssSSS",           // 19760607130200000
          "yyyyMMddHHmmss",              // 19760607130200
          "yyyyMMdd"                     // 19760607
 
-        };
+    };
+    
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /**  Creates a new instance of date using a String representation of a date.
+   */
+    public Date(String date){
 
-
-      //Special Case: Java fails to parse the "T" in strings like
-      //"1976-06-07T01:02:09.000" and "1976-06-07T13:02-0500"
-        if (date.length()>="1976-06-07T13:02".length()){
-            if (date.substring(10, 11).equalsIgnoreCase("T")){
-                date = date.replace("T", " ");
-            }
-        }
-
-        
         java.util.Date d = null;
-        for (int i=0; i<Format.length; i++){
+        try{
 
-          //Special Case: Java fails to parse the "Z" in "1976-06-07 00:00:00Z"
-            if (date.endsWith("Z") && Format[i].endsWith("Z")){
-                date = date.substring(0, date.length()-1) + "UTC";
+          //Special Case: Java fails to parse the "T" in strings like
+          //"1976-06-07T01:02:09.000" and "1976-06-07T13:02-0500"
+            if (date.length()>="1976-06-07T13:02".length()){
+                if (date.substring(10, 11).equalsIgnoreCase("T")){
+                    date = date.replace("T", " ");
+                }
             }
 
-            d = ParseDate(date, Format[i]);
-            if (d!=null) {
-                //System.out.println(Format[i]);
-                currDate = d;
-                break;
+
+            for (int i=0; i<SupportedFormats.length; i++){
+
+              //Special Case: Java fails to parse the "Z" in "1976-06-07 00:00:00Z"
+                if (date.endsWith("Z") && SupportedFormats[i].endsWith("Z")){
+                    date = date.substring(0, date.length()-1) + "UTC";
+                }
+
+                d = ParseDate(date, SupportedFormats[i]);
+                if (d!=null) {
+                    //System.out.println(Format[i]);
+                    currDate = d;
+                    break;
+                }
             }
-        }
         
+        }
+        catch(Exception e){
+        }
         
         if (d==null){ //throw exception?
             currDate = new java.util.Date();
             parserFailed = true;
         }
 
-        
     }
     
     

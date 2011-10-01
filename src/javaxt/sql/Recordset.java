@@ -153,7 +153,10 @@ public class Recordset {
         this.isReadOnly = ReadOnly;
 
 
-        
+        if (Connection==null) throw new java.sql.SQLException("Connection is null.");
+        if (Connection.isClosed()) throw new java.sql.SQLException("Connection is closed.");
+
+
         startTime = java.util.Calendar.getInstance().getTimeInMillis();
         Conn = Connection.getConnection();
 
