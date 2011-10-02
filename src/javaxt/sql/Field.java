@@ -22,11 +22,16 @@ public class Field {
   /** Returns the name of the column for this field. */
     
     public Value getValue(){
+        if (Value==null) Value = new Value(null);
         return Value;
     }
 
     public String getTable(){
         return Table;
+    }
+
+    public boolean isDirty(){
+        return RequiresUpdate;
     }
     
     

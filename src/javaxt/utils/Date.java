@@ -350,14 +350,17 @@ public class Date {
   //** equals
   //**************************************************************************
   /** Used to compare dates and determine whether they are equal.
-   *  @param obj Accepts either a java.util.Date or a javaxt.utils.Date
+   *  @param obj Accepts a java.util.Date, a javaxt.utils.Date, or a String.
    */
     public boolean equals(Object obj){
         if (obj instanceof javaxt.utils.Date){
-            return ((javaxt.utils.Date) obj).getDate().equals(this.currDate);
+            return ((javaxt.utils.Date) obj).getDate().equals(currDate);
         }
         else if (obj instanceof java.util.Date){
-            return ((java.util.Date) obj).equals(this.currDate);
+            return ((java.util.Date) obj).equals(currDate);
+        }
+        else if (obj instanceof String){
+            return new javaxt.utils.Date((String) obj).equals(currDate);
         }
         else{
             return false;

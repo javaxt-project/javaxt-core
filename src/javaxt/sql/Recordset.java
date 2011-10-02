@@ -474,9 +474,6 @@ public class Recordset {
               //to store new values...
                 Driver driver = Connection.getDatabase().getDriver();
                 if (driver.equals("DB2") || driver.equals("SQLite")){
-                    for (int i=0; i<Fields.length; i++){
-                         //Fields[i].Value = null;
-                    }
                 }
                 else{ //for all other cases...
                     rs.moveToInsertRow();
@@ -574,6 +571,7 @@ public class Recordset {
                 }
                 else{
 
+                    if (!isDirty()) return;
 
                     java.util.ArrayList<String> cols = new java.util.ArrayList<String>();
                     for (int i=0; i<Fields.length; i++){
@@ -666,7 +664,7 @@ public class Recordset {
                         }
                     }
                     stmt.executeUpdate();
-
+                    
 
 
                     if (InsertOnUpdate){
@@ -780,33 +778,55 @@ public class Recordset {
         }
         return new Value(null);
     }
+
+
+    public boolean isDirty(){
+        for (Field field : Fields){
+            if (field.isDirty()) return true;
+        }
+        return false;
+    }
     
 
   //**************************************************************************
   //** SetValue
   //**************************************************************************  
     
-    public void setValue(String FieldName, Object FieldValue){
+    public void setValue(String FieldName, Value FieldValue){
         if (State==1){
             for (int i=0; i<Fields.length; i++ ) {
                  String name = Fields[i].Name;
                  if (name.equalsIgnoreCase(FieldName)){
-                     Fields[i].Value = new Value(FieldValue);
-                     Fields[i].RequiresUpdate = true;
+                     if (FieldValue==null) FieldValue = new Value(null);
+
+                   //Update the Field Value as needed.
+                     if (!Fields[i].getValue().equals(FieldValue)){
+                         Fields[i].Value = FieldValue;
+                         Fields[i].RequiresUpdate = true;
+                     }
                      break;
                  }
             }
-        }
+        }        
     }
-    
-    
+
+
+  //**************************************************************************
+  //** SetValue
+  //**************************************************************************
+  /** Set Value with an Object value.  */
+
+    public void setValue(String FieldName, Object FieldValue){
+        setValue(FieldName, new Value(FieldValue));
+    }
+
   //**************************************************************************
   //** SetValue
   //**************************************************************************  
   /**  Set Value with a Boolean value */
     
     public void setValue(String FieldName, boolean FieldValue){
-        setValue(FieldName, "" + FieldValue + "");
+        setValue(FieldName, new Value(FieldValue));
     }
     
   //**************************************************************************
@@ -815,7 +835,7 @@ public class Recordset {
   /**  Set Value with a Long value */
     
     public void setValue(String FieldName, long FieldValue){
-        setValue(FieldName, "" + FieldValue + "");
+        setValue(FieldName, new Value(FieldValue));
     }
 
   //**************************************************************************
@@ -824,7 +844,7 @@ public class Recordset {
   /**  Set Value with an Integer value */
     
     public void setValue(String FieldName, int FieldValue){
-        setValue(FieldName, "" + FieldValue + "");
+        setValue(FieldName, new Value(FieldValue));
     }
     
   //**************************************************************************
@@ -833,10 +853,17 @@ public class Recordset {
   /**  Set Value with a Double value */
     
     public void setValue(String FieldName, double FieldValue){
-        setValue(FieldName, "" + FieldValue + "");
+        setValue(FieldName, new Value(FieldValue));
     }
 
+  //**************************************************************************
+  //** SetValue
+  //**************************************************************************
+  /**  Set Value with a Short value */
 
+    public void setValue(String FieldName, short FieldValue){
+        setValue(FieldName, new Value(FieldValue));
+    }
 
   //**************************************************************************
   //** MoveNext
@@ -857,6 +884,7 @@ public class Recordset {
                     for (int i=1; i<=Fields.length; i++) {
                         Field Field = Fields[i-1];
                         Field.Value = new Value(rs.getString(i));
+                        Field.RequiresUpdate = false;
                     }
                     x+=1;
                     return true;
@@ -917,11 +945,12 @@ public class Recordset {
         catch(Exception e){}
         
         
-        //Update Field
+      //Update Field
         try{
             for (int i=1; i<=Fields.length; i++) {
                  Field Field = Fields[i-1];
                  Field.Value = new Value(rs.getString(i));
+                 Field.RequiresUpdate = false;
             }   
         }
         catch(Exception e){}

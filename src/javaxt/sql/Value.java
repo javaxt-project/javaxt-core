@@ -145,4 +145,15 @@ public class Value {
     
     
 
+    public boolean equals(Object obj){
+        if (obj instanceof Value) obj = ((Value) obj).toObject();
+        if (obj==null) {
+            if (value==null) return true;
+            else return false;
+        }
+        else{
+            if (value==null) return false;
+        }
+        return obj.equals(value);
+    }
 }
