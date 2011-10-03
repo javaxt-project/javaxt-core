@@ -479,6 +479,11 @@ public class Recordset {
                     rs.moveToInsertRow();
                 }
                 InsertOnUpdate = true;
+                for (int i=1; i<=Fields.length; i++) {
+                    Field Field = Fields[i-1];
+                    Field.Value = null;
+                    Field.RequiresUpdate = false;
+                }
             }
             catch(Exception e){
                 System.out.println("AddNew ERROR: " + e.toString());
