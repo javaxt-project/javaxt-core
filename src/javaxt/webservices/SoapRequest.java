@@ -157,6 +157,26 @@ public class SoapRequest {
 
 
   //**************************************************************************
+  //** setHeader
+  //**************************************************************************
+  /**  Used to set a Request Property in the HTTP header (e.g. "User-Agent").
+   */
+    public void setHeader(String key, String value){
+        request.setHeader(key, value);
+    }
+
+    
+  //**************************************************************************
+  //** addHeader
+  //**************************************************************************
+  /**  Used to add a Request Property to the HTTP header (e.g. "User-Agent").
+   */
+    public void addHeader(String key, String value){
+        request.addHeader(key, value);
+    }
+
+
+  //**************************************************************************
   //** getResponse
   //**************************************************************************
   /** Used to execute the web service method specified in the constructor and

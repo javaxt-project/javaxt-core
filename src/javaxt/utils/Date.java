@@ -319,6 +319,14 @@ public class Date {
         setTimeZone(timeZone, false);
     }
     
+    public void setTimeZone(java.util.TimeZone timeZone){
+        if (timeZone==null) return;
+        this.timeZone = timeZone;
+    }
+
+    public java.util.TimeZone getTimeZone(){
+        return this.timeZone;
+    }
     
   //**************************************************************************
   //** toString

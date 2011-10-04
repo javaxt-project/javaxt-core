@@ -413,7 +413,7 @@ public class DOM {
     }
 
     private static void getElementsByTagName(String tagName, Node node, java.util.ArrayList<Node> nodes){
-        if (node.getNodeType()==1){
+        if (node!=null && node.getNodeType()==1){
 
             String nodeName = node.getNodeName().trim();
             if (nodeName.contains(":") && !tagName.contains(":")){
