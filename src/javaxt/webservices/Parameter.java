@@ -42,8 +42,11 @@ public class Parameter {
       //Update Value as Needed
         if (!isComplex() && Value.trim().length()>0){
             if (Type.equalsIgnoreCase("datetime")){
-                javaxt.utils.Date d = new javaxt.utils.Date(Value);
-                setValue(d.getDate());
+                try{
+                    javaxt.utils.Date d = new javaxt.utils.Date(Value);
+                    setValue(d.getDate());
+                }
+                catch(java.text.ParseException e){}
                 Value = this.Value;
             }
             if (Type.equalsIgnoreCase("boolean")){

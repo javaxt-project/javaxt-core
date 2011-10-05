@@ -4,17 +4,15 @@ package javaxt.utils;
 //**  Value Class
 //******************************************************************************
 /**
- *   A general purpose wrapper for Objects stored in an Array. This class is
- *   used to store/retrieve strings, integers, doubles, booleans, etc. in
- *   HashMaps and Lists.
+ *   A general purpose wrapper for Objects. The value can be converted into a
+ *   number of Java primatives including strings, integers, doubles, booleans,
+ *   etc.
  *
  ******************************************************************************/
 
 public class Value {
 
-    
     private Object value = null;
-
 
   //**************************************************************************
   //** Constructor
@@ -82,11 +80,9 @@ public class Value {
 
     public javaxt.utils.Date toDate(){
         try{
-            javaxt.utils.Date date = new javaxt.utils.Date(value.toString());
-            if (date.failedToParse()) return null;
-            else return date;
+            return new javaxt.utils.Date(value.toString());
         }
-        catch(Exception e){
+        catch(java.text.ParseException e){
             return null;
         }
     }
@@ -121,6 +117,7 @@ public class Value {
 
             if (value.equals("1")) return true;
             if (value.equals("0")) return false;
+
         }
         return null;
     }
@@ -136,10 +133,28 @@ public class Value {
     }
 
 
-
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /** Returns a string representation of the object by calling the object's
+   *  native toString() method. Returns a null if the object itself is null.
+   */
     public String toString(){
         if (value==null) return null;
         else return value.toString();
     }
 
+
+
+    public boolean equals(Object obj){
+        if (obj instanceof Value) obj = ((Value) obj).toObject();
+        if (obj==null) {
+            if (value==null) return true;
+            else return false;
+        }
+        else{
+            if (value==null) return false;
+        }
+        return obj.equals(value);
+    }
 }

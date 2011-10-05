@@ -1,4 +1,5 @@
 package javaxt.utils;
+import java.text.ParseException;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
@@ -27,53 +28,6 @@ public class Date {
     public static final String INTERVAL_MONTHS = "m";
     public static final String INTERVAL_YEARS = "y";
     
-
-    private boolean parserFailed = false;
-
-    
-  //**************************************************************************
-  //** Constructor
-  //**************************************************************************
-  /** Creates a new instance of date using current time stamp */
-    
-    public Date(){
-        currDate = new java.util.Date();
-    }
-
-  //**************************************************************************
-  //** Constructor
-  //**************************************************************************
-  /** Creates a new instance of date using supplied java.util.Date */
-    
-    public Date(java.util.Date date){
-        currDate = date;
-    }
-    
-    
-  //**************************************************************************
-  //** Constructor
-  //**************************************************************************
-  /** Creates a new instance of date using supplied java.util.Calendar */
-    
-    public Date(Calendar calendar){
-        currDate = calendar.getTime();
-    }
-    
-    
-  //**************************************************************************
-  //** Constructor
-  //**************************************************************************
-  /** Creates a new instance of date using a timestamp (in milliseconds) 
-   *  since 1/1/1970
-   */
-    
-    public Date(long milliseconds){
-        Calendar cal = Calendar.getInstance();
-        cal.setTimeInMillis(milliseconds);
-        currDate = cal.getTime();
-    }
-
-
 
     private static String[] SupportedFormats = new String[] {
 
@@ -131,15 +85,58 @@ public class Date {
          "yyyyMMdd"                     // 19760607
 
     };
+
     
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of date using current time stamp */
+    
+    public Date(){
+        currDate = new java.util.Date();
+    }
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of date using supplied java.util.Date */
+    
+    public Date(java.util.Date date){
+        currDate = date;
+    }
+    
+    
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of date using supplied java.util.Calendar */
+    
+    public Date(Calendar calendar){
+        currDate = calendar.getTime();
+    }
+    
+    
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of date using a timestamp (in milliseconds) 
+   *  since 1/1/1970
+   */
+    
+    public Date(long milliseconds){
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(milliseconds);
+        currDate = cal.getTime();
+    }
+
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
   /**  Creates a new instance of date using a String representation of a date.
    */
-    public Date(String date){
+    public Date(String date) throws ParseException {
 
-        java.util.Date d = null;
         try{
 
           //Special Case: Java fails to parse the "T" in strings like
@@ -151,6 +148,7 @@ public class Date {
             }
 
 
+          //Loop through all known date formats and try to convert the string to a date
             for (int i=0; i<SupportedFormats.length; i++){
 
               //Special Case: Java fails to parse the "Z" in "1976-06-07 00:00:00Z"
@@ -158,11 +156,11 @@ public class Date {
                     date = date.substring(0, date.length()-1) + "UTC";
                 }
 
-                d = ParseDate(date, SupportedFormats[i]);
-                if (d!=null) {
-                    //System.out.println(Format[i]);
-                    currDate = d;
-                    break;
+                try{
+                    currDate = parseDate(date, SupportedFormats[i]);
+                    return;
+                }
+                catch(ParseException e){
                 }
             }
         
@@ -170,23 +168,11 @@ public class Date {
         catch(Exception e){
         }
         
-        if (d==null){ //throw exception?
-            currDate = new java.util.Date();
-            parserFailed = true;
-        }
+      //If we're still here, throw an exception
+        throw new ParseException("Failed to parse date: " + date, 0);
+        
+    }
 
-    }
-    
-    
-  //**************************************************************************
-  //** failedToParse
-  //**************************************************************************
-  /**  Used to tell whether the input date string failed to parse. */
-    
-    public boolean failedToParse(){
-        return parserFailed;
-    }
-    
     
   //**************************************************************************
   //** Constructor
@@ -195,8 +181,8 @@ public class Date {
    *  used to create a SimpleDateFormat to parse the input date string.
    */
     
-    public Date(String date, String Format){
-        setDate(date, Format);
+    public Date(String date, String format) throws ParseException {
+        currDate = parseDate(date, format);
     }
     
     
@@ -204,18 +190,11 @@ public class Date {
   //**************************************************************************
   //** setDate
   //**************************************************************************
-  /**  Used to update the current date using a date string. The format parameter
-   *   is used to create a SimpleDateFormat to parse the input date string.
-   */
-    
-    public void setDate(String date, String format){
-        java.util.Date d = ParseDate(date, format);
-        if (d==null){ //throw exception?
-            
-        }
-        else{
-            currDate = d;
-        }
+  /** Used to update the current date using a date string. The format parameter
+   *  is used to create a SimpleDateFormat to parse the input date string.
+   */    
+    public void setDate(String date, String format) throws ParseException {
+        currDate = parseDate(date, format);
     }
     
     
@@ -250,27 +229,19 @@ public class Date {
     }
     
     
-    
   //**************************************************************************
   //** ParseDate
   //**************************************************************************
   /**  Attempts to convert a String to a Date via the user-supplied Format */
     
-    private java.util.Date ParseDate(String date, String format){        
-        
-        try{
-            parserFailed = false;
-            SimpleDateFormat formatter = 
-                    new SimpleDateFormat(format, currentLocale);
-            if (this.timeZone!=null) formatter.setTimeZone(timeZone);
-            java.util.Date d = formatter.parse(date);
-            this.timeZone = formatter.getTimeZone();
-            return d;
-        }
-        catch(Exception e){
-            parserFailed = true;
-            return null;
-        }        
+    private java.util.Date parseDate(String date, String format) throws ParseException {
+
+        SimpleDateFormat formatter =
+                new SimpleDateFormat(format, currentLocale);
+        if (this.timeZone!=null) formatter.setTimeZone(timeZone);
+        java.util.Date d = formatter.parse(date);
+        this.timeZone = formatter.getTimeZone();
+        return d;
     }
 
 
@@ -300,7 +271,10 @@ public class Date {
             String z2 = dateFormat.format(currDate);
 
             String d = FormatDate(currDate, "yyyy-MM-dd HH:mm:ss.SSS z").replace(z1, z2);
-            currDate = ParseDate(d, "yyyy-MM-dd HH:mm:ss.SSS z");
+            try{
+                currDate = parseDate(d, "yyyy-MM-dd HH:mm:ss.SSS z");
+            }
+            catch(ParseException e){}
         }
         else{
             this.timeZone = timezone;
@@ -368,11 +342,12 @@ public class Date {
             return ((java.util.Date) obj).equals(currDate);
         }
         else if (obj instanceof String){
-            return new javaxt.utils.Date((String) obj).equals(currDate);
+            try{
+                return new javaxt.utils.Date((String) obj).equals(currDate);
+            }
+            catch(ParseException e){}
         }
-        else{
-            return false;
-        }
+        return false;
     }
     
 
