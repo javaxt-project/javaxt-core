@@ -82,7 +82,7 @@ public class Value {
         try{
             return new javaxt.utils.Date(value.toString());
         }
-        catch(java.text.ParseException e){
+        catch(Exception e){
             return null;
         }
     }
