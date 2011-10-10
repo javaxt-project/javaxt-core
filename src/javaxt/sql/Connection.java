@@ -85,7 +85,7 @@ public class Connection {
    *  <pre> jdbc:derby://temp/my.db;user=admin;password=mypassword </pre>
    */
     
-    public boolean open(String ConnectionString){
+    public boolean open(String ConnectionString) throws java.sql.SQLException {
         this.database = new Database(ConnectionString);
         return open(database);
     }
@@ -97,23 +97,16 @@ public class Connection {
   //**************************************************************************
   /** Used to open a connection to the database. */
     
-    public boolean open(Database database){
+    public boolean open(Database database) throws java.sql.SQLException {
                 
         long startTime = java.util.Calendar.getInstance().getTimeInMillis();
         this.database = database;
         boolean isClosed = true;
         
-        try{
-            Conn = database.connect(); 
-            //if (Conn.isClosed()) throw new Exception(Conn.getWarnings());
-            isClosed = Conn.isClosed();
-            
-        }
-        catch(Exception e){
-            //System.out.println("Failed");
-            //System.out.println(database.getDriver().getVendor() + " ERROR: " + e.toString());
-            isClosed = true;
-        }
+        
+        Conn = database.connect();
+        isClosed = Conn.isClosed();
+
         
         long endTime = java.util.Calendar.getInstance().getTimeInMillis();
         Speed = endTime-startTime;

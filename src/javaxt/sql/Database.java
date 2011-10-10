@@ -506,7 +506,7 @@ public class Database {
   /** Used to open a connection to the database. Note the the connection will
    *  need to be closed afterwards.
    */     
-    public Connection getConnection(){
+    public Connection getConnection() throws java.sql.SQLException {
         Connection connection = new Connection();
         connection.open(this);
         return connection;
@@ -524,11 +524,16 @@ public class Database {
   /**  Used to open a java.sql.Connection to the database. This is a protected 
    *   method called from the connection object in this package.
    */     
-    protected java.sql.Connection connect() throws Exception {
+    protected java.sql.Connection connect() throws java.sql.SQLException {
           
         if (Driver==null){            
             //System.out.print("Loading Driver...");
-            Driver = (java.sql.Driver) Class.forName(driver.getPackageName()).newInstance(); 
+            try{
+                Driver = (java.sql.Driver) Class.forName(driver.getPackageName()).newInstance();
+            }
+            catch(Exception e){
+                throw new java.sql.SQLException("Failed to load driver " + driver.getPackageName(), e);
+            }
             //DriverManager.registerDriver(Driver);
             //System.out.println("Done");
         }
@@ -558,8 +563,8 @@ public class Database {
   //**************************************************************************
   //** getTables
   //**************************************************************************
-  /**  Used to retrieve an array of tables found in this database. This method 
-   *   should be called after a connection has been made to the target database.
+  /** Used to retrieve an array of tables found in this database. This method 
+   *  should be called after a connection has been made to the target database.
    */    
     public Table[] getTables(){
         try{
