@@ -287,7 +287,7 @@ public class Date {
   //**************************************************************************
   /** Used to set the current time zone. The time zone is used when comparing
    *  and formatting dates.
-   *  @param timeZone Name of the time zone (e.g. "UTC", "EDT", etc.)
+   *  @param timeZone Name of the time zone (e.g. "UTC", "EST", etc.)
    */
     public void setTimeZone(String timeZone){
         setTimeZone(timeZone, false);

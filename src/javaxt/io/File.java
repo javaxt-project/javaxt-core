@@ -972,5 +972,300 @@ public class File implements Comparable {
         }
         return false;
     }
+
+
+  //**************************************************************************
+  //** getCreationTime
+  //**************************************************************************
+  /** Returns a timestamp of when the file was first created. Returns a null
+   *  if the timestamp is not available. Note that this attribute is currently
+   *  only available on Windows XP or later.
+   */
+    public java.util.Date getCreationTime(){
+        try{
+            return getFileAttributes().getCreationTime();
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+  //**************************************************************************
+  //** getLastAccessTime
+  //**************************************************************************
+  /** Returns a timestamp of when the file was last accessed. Returns a null
+   *  if the timestamp is not available. Note that this attribute is currently
+   *  only available on Windows XP or later.
+   */
+    public java.util.Date getLastAccessTime(){
+        try{
+            return getFileAttributes().getLastAccessTime();
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getLastWriteTime
+  //**************************************************************************
+  /** Returns a timestamp of when the file was last written to. Returns a null
+   *  if the timestamp is not available. Note that this attribute is currently
+   *  only available on Windows XP or later.
+   */
+    public java.util.Date getLastWriteTime(){
+        try{
+            return getFileAttributes().getLastWriteTime();
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getFlags
+  //**************************************************************************
+  /** Returns keywords representing file attributes. Returns a null if the
+   *  attributes are not available. Note that this attribute is currently only
+   *  available on Windows XP or later.
+   */
+    public java.util.HashSet<String> getFlags(){
+        try{
+            return getFileAttributes().getFlags();
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getFileAttributes
+  //**************************************************************************
+  /** Returns extended file attributes such as when the file was first created
+   *  and when it was last accessed. Note that the getLastAccessTime(),
+   *  getLastAccessTime(), and getLastWriteTime() in the File class all call
+   *  this method. With each method, a call is made to the underlying file
+   *  system to instantiate the FileAttributes class. It is therefore more
+   *  efficient to call the getFileAttributes() method once, than to make
+   *  separate calls to getLastAccessTime(), getLastAccessTime(), and
+   *  getLastWriteTime().
+   */
+    public FileAttributes getFileAttributes() throws Exception{
+        return new FileAttributes(this);
+    }
+
+
+  //**************************************************************************
+  //** FileAttributes Class
+  //**************************************************************************
+  /** Used to encapsulate extended file attributes. Currently only supports
+   *  WIN32_FILE_ATTRIBUTE_DATA
+    <pre>
+    typedef struct _WIN32_FILE_ATTRIBUTE_DATA {
+      DWORD dwFileAttributes;
+      FILETIME ftCreationTime;
+      FILETIME ftLastAccessTime;
+      FILETIME ftLastWriteTime;
+      DWORD nFileSizeHigh;
+      DWORD nFileSizeLow;
+    } WIN32_FILE_ATTRIBUTE_DATA;
+    </pre>
+   */
+    public class FileAttributes {
+
+        private long dwFileAttributes;
+        private java.util.Date ftCreationTime;
+        private java.util.Date ftLastAccessTime;
+        private java.util.Date ftLastWriteTime;
+        private long nFileSizeHigh;
+        private long nFileSizeLow;
+        private java.util.HashSet<String> flags;
+
+        private FileAttributes(File file) throws Exception {
+
+
+
+            if (file.exists() && FileAttributesDLL){
+                //System.load("C:\\My Documents\\My Java\\JNI\\FileAttributes\\dist\\Release\\MinGW-Windows\\FileAttributes.dll");
+                long[] attributes = GetFileAttributesEx(file.toString());
+
+                dwFileAttributes = attributes[0];
+                ftCreationTime = ftFormatter.parse(attributes[1]+"");
+                ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
+                ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
+                nFileSizeHigh = attributes[4];
+                nFileSizeLow = attributes[5];
+
+                flags = new java.util.HashSet<String>();
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY)
+                flags.add("READONLY");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN)
+                flags.add("HIDDEN");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SYSTEM) == FILE_ATTRIBUTE_SYSTEM)
+                flags.add("SYSTEM");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+                flags.add("DIRECTORY");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ARCHIVE) == FILE_ATTRIBUTE_ARCHIVE)
+                flags.add("ARCHIVE");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DEVICE) == FILE_ATTRIBUTE_DEVICE)
+                flags.add("DEVICE");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NORMAL) == FILE_ATTRIBUTE_NORMAL)
+                flags.add("NORMAL");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_TEMPORARY) == FILE_ATTRIBUTE_TEMPORARY)
+                flags.add("TEMPORARY");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SPARSE_FILE) == FILE_ATTRIBUTE_SPARSE_FILE)
+                flags.add("SPARSE_FILE");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT)
+                flags.add("REPARSE_POINT");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_COMPRESSED) == FILE_ATTRIBUTE_COMPRESSED)
+                flags.add("COMPRESSED");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_OFFLINE) == FILE_ATTRIBUTE_OFFLINE)
+                flags.add("OFFLINE");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) == FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
+                flags.add("NOT_CONTENT_INDEXED");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ENCRYPTED) == FILE_ATTRIBUTE_ENCRYPTED)
+                flags.add("ENCRYPTED");
+
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL)
+                flags.add("VIRTUAL");
+            }
+        }
+
+        public java.util.Date getCreationTime(){
+            return ftCreationTime;
+        }
+        public java.util.Date getLastAccessTime(){
+            return ftLastAccessTime;
+        }
+        public java.util.Date getLastWriteTime(){
+            return ftLastWriteTime;
+        }
+
+        public java.util.HashSet<String> getFlags(){
+            return flags;
+        }
+
+
+        private int FILE_ATTRIBUTE_READONLY  = 1; //A file that is read-only. Applications can read the file,
+                                                  //but cannot write to it or delete it. This attribute is not
+                                                  //honored on directories. For more information, see You cannot
+                                                  //view or change the Read-only or the System attributes of folders
+                                                  //in Windows Server 2003, in Windows XP, in Windows Vista or in Windows 7.
+
+        private int FILE_ATTRIBUTE_HIDDEN    = 2;   //The file or directory is hidden. It is not included in an ordinary directory listing.
+
+        private int FILE_ATTRIBUTE_SYSTEM    = 4;   //A file or directory that the operating system uses a part of, or uses exclusively.
+
+        private int FILE_ATTRIBUTE_DIRECTORY = 16;  //The handle that identifies a directory.
+
+        private int FILE_ATTRIBUTE_ARCHIVE   = 32;  //A file or directory that is an archive file or directory.
+                                                    //Applications typically use this attribute to mark files for backup or removal.
+
+        private int FILE_ATTRIBUTE_DEVICE    = 64;  //This value is reserved for system use.
+
+        private int FILE_ATTRIBUTE_NORMAL    = 128; //A file that does not have other attributes set. This
+                                                    //attribute is valid only when used alone.
+
+        private int FILE_ATTRIBUTE_TEMPORARY = 256; //A file that is being used for temporary storage. File
+                                                    //systems avoid writing data back to mass storage if
+                                                    //sufficient cache memory is available, because typically,
+                                                    //an application deletes a temporary file after the handle
+                                                    //is closed. In that scenario, the system can entirely avoid
+                                                    //writing the data. Otherwise, the data is written after the
+                                                    //handle is closed.
+
+        private int FILE_ATTRIBUTE_SPARSE_FILE  = 512; //A file that is a sparse file.
+
+        private int FILE_ATTRIBUTE_REPARSE_POINT = 1024; //A file or directory that has an associated reparse point,
+                                                         //or a file that is a symbolic link.
+
+        private int FILE_ATTRIBUTE_COMPRESSED = 2048; //A file or directory that is compressed. For a file, all
+                                                      //of the data in the file is compressed. For a directory,
+                                                      //compression is the default for newly created files and subdirectories.
+
+        private int FILE_ATTRIBUTE_OFFLINE  = 4096;   //The data of a file is not available immediately. This attribute
+                                                      //indicates that the file data is physically moved to offline storage.
+                                                      //This attribute is used by Remote Storage, which is the hierarchical
+                                                      //storage management software. Applications should not arbitrarily change
+                                                      //this attribute.
+
+	private int FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 8192; //The file or directory is not to be indexed by the content indexing service.
+
+	private int FILE_ATTRIBUTE_ENCRYPTED = 16384; //A file or directory that is encrypted. For a file, all data streams in
+                                                      //the file are encrypted. For a directory, encryption is the default for
+                                                      //newly created files and subdirectories.
+
+	private int FILE_ATTRIBUTE_VIRTUAL = 65536;  //This value is reserved for system use.
+
+
+
+
+        private long bitand (long Number1, long Number2){
+            try {
+                return Number1 & Number2;
+            }
+            catch (Exception e) {
+                return -1;
+            }
+        }
+
+
+    }
+
+    private static boolean FileAttributesDLL = loadFileAttributesDLL();
+
+    private static boolean loadFileAttributesDLL(){
+
+      //Determine whether to try to load the FileAttributes.dll
+        if (Directory.isWindows){
+
+          //Find the FileAttributes.dll
+            Jar jar = new Jar(Jar.class);
+            Jar.Entry entry = jar.getEntry("javaxt.ntfs","FileAttributes.dll");
+            java.io.File dll = entry.getFile();
+
+          //Extract the dll next to the jar file (if necessary)
+            if (dll==null){
+                dll = new java.io.File(jar.getFile().getParentFile(),"FileAttributes.dll");
+                if (dll.exists()==false){
+                    entry.extractFile(dll);
+                }
+            }
+
+            try{
+                System.load(dll.toString());
+                return true;
+            }
+            catch(Exception e){}
+
+        }
+        return false;
+
+    }
+
+    /** Simple date formatter for extended file attributes. */
+    private static final java.text.SimpleDateFormat
+        ftFormatter = new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS");
+
+    /** JNI entry point to retrieve file attributes. */
+    private static native long[] GetFileAttributesEx(String lpPathName) throws Exception;
+
+
     
 }
