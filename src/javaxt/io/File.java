@@ -249,7 +249,33 @@ public class File implements Comparable {
         }
         else return false;
     }
-    
+
+
+    public boolean isLink(){
+        if (this.getExtension().equalsIgnoreCase("lnk")){
+            return (new LnkParser(this).getFile()!=null);
+        }
+        else{
+            if (Directory.isWindows){
+                java.util.HashSet<String> flags = this.getFlags();
+                if (flags!=null)  return (flags.contains("REPARSE_POINT")); //<- This needs to be tested...
+            }
+            else{
+                //How to test on unix? Shell out a ls command?
+            }
+        }
+        return false;
+    }
+
+    public java.io.File getTarget(){
+        if (this.getExtension().equalsIgnoreCase("lnk")){
+            return new LnkParser(this).getFile();
+        }
+        return null;
+    }
+
+
+
     
   //**************************************************************************
   //** Delete File
@@ -356,7 +382,7 @@ public class File implements Comparable {
   //**************************************************************************
   //** Rename File
   //**************************************************************************
-  /**  Used to rename a file - existing File Name is relaced with input 
+  /**  Used to rename a file - existing File Name is replaced with input
    *   FileName. Note that this method is NOT equivalent to the java.io.File
    *   "renameTo" method.
    *   @param FileName The new file name (including the file extension).
@@ -960,7 +986,7 @@ public class File implements Comparable {
   //** extensionEquals
   //**************************************************************************
   /**  Used by the getContentType to compare file extensions.
-   *   @param FileExtension Comma Seperated List Of File Extensions 
+   *   @param FileExtension Comma Separated List Of File Extensions
    */
     
     private boolean extensionEquals(String FileExtension){
@@ -1058,175 +1084,6 @@ public class File implements Comparable {
     }
 
 
-  //**************************************************************************
-  //** FileAttributes Class
-  //**************************************************************************
-  /** Used to encapsulate extended file attributes. Currently only supports
-   *  WIN32_FILE_ATTRIBUTE_DATA
-    <pre>
-    typedef struct _WIN32_FILE_ATTRIBUTE_DATA {
-      DWORD dwFileAttributes;
-      FILETIME ftCreationTime;
-      FILETIME ftLastAccessTime;
-      FILETIME ftLastWriteTime;
-      DWORD nFileSizeHigh;
-      DWORD nFileSizeLow;
-    } WIN32_FILE_ATTRIBUTE_DATA;
-    </pre>
-   */
-    public class FileAttributes {
-
-        private long dwFileAttributes;
-        private java.util.Date ftCreationTime;
-        private java.util.Date ftLastAccessTime;
-        private java.util.Date ftLastWriteTime;
-        private long nFileSizeHigh;
-        private long nFileSizeLow;
-        private java.util.HashSet<String> flags;
-
-        private FileAttributes(File file) throws Exception {
-
-
-
-            if (file.exists() && FileAttributesDLL){
-                //System.load("C:\\My Documents\\My Java\\JNI\\FileAttributes\\dist\\Release\\MinGW-Windows\\FileAttributes.dll");
-                long[] attributes = GetFileAttributesEx(file.toString());
-
-                dwFileAttributes = attributes[0];
-                ftCreationTime = ftFormatter.parse(attributes[1]+"");
-                ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
-                ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
-                nFileSizeHigh = attributes[4];
-                nFileSizeLow = attributes[5];
-
-                flags = new java.util.HashSet<String>();
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY)
-                flags.add("READONLY");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN)
-                flags.add("HIDDEN");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SYSTEM) == FILE_ATTRIBUTE_SYSTEM)
-                flags.add("SYSTEM");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
-                flags.add("DIRECTORY");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ARCHIVE) == FILE_ATTRIBUTE_ARCHIVE)
-                flags.add("ARCHIVE");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DEVICE) == FILE_ATTRIBUTE_DEVICE)
-                flags.add("DEVICE");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NORMAL) == FILE_ATTRIBUTE_NORMAL)
-                flags.add("NORMAL");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_TEMPORARY) == FILE_ATTRIBUTE_TEMPORARY)
-                flags.add("TEMPORARY");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SPARSE_FILE) == FILE_ATTRIBUTE_SPARSE_FILE)
-                flags.add("SPARSE_FILE");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT)
-                flags.add("REPARSE_POINT");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_COMPRESSED) == FILE_ATTRIBUTE_COMPRESSED)
-                flags.add("COMPRESSED");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_OFFLINE) == FILE_ATTRIBUTE_OFFLINE)
-                flags.add("OFFLINE");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) == FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
-                flags.add("NOT_CONTENT_INDEXED");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ENCRYPTED) == FILE_ATTRIBUTE_ENCRYPTED)
-                flags.add("ENCRYPTED");
-
-                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL)
-                flags.add("VIRTUAL");
-            }
-        }
-
-        public java.util.Date getCreationTime(){
-            return ftCreationTime;
-        }
-        public java.util.Date getLastAccessTime(){
-            return ftLastAccessTime;
-        }
-        public java.util.Date getLastWriteTime(){
-            return ftLastWriteTime;
-        }
-
-        public java.util.HashSet<String> getFlags(){
-            return flags;
-        }
-
-
-        private int FILE_ATTRIBUTE_READONLY  = 1; //A file that is read-only. Applications can read the file,
-                                                  //but cannot write to it or delete it. This attribute is not
-                                                  //honored on directories. For more information, see You cannot
-                                                  //view or change the Read-only or the System attributes of folders
-                                                  //in Windows Server 2003, in Windows XP, in Windows Vista or in Windows 7.
-
-        private int FILE_ATTRIBUTE_HIDDEN    = 2;   //The file or directory is hidden. It is not included in an ordinary directory listing.
-
-        private int FILE_ATTRIBUTE_SYSTEM    = 4;   //A file or directory that the operating system uses a part of, or uses exclusively.
-
-        private int FILE_ATTRIBUTE_DIRECTORY = 16;  //The handle that identifies a directory.
-
-        private int FILE_ATTRIBUTE_ARCHIVE   = 32;  //A file or directory that is an archive file or directory.
-                                                    //Applications typically use this attribute to mark files for backup or removal.
-
-        private int FILE_ATTRIBUTE_DEVICE    = 64;  //This value is reserved for system use.
-
-        private int FILE_ATTRIBUTE_NORMAL    = 128; //A file that does not have other attributes set. This
-                                                    //attribute is valid only when used alone.
-
-        private int FILE_ATTRIBUTE_TEMPORARY = 256; //A file that is being used for temporary storage. File
-                                                    //systems avoid writing data back to mass storage if
-                                                    //sufficient cache memory is available, because typically,
-                                                    //an application deletes a temporary file after the handle
-                                                    //is closed. In that scenario, the system can entirely avoid
-                                                    //writing the data. Otherwise, the data is written after the
-                                                    //handle is closed.
-
-        private int FILE_ATTRIBUTE_SPARSE_FILE  = 512; //A file that is a sparse file.
-
-        private int FILE_ATTRIBUTE_REPARSE_POINT = 1024; //A file or directory that has an associated reparse point,
-                                                         //or a file that is a symbolic link.
-
-        private int FILE_ATTRIBUTE_COMPRESSED = 2048; //A file or directory that is compressed. For a file, all
-                                                      //of the data in the file is compressed. For a directory,
-                                                      //compression is the default for newly created files and subdirectories.
-
-        private int FILE_ATTRIBUTE_OFFLINE  = 4096;   //The data of a file is not available immediately. This attribute
-                                                      //indicates that the file data is physically moved to offline storage.
-                                                      //This attribute is used by Remote Storage, which is the hierarchical
-                                                      //storage management software. Applications should not arbitrarily change
-                                                      //this attribute.
-
-	private int FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 8192; //The file or directory is not to be indexed by the content indexing service.
-
-	private int FILE_ATTRIBUTE_ENCRYPTED = 16384; //A file or directory that is encrypted. For a file, all data streams in
-                                                      //the file are encrypted. For a directory, encryption is the default for
-                                                      //newly created files and subdirectories.
-
-	private int FILE_ATTRIBUTE_VIRTUAL = 65536;  //This value is reserved for system use.
-
-
-
-
-        private long bitand (long Number1, long Number2){
-            try {
-                return Number1 & Number2;
-            }
-            catch (Exception e) {
-                return -1;
-            }
-        }
-
-
-    }
 
     private static boolean FileAttributesDLL = loadFileAttributesDLL();
 
@@ -1237,12 +1094,12 @@ public class File implements Comparable {
 
           //Find the FileAttributes.dll
             Jar jar = new Jar(Jar.class);
-            Jar.Entry entry = jar.getEntry("javaxt.ntfs","FileAttributes.dll");
+            Jar.Entry entry = jar.getEntry(null, "javaxt-core.dll"); 
             java.io.File dll = entry.getFile();
 
           //Extract the dll next to the jar file (if necessary)
             if (dll==null){
-                dll = new java.io.File(jar.getFile().getParentFile(),"FileAttributes.dll");
+                dll = new java.io.File(jar.getFile().getParentFile(),"javaxt-core.dll");
                 if (dll.exists()==false){
                     entry.extractFile(dll);
                 }
@@ -1251,8 +1108,22 @@ public class File implements Comparable {
             try{
                 System.load(dll.toString());
                 return true;
+
+/*
+              //http://blog.cedarsoft.com/2010/11/setting-java-library-path-programmatically/
+                File f = new File(dll);
+                System.setProperty( "java.library.path", f.getParentDirectory().toString() );
+                java.lang.reflect.Field fieldSysPath = ClassLoader.class.getDeclaredField( "sys_paths" );
+                fieldSysPath.setAccessible( true );
+                fieldSysPath.set( null, null );
+                System.loadLibrary(f.getName(false));
+
+                return true;
+                */
             }
-            catch(Exception e){}
+            catch(Exception e){
+                e.printStackTrace();
+            }
 
         }
         return false;
@@ -1267,5 +1138,606 @@ public class File implements Comparable {
     private static native long[] GetFileAttributesEx(String lpPathName) throws Exception;
 
 
-    
-}
+
+
+//******************************************************************************
+//**  FileAttributes Class
+//******************************************************************************
+/**
+ *  Used to encapsulate extended file attributes. Currently only supports
+ *  WIN32_FILE_ATTRIBUTE_DATA
+ *
+ <pre>
+    typedef struct _WIN32_FILE_ATTRIBUTE_DATA {
+      DWORD dwFileAttributes;
+      FILETIME ftCreationTime;
+      FILETIME ftLastAccessTime;
+      FILETIME ftLastWriteTime;
+      DWORD nFileSizeHigh;
+      DWORD nFileSizeLow;
+    } WIN32_FILE_ATTRIBUTE_DATA;
+ </pre>
+ *
+ ******************************************************************************/
+
+public class FileAttributes {
+
+    private long dwFileAttributes;
+    private java.util.Date ftCreationTime;
+    private java.util.Date ftLastAccessTime;
+    private java.util.Date ftLastWriteTime;
+    private long nFileSizeHigh;
+    private long nFileSizeLow;
+    private java.util.HashSet<String> flags;
+
+    private FileAttributes(File file) throws Exception {
+
+        if (file.exists() && FileAttributesDLL){
+
+            long[] attributes = GetFileAttributesEx(file.toString());
+
+            dwFileAttributes = attributes[0];
+            ftCreationTime = ftFormatter.parse(attributes[1]+"");
+            ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
+            ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
+            nFileSizeHigh = attributes[4];
+            nFileSizeLow = attributes[5];
+
+            flags = new java.util.HashSet<String>();
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY)
+            flags.add("READONLY");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN)
+            flags.add("HIDDEN");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SYSTEM) == FILE_ATTRIBUTE_SYSTEM)
+            flags.add("SYSTEM");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+            flags.add("DIRECTORY");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ARCHIVE) == FILE_ATTRIBUTE_ARCHIVE)
+            flags.add("ARCHIVE");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DEVICE) == FILE_ATTRIBUTE_DEVICE)
+            flags.add("DEVICE");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NORMAL) == FILE_ATTRIBUTE_NORMAL)
+            flags.add("NORMAL");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_TEMPORARY) == FILE_ATTRIBUTE_TEMPORARY)
+            flags.add("TEMPORARY");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SPARSE_FILE) == FILE_ATTRIBUTE_SPARSE_FILE)
+            flags.add("SPARSE_FILE");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT)
+            flags.add("REPARSE_POINT");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_COMPRESSED) == FILE_ATTRIBUTE_COMPRESSED)
+            flags.add("COMPRESSED");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_OFFLINE) == FILE_ATTRIBUTE_OFFLINE)
+            flags.add("OFFLINE");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) == FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
+            flags.add("NOT_CONTENT_INDEXED");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ENCRYPTED) == FILE_ATTRIBUTE_ENCRYPTED)
+            flags.add("ENCRYPTED");
+
+            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL)
+            flags.add("VIRTUAL");
+        }
+        else{
+            if (!file.exists()) throw new Exception("File not found.");
+            if (!Directory.isWindows) throw new Exception("FileAttributes are only available on Windows.");
+            if (!FileAttributesDLL && Directory.isWindows) throw new Exception("Failed to load FileAttributes.dll.");
+        }
+        
+    }
+
+    public java.util.Date getCreationTime(){
+        return ftCreationTime;
+    }
+    public java.util.Date getLastAccessTime(){
+        return ftLastAccessTime;
+    }
+    public java.util.Date getLastWriteTime(){
+        return ftLastWriteTime;
+    }
+
+    public java.util.HashSet<String> getFlags(){
+        return flags;
+    }
+
+  /** A file that is read-only. Applications can read the file, but cannot
+   *  write to it or delete it. This attribute is not honored on directories.
+   *  For more information, see You cannot view or change the Read-only or the
+   *  System attributes of folders in Windows Server 2003, in Windows XP, in
+   *  Windows Vista or in Windows 7.
+   */
+    private static final int FILE_ATTRIBUTE_READONLY  = 1;
+
+
+    private static final int FILE_ATTRIBUTE_HIDDEN    = 2;   //The file or directory is hidden. It is not included in an ordinary directory listing.
+
+    private static final int FILE_ATTRIBUTE_SYSTEM    = 4;   //A file or directory that the operating system uses a part of, or uses exclusively.
+
+    private static final int FILE_ATTRIBUTE_DIRECTORY = 16;  //The handle that identifies a directory.
+
+    private static final int FILE_ATTRIBUTE_ARCHIVE   = 32;  //A file or directory that is an archive file or directory.
+                                                //Applications typically use this attribute to mark files for backup or removal.
+
+    private static final int FILE_ATTRIBUTE_DEVICE    = 64;  //This value is reserved for system use.
+
+  /** A file that does not have other attributes set. This attribute is valid
+   *  only when used alone.
+   */
+    private static final int FILE_ATTRIBUTE_NORMAL    = 128;
+
+  /** A file that is being used for temporary storage. File systems avoid
+   *  writing data back to mass storage if sufficient cache memory is available,
+   *  because typically, an application deletes a temporary file after the
+   *  handle is closed. In that scenario, the system can entirely avoid writing
+   *  the data. Otherwise, the data is written after the handle is closed.
+   */
+    private static final int FILE_ATTRIBUTE_TEMPORARY = 256;
+
+    private static final int FILE_ATTRIBUTE_SPARSE_FILE  = 512; //A file that is a sparse file.
+
+
+  /** A file or directory that has an associated reparse point, or a file that
+   *  is a symbolic link.
+   */
+    private static final int FILE_ATTRIBUTE_REPARSE_POINT = 1024; 
+
+    private static final int FILE_ATTRIBUTE_COMPRESSED = 2048; //A file or directory that is compressed. For a file, all
+                                                  //of the data in the file is compressed. For a directory,
+                                                  //compression is the default for newly created files and subdirectories.
+
+    private static final int FILE_ATTRIBUTE_OFFLINE  = 4096;   //The data of a file is not available immediately. This attribute
+                                                  //indicates that the file data is physically moved to offline storage.
+                                                  //This attribute is used by Remote Storage, which is the hierarchical
+                                                  //storage management software. Applications should not arbitrarily change
+                                                  //this attribute.
+
+    private static final int FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 8192; //The file or directory is not to be indexed by the content indexing service.
+
+    private static final int FILE_ATTRIBUTE_ENCRYPTED = 16384; //A file or directory that is encrypted. For a file, all data streams in
+                                                  //the file are encrypted. For a directory, encryption is the default for
+                                                  //newly created files and subdirectories.
+
+    private static final int FILE_ATTRIBUTE_VIRTUAL = 65536;  //This value is reserved for system use.
+
+
+
+
+    private long bitand (long Number1, long Number2){
+        try {
+            return Number1 & Number2;
+        }
+        catch (Exception e) {
+            return -1;
+        }
+    }
+
+
+}// End FileAttributes Class
+
+
+//******************************************************************************
+//**  LnkParser Class
+//******************************************************************************
+/**
+ *   Class used to parse a windows lnk files (aka shortcuts). It is based on a
+ *   document called "The Windows Shortcut File Format as reverse-engineered by
+ *   Jesse Hager jesseha...@iname.com Document Version 1.0." and code by
+ *   Dan Andrews dan.and...@home.com.
+ *
+ *   That document may be found at "http://www.wotsit.org/" and the original
+ *   code can be found here:
+ *   "http://groups.google.com/group/comp.lang.java.help/browse_thread/thread/a2e147b07d5480a2/"
+ *
+ ******************************************************************************/
+
+public class LnkParser {
+
+    private java.io.File file;
+
+    public LnkParser(String lnk) {
+        this(new javaxt.io.File(lnk));
+    }
+
+    public LnkParser(java.io.File lnk) {
+        this(new javaxt.io.File(lnk));
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Instantiates the class by parsing the Windows shortcut (lnk) file.
+   *  @param fName fileName or full path name to the shortcut file
+   */
+    public LnkParser(javaxt.io.File lnk) {
+
+        if (!lnk.getExtension().equalsIgnoreCase("lnk") || !lnk.exists()) return;
+
+        try {
+          BufferedInputStream in = new BufferedInputStream(lnk.getInputStream());
+          int ch = -1;
+
+        //First 4 bytes is the letter L
+          byte b[] = new byte[4];
+          ch = in.read(b);
+          //System.out.println(new String(b));
+
+
+        //GUID
+          b = new byte[16];
+          ch = in.read(b);
+
+
+
+        //Flags
+          b = new byte[4];
+          ch = in.read(b);
+          //parseFlags(b);
+
+
+
+        //File Attributes
+          b = new byte[4];
+          ch = in.read(b);
+          //parseFileAttributes(b);
+
+
+
+        //Creation time, Modification time, Last access time
+          b = new byte[8*3];
+          ch = in.read(b);
+
+
+        //The length of the target file.
+          b = new byte[4];
+          ch = in.read(b);
+
+          //System.out.println(java.nio.ByteBuffer.wrap(b).getInt());
+
+        //Icon Number
+          b = new byte[4];
+          ch = in.read(b);
+
+
+        //ShowWnd
+          b = new byte[4];
+          ch = in.read(b);
+
+
+        //HotKey
+          b = new byte[4];
+          ch = in.read(b);
+
+
+        //Reserved
+          b = new byte[8];
+          ch = in.read(b);
+
+
+
+        //Get length of the The Shell Item Id List.
+          int lenShellItemList = in.read();
+
+
+
+        //Skip the Shell Item Id List and Jump to the File Location Info
+          in.read(new byte[lenShellItemList]);
+          in.read();
+
+
+
+        //Skip first 2 entries in the File Location Table
+          b = new byte[8];
+          in.read(b);
+
+
+        //Volume flags
+          b = new byte[4];
+          in.read(b);
+
+
+        //Offset of local volume info
+          b = new byte[4];
+          in.read(b);
+
+
+
+        //Offset of base pathname on local system
+          b = new byte[4];
+          in.read(b);
+          int offsetBasePathName = in.read();
+          //System.out.println("offsetBasePathName: " + offsetBasePathName);
+
+
+          if (ch < 0) return;
+
+
+
+        //Offset of network volume info
+          for (int i=0; i<4; i++){
+            ch = in.read();
+            offsetBasePathName--;
+          }
+          int offsetNetworkVolumeInfo = ch;
+          //System.out.println("offsetNetworkVolumeInfo: " + offsetNetworkVolumeInfo);
+
+
+
+        //Offset of remaining pathname
+          for (int i=0; i<4; i++){
+            ch = in.read();
+            offsetBasePathName--;
+          }
+          int offLocal = ch;
+
+
+
+          //System.out.println("offLocal: " + offLocal);
+          if (offLocal < 0) return;
+
+
+          byte loc[];
+          int index;
+
+        //Get Base Path Name
+          String BasePathName = null;
+          if (offsetBasePathName>0){
+              for (int i = 0; i < offsetBasePathName; i++) {
+                ch = in.read();
+                offLocal--;
+              }
+              loc = new byte[256];
+              index = 0;
+              loc[index++] = (byte)ch;
+              while ( (ch = in.read()) != 0) {
+                loc[index++] = (byte)ch;
+                offLocal--;
+              }
+              BasePathName = new String(loc);
+              BasePathName = BasePathName.trim();
+
+          }
+
+
+
+        //Get local pathname
+          for (int i = 0; i < offLocal-1; i++) {
+            ch = in.read();
+          }
+          loc = new byte[256];
+          index = 0;
+          loc[index++] = (byte)ch;
+          while ( (ch = in.read()) != 0) {
+            loc[index++] = (byte)ch;
+          }
+          String local = new String(loc);
+          local = local.trim();
+          //System.out.println("LocalPathName: " + local);
+
+
+
+          if (BasePathName!=null){
+              this.file = new java.io.File(BasePathName, local);
+          }
+          else{
+              this.file = new java.io.File(local);
+          }
+
+          if (!this.file.exists()) this.file = null;
+
+        }
+        catch (IOException e) {
+          e.printStackTrace();
+        }
+    }
+
+    public java.io.File getFile(){
+        return file;
+    }
+
+    public String toString(){
+        return file.toString();
+    }
+
+
+
+  /**
+   * Reports with good probability that this is a link
+   * @returns true if it is likley a link
+   *//*
+    public boolean isLink() {
+        if (file == null)
+            return false;
+
+        // check for valid "drive letter and :\"
+        String drives = "abcdefghijklmnopqrstuvwxyz";
+        String drive = local.substring(0,1).toLowerCase();
+        if (drives.indexOf(drive) < 0) {
+          //if (debug) System.out.println("not a drive");
+          drives = null;
+          drive = null;
+          return false;
+        }
+        drives = null;
+        drive = null;
+        if (! local.substring(1,3).equals(":" + File.separator)) {
+          //if (debug) System.out.println("Not found :\\\" ");
+          return false;
+        }
+
+        // check for any invalid characters
+        String winInvalids[] = {"/", "*", "?", "\"", "<", ">", "|"};
+        for (int i = 0; i < winInvalids.length; i++) {
+          if (getFullPath().indexOf(winInvalids[i]) >= 0) {
+            return false;
+          }
+        }
+        winInvalids = null;
+
+        // check for funny ascii values
+        char chars[] = getFullPath().toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+          if ( (chars[i] < 32) || (chars[i] > 126) ) {
+            chars = null;
+            return false;
+          }
+        }
+        chars = null;
+        return true;
+    }
+*/
+
+
+  //**************************************************************************
+  //** getBit
+  //**************************************************************************
+  /** Used to return a bit from a byte array
+   */
+    private int getBit(byte[] data, int pos) {
+        int posByte = pos/8;
+        int posBit = pos%8;
+        byte valByte = data[posByte];
+        int valInt = valByte>>(8-(posBit+1)) & 0x0001;
+        return valInt;
+    }
+
+
+
+  //**************************************************************************
+  //** parseFlags
+  //**************************************************************************
+  /** Used to parse the Flags in the header
+   */
+    private void parseFlags(byte[] data){
+        for (int i=0; i<data.length*8; i++){
+            int val = getBit(data, i);
+
+
+            switch (i) {
+                case 0:{
+                    if (val==1) System.out.println("The shell item id list is present.");
+                    else System.out.println("The shell item id list is absent.");
+                    break;
+                }
+                case 1:{
+                    if (val==1) System.out.println("Points to a file or directory.");
+                    else System.out.println("Points to something else.");
+                    break;
+                }
+                case 2:{
+                    if (val==1) System.out.println("Has a description string.");
+                    else System.out.println("No description string.");
+                    break;
+                }
+                case 3:{
+                    if (val==1) System.out.println("Has a relative path string.");
+                    else System.out.println("No relative path.");
+                    break;
+                }
+                case 4:{
+                    if (val==1) System.out.println("Has a working directory.");
+                    else System.out.println("No working directory.");
+                    break;
+                }
+                case 5:{
+                    if (val==1) System.out.println("Has command line arguments.");
+                    else System.out.println("No command line arguments.");
+                    break;
+                }
+                case 6:{
+                    if (val==1) System.out.println("Has a custom icon.");
+                    else System.out.println("Has the default icon.");
+                    break;
+                }
+                default:{
+                    break;//System.out.println(val);
+                }
+            }
+
+        }
+    }
+
+  //**************************************************************************
+  //** parseFileAttributes
+  //**************************************************************************
+  /** Used to parse the Flags in the header
+   */
+    private void parseFileAttributes(byte[] data){
+        for (int i=0; i<data.length*8; i++){
+            boolean val = (getBit(data, i) != 0);
+
+
+            switch (i) {
+                case 0 :{
+                    System.out.println("Target is read only. " + val);
+                    break;
+                }
+                case 1 :{
+                    System.out.println("Target is hidden. " + val);
+                    break;
+                }
+                case 2 :{
+                    System.out.println("Target is a system file. " + val);
+                    break;
+                }
+                case 3 :{
+                    System.out.println("Target is a volume label. " + val);
+                    break;
+                }
+                case 4 :{
+                    System.out.println("Target is a directory. " + val);
+                    break;
+                }
+                case 5 :{
+                    System.out.println("Target has been modified since last backup. " + val);
+                    break;
+                }
+                case 6 :{
+                    System.out.println("Target is encrypted (NTFS EFS) " + val);
+                    break;
+                }
+                case 7 :{
+                    System.out.println("Target is Normal? " + val);
+                    break;
+                }
+                case 8 :{
+                    System.out.println("Target is temporary. " + val);
+                    break;
+                }
+                case 9 :{
+                    System.out.println("Target is a sparse file. " + val);
+                    break;
+                }
+                case 10 :{
+                    System.out.println("Target has reparse point data. " + val);
+                    break;
+                }
+                case 11 :{
+                    System.out.println("Target is compressed. " + val);
+                    break;
+                }
+                case 12 :{
+                    System.out.println("Target is offline. " + val);
+                    break;
+                }
+                default:{
+                    break;//System.out.println(val);
+                }
+            }
+
+        }
+    }
+
+}//End LnkParser Inner Class
+}//End File Class

@@ -1285,12 +1285,12 @@ public class Directory implements Comparable {
 
           //Find the FileSystemWatcher.dll
             Jar jar = new Jar(this);
-            Jar.Entry entry = jar.getEntry("javaxt.ntfs","FileSystemWatcher.dll");
+            Jar.Entry entry = jar.getEntry(null,"javaxt-core.dll");
             java.io.File dll = entry.getFile();
             
           //Extract the dll next to the jar file (if necessary)
             if (dll==null){
-                dll = new java.io.File(jar.getFile().getParentFile(),"FileSystemWatcher.dll");
+                dll = new java.io.File(jar.getFile().getParentFile(),"javaxt-core.dll");
                 if (dll.exists()==false){
                     entry.extractFile(dll);
                 }

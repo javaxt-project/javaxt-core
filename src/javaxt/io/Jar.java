@@ -95,11 +95,10 @@ public class Jar {
   //**************************************************************************
   //** getEntries
   //**************************************************************************
-  /**  Used to print the entries of a jar file to the system output stream. 
-   *   For debug use only.
-   */
-    
-    public void getEntries(){
+  /**  Used to return a list of all the entries found in the jar file.
+   */    
+    public Entry[] getEntries(){
+        java.util.ArrayList<Entry> entries = new java.util.ArrayList<Entry>();
         try{
             
             if (file.isDirectory()){
@@ -107,26 +106,23 @@ public class Jar {
                 java.util.List items = dir.getChildren(true);
                 for (int i=0; i<items.size(); i++){
                      Object item = items.get(i);
-                     System.out.println(item);
-                     /*
                      if (item instanceof File){
+                         entries.add(new Entry(((File) item).toFile()));
                      }
-                     else{
-                     }
-                     */
                 }
             }
             else{
                 ZipInputStream in = new ZipInputStream(new FileInputStream(file));
                 ZipEntry zipEntry = null;
                 while((zipEntry = in.getNextEntry())!=null){
-                    System.out.println(zipEntry.getName());
+                    entries.add(new Entry(zipEntry));
                 }
                 in.close();
             }
         }
         catch(Exception e){
         }
+        return entries.toArray(new Entry[entries.size()]);
     }
     
     
@@ -143,20 +139,31 @@ public class Jar {
   //**************************************************************************
   //** getEntry
   //**************************************************************************
-  /**  Used to retrieve a single entry from the jar file. */
-    
+  /**  Used to retrieve a single entry from the jar file. 
+   *  @param Package Name of the package or directory in the jar file 
+   *  (e.g. "javaxt.io"). Null values and zero length strings default to the
+   *  the root directory. 
+   *  @param Entry Name of the class/file found in the given package  
+   *  (e.g. "Jar.class").
+   */
     public Entry getEntry(String Package, String Entry){
         
         try{
             
             if (file.isDirectory()){
-                return new Entry(new java.io.File(file,Entry));
+                return new Entry(new java.io.File(file, Entry));
             }
             else{
             
               //Update package name and entry
-                if (Package.contains(".")) Package = Package.replace(".","/");
-                Entry = Package + "/" + Entry;
+                if (Package!=null){
+                    Package = Package.trim();
+                    if (Package.length()==0) Package = null;
+                }
+                if (Package!=null){
+                    if (Package.contains(".")) Package = Package.replace(".","/");
+                    Entry = Package + "/" + Entry;
+                }
 
 
               //Find entry in the jar file
@@ -174,7 +181,7 @@ public class Jar {
             }
         }
         catch(Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         
         return null;
