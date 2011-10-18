@@ -1092,14 +1092,27 @@ public class File implements Comparable {
       //Determine whether to try to load the FileAttributes.dll
         if (Directory.isWindows){
 
-          //Find the FileAttributes.dll
+            String jvmPlatform = System.getProperty("os.arch");
+            String dllName = null;
+            if (jvmPlatform.equalsIgnoreCase("x86")){
+                dllName = "javaxt-core.dll";
+            }
+            else if(jvmPlatform.equalsIgnoreCase("amd64")){
+                dllName = "javaxt-core64.dll";
+            }
+            else{
+                return false;
+            }
+
+
+          //Find the appropriate dll
             Jar jar = new Jar(Jar.class);
-            Jar.Entry entry = jar.getEntry(null, "javaxt-core.dll"); 
+            Jar.Entry entry = jar.getEntry(null, dllName);
             java.io.File dll = entry.getFile();
 
           //Extract the dll next to the jar file (if necessary)
             if (dll==null){
-                dll = new java.io.File(jar.getFile().getParentFile(),"javaxt-core.dll");
+                dll = new java.io.File(jar.getFile().getParentFile(), dllName);
                 if (dll.exists()==false){
                     entry.extractFile(dll);
                 }
