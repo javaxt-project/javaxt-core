@@ -44,7 +44,7 @@ public class Response {
   /** Returns key/value map representing all the HTTP headers returned from
    *  the server.
    */
-    public java.util.Map getHeaders(){
+    public java.util.Map<String, java.util.List<String>> getHeaders(){
         return request.getResponseHeaders();
     }
 

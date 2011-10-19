@@ -583,7 +583,7 @@ public class Request {
     }
 
 
-    protected java.util.Map getResponseHeaders(){
+    protected java.util.Map<String, List<String>> getResponseHeaders(){
         return headers;
     }
 

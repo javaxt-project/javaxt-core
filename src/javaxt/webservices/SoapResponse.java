@@ -6,68 +6,75 @@ import javaxt.xml.DOM;
 //**  SoapResponse Class
 //******************************************************************************
 /**
- *   Used to process SOAP responses
+ *   Used to encapsulate an XML/SOAP message returned from a WebService.
  *
  ******************************************************************************/
 
 public class SoapResponse {
 
-    //private javaxt.http.Response response;
-    private String responseBody;
+    private java.net.URL url;
+    private java.util.Map<String, java.util.List<String>> headers;
+    private String body;
+    private String message;
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of SoapResponse. */
-
+  /** Instantiates this class using an HTTP Response object. Note that the
+   *  entire response is parsed and stored as a class variable. This can be
+   *  problematic when dealing with very large SOAP messages.
+   */
     protected SoapResponse(javaxt.http.Response response, String resultsNode) throws SoapException {
 
+        
+        int status = response.getStatus();
+        if (status==200 || status==202 || status==203){
+            body = response.getText("UTF-8");
+            if (body!=null){
 
-        if (response.getStatus()==200 || response.getStatus()==202 || response.getStatus()==203){
-            String ServiceResponse = response.getText("UTF-8");
-            if (ServiceResponse!=null){
+                url = response.getURL();
+                headers = response.getHeaders();
+
 
                 //Extract Response
-                if (ServiceResponse.substring(0,1).equals("<")){
+                Document xml = DOM.createDocument(body);
+                if (xml!=null){
                     try{
-                        Document XMLDoc = DOM.createDocument(ServiceResponse);
-                        NodeList Response = XMLDoc.getElementsByTagName(resultsNode);
+                        
+                        NodeList Response = xml.getElementsByTagName(resultsNode);
                         if (Response!=null){
 
                           //Special Case: Probably Missing Namespace in Soap.resultsNode
                             if (Response.getLength()==0) {
-                                resultsNode = getResultsNode(ServiceResponse, resultsNode);
-                                Response = XMLDoc.getElementsByTagName(resultsNode);
+                                resultsNode = getResultsNode(body, resultsNode);
+                                Response = xml.getElementsByTagName(resultsNode);
                             }
 
-                            responseBody = DOM.getNodeValue(Response.item(0));
+                            message = DOM.getNodeValue(Response.item(0));
                         }
                         else{
                             throw new SoapException(
                                     "Failed to parse SOAP Response. " +
                                     "Could not find the " + resultsNode + " node, " +
-                                    "possibly due to a service exception.", ServiceResponse);
+                                    "possibly due to a service exception.", body);
                         }
                     }
                     catch(Exception e){
-                        throw new SoapException("Failed to parse SOAP Response. " + e.getLocalizedMessage(), ServiceResponse);
+                        throw new SoapException("Failed to parse SOAP Response. " + e.getLocalizedMessage(), body);
                     }
                 }
                 else{
-                    throw new SoapException("Invalid SOAP Response. Response does not appear to be xml.", ServiceResponse);
+                    throw new SoapException("Invalid SOAP Response. Response does not appear to be xml.", body);
                 }
             }
             else{
-                throw new SoapException("Invalid SOAP Response.", ServiceResponse);
+                throw new SoapException("Invalid SOAP Response.", body);
             }
-
         }
         else{
-            throw new SoapException(response.getMessage() + " (" + response.getStatus() + ")", response.getErrorMessage());
+            throw new SoapException(response.getMessage() + " (" + status + ")", response.getErrorMessage());
         }
-
-
     }
 
 
@@ -81,8 +88,79 @@ public class SoapResponse {
     }
 
 
+  //**************************************************************************
+  //** getHeaders
+  //**************************************************************************
+  /** Returns key/value map representing all the HTTP headers returned from
+   *  the server.
+   */
+    public java.util.Map<String, java.util.List<String>> getHeaders(){
+        return headers;
+    }
+
+
+  //**************************************************************************
+  //** getURL
+  //**************************************************************************
+  /** Returns the url used to connect to the server. Note that this URL may
+   *  differ from the one used to instantiate the Request object. 
+   */
+    public java.net.URL getURL(){
+        return url;
+    }
+
+
+  //**************************************************************************
+  //** getRawResponse
+  //**************************************************************************
+  /** Returns the body of the HTTP response returned from the server. The body
+   *  contains the raw XML/SOAP document.
+   */
+    public String getBody(){
+        return body;
+    }
+
+
+  //**************************************************************************
+  //** toXML
+  //**************************************************************************
+  /** Converts the raw response found in the body of the SOAP message into an
+   *  xml document.
+   */
+    public Document toXML(){
+        return DOM.createDocument(message);
+    }
+
+
+  //**************************************************************************
+  //** toByteArray
+  //**************************************************************************
+  /** Converts the raw response found in the body of the SOAP message into a
+   *  byte array. Assumes that the response is Base64 encoded.
+   */
+    public byte[] toByteArray(){
+        return javaxt.utils.Base64.decode(message);
+    }
+
+
+  //**************************************************************************
+  //** toImage
+  //**************************************************************************
+  /** Converts the raw response found in the body of the SOAP message into an
+   *  image. Typically images are encoded in Base64.
+   */
+    public javaxt.io.Image toImage(){
+        return new javaxt.io.Image(toByteArray());
+    }
+
+
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /** Returns the raw response found in the body of the SOAP message.
+   */
     public String toString(){
-        return responseBody;
+        return message;
     }
 
 }

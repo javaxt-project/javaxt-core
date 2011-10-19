@@ -5,7 +5,7 @@ import java.net.Proxy;
 //**  SoapRequest Class
 //******************************************************************************
 /**
- *   Used to execute SOAP requests
+ *   Used to execute a web service request using XML/SOAP over HTTP.
  *
  ******************************************************************************/
 
