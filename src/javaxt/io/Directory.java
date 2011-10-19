@@ -198,11 +198,11 @@ public class Directory implements Comparable {
     
     public void moveTo(Directory Destination, boolean Overwrite){
         if (Overwrite){
-            Directory.renameTo(Destination.getFile()); 
+            Directory.renameTo(Destination.toFile());
         }
         else{
             if (Destination.exists()==false){
-                Directory.renameTo(Destination.getFile()); 
+                Directory.renameTo(Destination.toFile());
             }
         }
     }
@@ -277,19 +277,113 @@ public class Directory implements Comparable {
     public boolean isHidden(){
         return Directory.isHidden();
     }
-    
-    
+
   //**************************************************************************
-  //** getDirectory
+  //** isLink
   //**************************************************************************
-  /**  Used to retrieve this Directory's Parent. 
-   *   @deprecated Use the getParentDirectory() method instead.
-   */    
-    @Deprecated
-    public Directory getDirectory(){
-        return getParentDirectory();
+  /**  Used to determine whether the directory is actually a link to another
+   *   file or directory. Returns true for symbolic links and Windows
+   *   junctions.
+   */
+    public boolean isLink(){
+        return new File(this).isLink();
     }
-    
+
+
+  //**************************************************************************
+  //** getLink
+  //**************************************************************************
+  /**  Returns the target of a symbolic link or Windows junction
+   */
+    public java.io.File getLink(){
+        return new File(this).getLink();
+    }
+
+
+  //**************************************************************************
+  //** getCreationTime
+  //**************************************************************************
+  /** Returns a timestamp of when the directory was first created. Returns a
+   *  null if the timestamp is not available. Note that this attribute is
+   *  currently only available on Windows XP or later.
+   */
+    public java.util.Date getCreationTime(){
+        try{
+            return getFileAttributes().getCreationTime();
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getLastAccessTime
+  //**************************************************************************
+  /** Returns a timestamp of when the directory was last accessed. Returns a
+   *  null if the timestamp is not available. Note that this attribute is
+   *  currently only available on Windows XP or later.
+   */
+    public java.util.Date getLastAccessTime(){
+        try{
+            return getFileAttributes().getLastAccessTime();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getLastWriteTime
+  //**************************************************************************
+  /** Returns a timestamp of when the directory was last written to. Returns a
+   *  null if the timestamp is not available. Note that this attribute is
+   *  currently only available on Windows XP or later.
+   */
+    public java.util.Date getLastWriteTime(){
+        try{
+            return getFileAttributes().getLastWriteTime();
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getFlags
+  //**************************************************************************
+  /** Returns keywords representing directory attributes. Returns a null if
+   *  the attributes are not available. Note that this attribute is currently
+   *  only available on Windows XP or later.
+   */
+    public java.util.HashSet<String> getFlags(){
+        try{
+            return getFileAttributes().getFlags();
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getFileAttributes
+  //**************************************************************************
+  /** Returns extended file attributes such as when the file was first created
+   *  and when it was last accessed. Note that the getLastAccessTime(),
+   *  getLastAccessTime(), and getLastWriteTime() in the File class all call
+   *  this method. With each method, a call is made to the underlying file
+   *  system to instantiate the FileAttributes class. It is therefore more
+   *  efficient to call the getFileAttributes() method once, than to make
+   *  separate calls to getLastAccessTime(), getLastAccessTime(), and
+   *  getLastWriteTime().
+   */
+    public File.FileAttributes getFileAttributes() throws Exception{
+        return new File(this).getFileAttributes();
+    }
     
   //**************************************************************************
   //** getParentDirectory
@@ -305,18 +399,7 @@ public class Directory implements Comparable {
             return null;
         }
     }
-    
-    
-  //**************************************************************************
-  //** getFile
-  //**************************************************************************
-  /**  Used to retrieve the java.io.File representation by this object. 
-   *   @deprecated Use the toFile() method instead.
-   */
-    @Deprecated
-    public java.io.File getFile(){
-        return Directory;
-    }
+
 
   //**************************************************************************
   //** toFile
@@ -1198,7 +1281,7 @@ public class Directory implements Comparable {
   
     public boolean equals(Object obj){
         if (obj instanceof Directory){
-            return Directory.equals(((Directory) obj).getFile());
+            return Directory.equals(((Directory) obj).toFile());
         }
         else if (obj instanceof java.io.File){
             if (((java.io.File) obj).isDirectory()) 
@@ -1211,31 +1294,7 @@ public class Directory implements Comparable {
         }
     }
     
-    
-    
-    
-  //**************************************************************************
-  //** getEvents
-  //**************************************************************************
-  /** Used to start monitoring changes made to the directory. Changes include 
-   *  creating, modifying or deleting files/folders found in this directory.
-   *
-   *  @param dll A fully qualified path to the FileSystemWatcher.dll. This dll
-   *  is used on windows-based file systems. This parameter is optional. If the
-   *  dll does not exist, pass in a null value.
-   *
-   *  @return A list of Directory.Event(s). Clients can wait for new events 
-   *  using the wait() method. Recommend removing events from the list whenever 
-   *  !events.isEmpty().
-   */
-    private List getEvents(String dll) throws Exception {
-        if (FileSystemWatcher==null){            
-            new Thread(new FileSystemWatcher(this, dll)).start();
-            this.FileSystemWatcher = FileSystemWatcher;
-        }
-        return events;
-    }
-    
+   
     
   //**************************************************************************
   //** getEvents
@@ -1279,44 +1338,15 @@ public class Directory implements Comparable {
     }</pre>
    */
     public List getEvents() throws Exception {
-        
-      //Determine whether to try to load the FileSystemWatcher.dll
-        if (isWindows){
 
-            String jvmPlatform = System.getProperty("os.arch");
-            String dllName = null;
-            if (jvmPlatform.equalsIgnoreCase("x86")){
-                dllName = "javaxt-core.dll";
-            }
-            else if(jvmPlatform.equalsIgnoreCase("amd64")){
-                dllName = "javaxt-core64.dll";
-            }
-            else{
-                return getEvents(null);
-            }
-
-
-          //Find the appropriate dll
-            Jar jar = new Jar(this);
-            Jar.Entry entry = jar.getEntry(null, dllName);
-            java.io.File dll = entry.getFile();
-            
-          //Extract the dll next to the jar file (if necessary)
-            if (dll==null){
-                dll = new java.io.File(jar.getFile().getParentFile(), dllName);
-                if (dll.exists()==false){
-                    entry.extractFile(dll);
-                }
-            }
-            
-            return getEvents(dll.toString());
+        if (FileSystemWatcher==null){
+            new Thread(new FileSystemWatcher(this)).start();
+            this.FileSystemWatcher = FileSystemWatcher;
         }
-        else{
-            return getEvents(null);
-        }
+        return events;
         
     }
-    
+
   //**************************************************************************
   //** Stop
   //**************************************************************************
@@ -2336,10 +2366,10 @@ class DirectorySearch implements Runnable {
  *   Used to watch changes made to files and folders (subdirectories) found in 
  *   a directory. Provides an option to monitor NTFS events on Windows-based 
  *   machines. This is an extremely efficient way to monitor a file system. 
- *   Unlike more traditional methods, this approach minimizes the amount of disk 
- *   i/o required and significantly reduces memory consumption. Note that this 
- *   approach only works on Windows 2000, XP, or later and you need a dynamic 
- *   link library called FileSystemWatch.dll. Again, this is just an option. 
+ *   Unlike more traditional methods, this approach minimizes the amount of  
+ *   disk i/o required and significantly reduces memory consumption. Note that
+ *   this approach only works on Windows 2000, XP, or later and you need a
+ *   dynamic link library called javaxt-core.dll. Again, this is just an option.
  *   For non-Windows operation systems, the FileWatcher class will periodically
  *   scan the file system for updates. 
  *
@@ -2349,83 +2379,30 @@ class FileSystemWatcher implements Runnable {
     
     private Directory directory;
     private Timer timer;
-
-    
-    private File dll; //Path to FileSystemWatcher.dll
     private boolean includeSubdirectories = true;
     private boolean terminationRequested = false;
     private Long osHandle = null;
-        
+
     
   //**************************************************************************
   //** Constructors
   //**************************************************************************   
   /** Creates a new instance of FileSystemWatcher using a directory and a dll.
    */ 
-    public FileSystemWatcher(Directory directory, String dll) throws Exception {
+    public FileSystemWatcher(Directory directory) throws Exception {
         this.directory = directory;
-        if (dll!=null){ 
-            dll = dll.trim();
-            if (dll.length()>0)
-                setLibraryPath(new File(dll.trim()));
-        }
     }
     
-    
-    
-  //**************************************************************************
-  //** setLibraryPath
-  //**************************************************************************
-  /** Used to set the path to the FileSystemWatcher.dll used to monitor NTFS 
-   *  events.
-   */
-    private void setLibraryPath(File dll){
-        if (dll!=null && dll.exists()){
-            if (dll.getExtension().equalsIgnoreCase("dll")){
-                this.dll = dll;
-            }
-        }
-    }
-
-    
-    
-  //**************************************************************************
-  //** loadLibrary
-  //**************************************************************************
-  /** Used to load the FileSystemWatcher.dll used to monitor NTFS events. 
-   *  Returns a boolean value used to indicate whether the library has been 
-   *  accessed (loaded) successfully.
-   */
-    private boolean loadLibrary(){
-        
-        boolean useDLL = false;
-        if (Directory.isWindows){
-            if (dll!=null){
-                try{
-                    System.load(dll.toString()); 
-                    //Runtime.getRuntime().load(dll.toString());
-                    useDLL = true;
-                }
-                catch(Exception e){
-                }
-            }
-        }
-        
-        return useDLL;
-        
-        
-    }
-
     
   //**************************************************************************
   //** Run
   //**************************************************************************
     
     public final void run(){ 
-        
-        if (loadLibrary()==false){
 
-            System.out.println("Failed to load FileSystemWatcher.dll...");
+        if (File.loadDLL()==false){
+
+            System.out.println("Failed to load javaxt-core.dll...");
             this.timer = new Timer();
             timer.schedule( new EventMonitor(), new java.util.Date(), 1000 );
 
@@ -2612,8 +2589,8 @@ class FileSystemWatcher implements Runnable {
 
                 java.io.File file = null;
 
-                if (obj instanceof File) file=((File) obj).getFile();
-                else if (obj instanceof Directory) file=((Directory) obj).getFile();
+                if (obj instanceof File) file=((File) obj).toFile();
+                else if (obj instanceof Directory) file=((Directory) obj).toFile();
                 else if (obj instanceof java.io.File) file=(java.io.File) obj;
 
                 if (file!=null){

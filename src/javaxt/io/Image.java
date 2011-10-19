@@ -980,7 +980,7 @@ public class Image {
    */
     
     public void saveAs(javaxt.io.File OutputFile){
-        saveAs(OutputFile.getFile());
+        saveAs(OutputFile.toFile());
     }
     
   //**************************************************************************

@@ -20,15 +20,15 @@ public class File implements Comparable {
     private java.io.File File; 
     public final String PathSeparator = System.getProperty("file.separator");
     public final String LineSeperator = System.getProperty("line.separator");
+    private static final boolean isWindows = Directory.isWindows;
     
     
   //**************************************************************************
-  //** Instantiate File
+  //** Constructor
   //************************************************************************** 
   /** Creates a new File instance by converting the given pathname string into 
    *  an abstract pathname. 
-   */  
-    
+   */    
     public File(String Path) {
         if (Path.startsWith("\"") && Path.endsWith("\"")){
             Path = Path.substring(1,Path.length()-1);
@@ -36,25 +36,50 @@ public class File implements Comparable {
         File = new java.io.File(Path);
         
     }
-    
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Instantiates this class using a java.io.File. Please use the Directory
+   *  class for directories. Example:
+   * <pre>if (file.isDirectory()) new Directory(file);</pre>
+   */        
     public File(java.io.File File) {
+        if (File.isDirectory()){} //throw an error or set this.File=null?
         this.File = File;
     }
+
     
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
   /** Creates a new File instance from a parent abstract pathname and a child 
    *  pathname string. 
    */
     public File(java.io.File Parent, String Child){
-        this.File = new java.io.File(Parent, Child);
+        this(new java.io.File(Parent, Child));
     }
     
     public File(Directory Parent, String Child){
-        this.File = new java.io.File(Parent.toFile(), Child);
+        this(new java.io.File(Parent.toFile(), Child));
     }
         
     public File(String Parent, String Child){
-        this.File = new java.io.File(new Directory(Parent).toFile(), Child);
-    }   
+        this(new java.io.File(new Directory(Parent).toFile(), Child));
+    }
+
+
+  //**************************************************************************
+  //** Protected Constructor
+  //**************************************************************************
+  /** Creates a new instance of this class using a Directory. This constructor
+   *  was added to support methods such as isLink(), getLink(), and
+   *  getFileAttributes() in the Directory class.
+   */
+    protected File(Directory directory){
+        this.File = directory.toFile();
+    }
     
     
   //**************************************************************************
@@ -116,10 +141,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Get Directory
   //************************************************************************** 
-  /**  Returns the file's parent directory. Same as getParentDirectory() 
-   *   @deprecated Use the getParentDirectory() method instead.
-   */
-    @Deprecated
+  /**  Returns the file's parent directory. Same as getParentDirectory() */
+
     public Directory getDirectory(){
         return getParentDirectory();
     }
@@ -135,16 +158,6 @@ public class File implements Comparable {
     }
 
     
-  //**************************************************************************
-  //** Get File
-  //************************************************************************** 
-  /**  Returns the java.io.File representation of this object. 
-   *   @deprecated Use the toFile() method instead.
-   */
-    @Deprecated
-    public java.io.File getFile(){
-        return File;
-    }
     
   //**************************************************************************
   //** toFile
@@ -160,7 +173,8 @@ public class File implements Comparable {
   //** Get File Extension
   //**************************************************************************  
   /**  Returns the file's extension, excluding the last dot/period 
-   *   (e.g. "C:\image.jpg" will return "jpg").
+   *   (e.g. "C:\image.jpg" will return "jpg"). Returns a zero-length string
+   *   if there is no extension.
    */
     public String getExtension(){
         String FileName = getName();
@@ -251,25 +265,76 @@ public class File implements Comparable {
     }
 
 
+  //**************************************************************************
+  //** isLink
+  //**************************************************************************
+  /**  Used to determine whether the file is actually a link to another file.
+   *   Returns true for symbolic links, Windows junctions, and Windows
+   *   shortcuts.
+   */
     public boolean isLink(){
+
+        if (File == null || !File.exists()) {
+            return false;
+        }
+
+
         if (this.getExtension().equalsIgnoreCase("lnk")){
             return (new LnkParser(this).getFile()!=null);
         }
         else{
-            if (Directory.isWindows){
+            if (isWindows){
                 java.util.HashSet<String> flags = this.getFlags();
-                if (flags!=null)  return (flags.contains("REPARSE_POINT")); //<- This needs to be tested...
+                if (flags!=null)  return (flags.contains("REPARSE_POINT"));
             }
             else{
-                //How to test on unix? Shell out a ls command?
+                try{
+                    return !File.getCanonicalFile().equals(File.getAbsoluteFile());
+                }
+                catch(Exception e){
+                }
             }
         }
         return false;
     }
 
-    public java.io.File getTarget(){
+
+  //**************************************************************************
+  //** getLink
+  //**************************************************************************
+  /**  Returns the target of a symbolic link, Windows junction, or Windows
+   *   shortcut.
+   */
+    public java.io.File getLink(){
+
+        if (File == null || !File.exists()) {
+            return null;
+        }
+
         if (this.getExtension().equalsIgnoreCase("lnk")){
             return new LnkParser(this).getFile();
+        }
+        else{
+            if (isWindows){
+                try{
+                    if (loadDLL()){
+                        java.io.File link = new java.io.File(GetTarget(File.toString()));
+                        if (link.exists()) return link;
+                    }
+                }
+                catch(Exception e){
+                    //e.printStackTrace();
+                }
+            }
+            else{
+                try{
+                    if (!File.getCanonicalFile().equals(File.getAbsoluteFile())){
+                        return File.getCanonicalFile(); //this needs to be tested...
+                    }
+                }
+                catch(Exception e){
+                }
+            }
         }
         return null;
     }
@@ -856,7 +921,7 @@ public class File implements Comparable {
     public boolean equals(Object obj){
         
         if (obj instanceof javaxt.io.File){
-            return File.equals(((javaxt.io.File) obj).getFile());
+            return File.equals(((javaxt.io.File) obj).toFile());
         }
         else if (obj instanceof java.io.File){
             if (((java.io.File) obj).isFile()) 
@@ -1028,6 +1093,7 @@ public class File implements Comparable {
             return getFileAttributes().getLastAccessTime();
         }
         catch(Exception e){
+            e.printStackTrace();
             return null;
         }
     }
@@ -1084,64 +1150,80 @@ public class File implements Comparable {
     }
 
 
+  //**************************************************************************
+  //** loadDLL
+  //**************************************************************************
+  /** Used to load the javaxt-core.dll. Returns a boolean to indicate load
+   *  status. Note that the dll is only loaded once per JVM so it should be
+   *  safe to call this method multiple times.
+   */
+    protected static synchronized boolean loadDLL(){
 
-    private static boolean FileAttributesDLL = loadFileAttributesDLL();
+      //Try to load the dll as needed. Update the
+        if (isWindows){
 
-    private static boolean loadFileAttributesDLL(){
+            if (dllLoaded==null){ //haven't tried to load the dll yet...
+                String jvmPlatform = System.getProperty("os.arch");
+                String dllName = null;
+                if (jvmPlatform.equalsIgnoreCase("x86")){
+                    dllName = "javaxt-core.dll";
+                }
+                else if(jvmPlatform.equalsIgnoreCase("amd64")){
+                    dllName = "javaxt-core64.dll";
+                }
+                else{
+                    dllLoaded = false;
+                    return dllLoaded;
+                }
 
-      //Determine whether to try to load the FileAttributes.dll
-        if (Directory.isWindows){
 
-            String jvmPlatform = System.getProperty("os.arch");
-            String dllName = null;
-            if (jvmPlatform.equalsIgnoreCase("x86")){
-                dllName = "javaxt-core.dll";
-            }
-            else if(jvmPlatform.equalsIgnoreCase("amd64")){
-                dllName = "javaxt-core64.dll";
+              //Find the appropriate dll
+                Jar jar = new Jar(Jar.class);
+                Jar.Entry entry = jar.getEntry(null, dllName);
+                java.io.File dll = entry.getFile();
+
+              //Extract the dll next to the jar file (if necessary)
+                if (dll==null){
+                    dll = new java.io.File(jar.getFile().getParentFile(), dllName);
+                    if (dll.exists()==false){
+                        entry.extractFile(dll);
+                    }
+                }
+
+
+                try{
+                    System.load(dll.toString());
+                    dllLoaded = true;
+                    return dllLoaded;
+
+                }
+                catch(Exception e){
+                    e.printStackTrace();
+
+                  //Don't update the static variable to give users a chance
+                  //to fix the load error.
+                    return false;
+                }
+
             }
             else{
-                return false;
+                return dllLoaded;
             }
-
-
-          //Find the appropriate dll
-            Jar jar = new Jar(Jar.class);
-            Jar.Entry entry = jar.getEntry(null, dllName);
-            java.io.File dll = entry.getFile();
-
-          //Extract the dll next to the jar file (if necessary)
-            if (dll==null){
-                dll = new java.io.File(jar.getFile().getParentFile(), dllName);
-                if (dll.exists()==false){
-                    entry.extractFile(dll);
-                }
-            }
-
-            try{
-                System.load(dll.toString());
-                return true;
-
-/*
-              //http://blog.cedarsoft.com/2010/11/setting-java-library-path-programmatically/
-                File f = new File(dll);
-                System.setProperty( "java.library.path", f.getParentDirectory().toString() );
-                java.lang.reflect.Field fieldSysPath = ClassLoader.class.getDeclaredField( "sys_paths" );
-                fieldSysPath.setAccessible( true );
-                fieldSysPath.set( null, null );
-                System.loadLibrary(f.getName(false));
-
-                return true;
-                */
-            }
-            catch(Exception e){
-                e.printStackTrace();
-            }
-
+            
         }
-        return false;
-
+        else{//not windows...
+            return false;
+        }
     }
+
+
+    
+
+    /** Used to track load status. Null = no load attempted, True = successfully
+     * loaded the dll, False = failed to load dll (don't try again). Do not try
+     * to modify the value directly. Use the loadDLL() method instead.*/
+    private static Boolean dllLoaded;
+
 
     /** Simple date formatter for extended file attributes. */
     private static final java.text.SimpleDateFormat
@@ -1151,7 +1233,8 @@ public class File implements Comparable {
     private static native long[] GetFileAttributesEx(String lpPathName) throws Exception;
 
 
-
+    /** JNI entry point to retrieve file attributes. */
+    private static native String GetTarget(String lpPathName) throws Exception;
 
 //******************************************************************************
 //**  FileAttributes Class
@@ -1185,7 +1268,7 @@ public class FileAttributes {
 
     private FileAttributes(File file) throws Exception {
 
-        if (file.exists() && FileAttributesDLL){
+        if (file.exists() && loadDLL()){
 
             long[] attributes = GetFileAttributesEx(file.toString());
 
@@ -1244,8 +1327,8 @@ public class FileAttributes {
         }
         else{
             if (!file.exists()) throw new Exception("File not found.");
-            if (!Directory.isWindows) throw new Exception("FileAttributes are only available on Windows.");
-            if (!FileAttributesDLL && Directory.isWindows) throw new Exception("Failed to load FileAttributes.dll.");
+            if (!isWindows) throw new Exception("FileAttributes are only available on Windows.");
+            if (!loadDLL() && isWindows) throw new Exception("Failed to load FileAttributes.dll.");
         }
         
     }
