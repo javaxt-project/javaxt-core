@@ -305,7 +305,7 @@ public class Directory implements Comparable {
   //**************************************************************************
   /** Returns a timestamp of when the directory was first created. Returns a
    *  null if the timestamp is not available. Note that this attribute is
-   *  currently only available on Windows XP or later.
+   *  currently only available on FreeBSD UFS2 and Windows NTFS.
    */
     public java.util.Date getCreationTime(){
         return new File(this).getCreationTime();
@@ -316,8 +316,7 @@ public class Directory implements Comparable {
   //** getLastAccessTime
   //**************************************************************************
   /** Returns a timestamp of when the directory was last accessed. Returns a
-   *  null if the timestamp is not available. Note that this attribute is
-   *  currently only available on Windows XP or later.
+   *  null if the timestamp is not available. 
    */
     public java.util.Date getLastAccessTime(){
         return new File(this).getLastAccessTime();
@@ -328,8 +327,7 @@ public class Directory implements Comparable {
   //** getLastWriteTime
   //**************************************************************************
   /** Returns a timestamp of when the directory was last written to. Returns a
-   *  null if the timestamp is not available. Note that this attribute is
-   *  currently only available on Windows XP or later.
+   *  null if the timestamp is not available. 
    */
     public java.util.Date getLastWriteTime(){
         return new File(this).getLastWriteTime();

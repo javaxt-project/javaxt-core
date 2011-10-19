@@ -236,6 +236,12 @@ public class Date {
     
     private java.util.Date parseDate(String date, String format) throws ParseException {
 
+        if (date!=null){
+            date = date.trim();
+            if (date.length()==0) date = null; 
+        }
+        if (date==null) throw new ParseException("Date is null.", 0);
+        
         SimpleDateFormat formatter =
                 new SimpleDateFormat(format, currentLocale);
         if (this.timeZone!=null) formatter.setTimeZone(timeZone);

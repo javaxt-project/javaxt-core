@@ -1070,7 +1070,7 @@ public class File implements Comparable {
   //**************************************************************************
   /** Returns a timestamp of when the file was first created. Returns a null
    *  if the timestamp is not available. Note that this attribute is currently
-   *  only available on Windows XP or later.
+   *  only available on FreeBSD UFS2 and Windows NTFS.
    */
     public java.util.Date getCreationTime(){
         try{
@@ -1085,8 +1085,7 @@ public class File implements Comparable {
   //** getLastAccessTime
   //**************************************************************************
   /** Returns a timestamp of when the file was last accessed. Returns a null
-   *  if the timestamp is not available. Note that this attribute is currently
-   *  only available on Windows XP or later.
+   *  if the timestamp is not available. 
    */
     public java.util.Date getLastAccessTime(){
         try{
@@ -1102,8 +1101,7 @@ public class File implements Comparable {
   //** getLastWriteTime
   //**************************************************************************
   /** Returns a timestamp of when the file was last written to. Returns a null
-   *  if the timestamp is not available. Note that this attribute is currently
-   *  only available on Windows XP or later.
+   *  if the timestamp is not available. 
    */
     public java.util.Date getLastWriteTime(){
         try{
@@ -1216,6 +1214,9 @@ public class File implements Comparable {
     }
 
 
+    /** Used to determine whether the JVM is running on FreeBSD. */
+    private static final boolean isFreeBSD = 
+            System.getProperty("os.name").toLowerCase().contains("freebsd"); 
     
 
     /** Used to track load status. Null = no load attempted, True = successfully
@@ -1239,8 +1240,9 @@ public class File implements Comparable {
 //**  FileAttributes Class
 //******************************************************************************
 /**
- *  Used to encapsulate extended file attributes. Currently only supports
- *  WIN32_FILE_ATTRIBUTE_DATA
+ *  Used to encapsulate extended file attributes. On unix and linux machines, 
+ *  this class is used to parse the output from ls. On windows, this class 
+ *  uses a JNI to return WIN32_FILE_ATTRIBUTE_DATA:
  *
  <pre>
     typedef struct _WIN32_FILE_ATTRIBUTE_DATA {
@@ -1263,74 +1265,113 @@ public class FileAttributes {
     private java.util.Date ftLastWriteTime;
     private long nFileSizeHigh;
     private long nFileSizeLow;
-    private java.util.HashSet<String> flags;
-
+    private java.util.HashSet<String> flags = new java.util.HashSet<String>();
+    
     private FileAttributes(File file) throws Exception {
+        
+        if (!file.exists()) throw new Exception("File not found.");
+        if (isWindows){
 
-        if (file.exists() && loadDLL()){
+            if (loadDLL()){
 
-            long[] attributes = GetFileAttributesEx(file.toString());
+                long[] attributes = GetFileAttributesEx(file.toString());
 
-            dwFileAttributes = attributes[0];
-            ftCreationTime = ftFormatter.parse(attributes[1]+"");
-            ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
-            ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
-            nFileSizeHigh = attributes[4];
-            nFileSizeLow = attributes[5];
+                dwFileAttributes = attributes[0];
+                ftCreationTime = ftFormatter.parse(attributes[1]+"");
+                ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
+                ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
+                nFileSizeHigh = attributes[4];
+                nFileSizeLow = attributes[5];
 
-            flags = new java.util.HashSet<String>();
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY)
-            flags.add("READONLY");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY)
+                flags.add("READONLY");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN)
-            flags.add("HIDDEN");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_HIDDEN) == FILE_ATTRIBUTE_HIDDEN)
+                flags.add("HIDDEN");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SYSTEM) == FILE_ATTRIBUTE_SYSTEM)
-            flags.add("SYSTEM");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SYSTEM) == FILE_ATTRIBUTE_SYSTEM)
+                flags.add("SYSTEM");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
-            flags.add("DIRECTORY");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+                flags.add("DIRECTORY");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ARCHIVE) == FILE_ATTRIBUTE_ARCHIVE)
-            flags.add("ARCHIVE");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ARCHIVE) == FILE_ATTRIBUTE_ARCHIVE)
+                flags.add("ARCHIVE");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DEVICE) == FILE_ATTRIBUTE_DEVICE)
-            flags.add("DEVICE");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_DEVICE) == FILE_ATTRIBUTE_DEVICE)
+                flags.add("DEVICE");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NORMAL) == FILE_ATTRIBUTE_NORMAL)
-            flags.add("NORMAL");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NORMAL) == FILE_ATTRIBUTE_NORMAL)
+                flags.add("NORMAL");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_TEMPORARY) == FILE_ATTRIBUTE_TEMPORARY)
-            flags.add("TEMPORARY");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_TEMPORARY) == FILE_ATTRIBUTE_TEMPORARY)
+                flags.add("TEMPORARY");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SPARSE_FILE) == FILE_ATTRIBUTE_SPARSE_FILE)
-            flags.add("SPARSE_FILE");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_SPARSE_FILE) == FILE_ATTRIBUTE_SPARSE_FILE)
+                flags.add("SPARSE_FILE");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT)
-            flags.add("REPARSE_POINT");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT)
+                flags.add("REPARSE_POINT");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_COMPRESSED) == FILE_ATTRIBUTE_COMPRESSED)
-            flags.add("COMPRESSED");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_COMPRESSED) == FILE_ATTRIBUTE_COMPRESSED)
+                flags.add("COMPRESSED");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_OFFLINE) == FILE_ATTRIBUTE_OFFLINE)
-            flags.add("OFFLINE");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_OFFLINE) == FILE_ATTRIBUTE_OFFLINE)
+                flags.add("OFFLINE");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) == FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
-            flags.add("NOT_CONTENT_INDEXED");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) == FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
+                flags.add("NOT_CONTENT_INDEXED");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ENCRYPTED) == FILE_ATTRIBUTE_ENCRYPTED)
-            flags.add("ENCRYPTED");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_ENCRYPTED) == FILE_ATTRIBUTE_ENCRYPTED)
+                flags.add("ENCRYPTED");
 
-            if (bitand(dwFileAttributes, FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL)
-            flags.add("VIRTUAL");
+                if (bitand(dwFileAttributes, FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL)
+                flags.add("VIRTUAL");
+            }
+            else{
+                throw new Exception("Failed to load javaxt-core.dll.");
+            }
         }
-        else{
-            if (!file.exists()) throw new Exception("File not found.");
-            if (!isWindows) throw new Exception("FileAttributes are only available on Windows.");
-            if (!loadDLL() && isWindows) throw new Exception("Failed to load FileAttributes.dll.");
+        else{//UNIX or LINIX Operating System
+            
+          //Set the write time to the last modified date
+            ftLastWriteTime = file.getDate();
+            
+          //Execute ls command to get last access time
+            String[] params = new String[]{"ls", "-lau", "--full-time", file.toString()};
+            javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
+            cmd.run();                        
+            java.util.Iterator<String> it = cmd.getOutput().iterator();
+            if (it.hasNext()) ftLastAccessTime = parseDate(it.next());
+            
+          //Execute ls command to get creation time (FreeBSD on UFS2 only)
+            if (isFreeBSD){
+                params = new String[]{"ls", "-laU", "--full-time", file.toString()};
+                cmd = new javaxt.io.Shell(params);  
+                cmd.run();                        
+                it = cmd.getOutput().iterator();
+                if (it.hasNext()) ftCreationTime = parseDate(it.next());            
+            }
         }
         
     }
+    
+    /** Used to extract a date from a ls output. */
+    private java.util.Date parseDate(String line){
+        if (line!=null){
+
+            String[] arr = line.split(" ");
+            String date = arr[5] + " " + arr[6] + " " + arr[7];
+
+            try{
+                return new javaxt.utils.Date(date, "yyyy-MM-dd HH:mm:ss.SSS z").getDate();
+            }
+            catch(Exception e){
+            }
+        }        
+        return null;
+    }
+    
 
     public java.util.Date getCreationTime(){
         return ftCreationTime;
