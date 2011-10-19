@@ -308,12 +308,7 @@ public class Directory implements Comparable {
    *  currently only available on Windows XP or later.
    */
     public java.util.Date getCreationTime(){
-        try{
-            return getFileAttributes().getCreationTime();
-        }
-        catch(Exception e){
-            return null;
-        }
+        return new File(this).getCreationTime();
     }
 
 
@@ -325,13 +320,7 @@ public class Directory implements Comparable {
    *  currently only available on Windows XP or later.
    */
     public java.util.Date getLastAccessTime(){
-        try{
-            return getFileAttributes().getLastAccessTime();
-        }
-        catch(Exception e){
-            e.printStackTrace();
-            return null;
-        }
+        return new File(this).getLastAccessTime();
     }
 
 
@@ -343,29 +332,19 @@ public class Directory implements Comparable {
    *  currently only available on Windows XP or later.
    */
     public java.util.Date getLastWriteTime(){
-        try{
-            return getFileAttributes().getLastWriteTime();
-        }
-        catch(Exception e){
-            return null;
-        }
+        return new File(this).getLastWriteTime();
     }
 
 
   //**************************************************************************
   //** getFlags
   //**************************************************************************
-  /** Returns keywords representing directory attributes. Returns a null if
-   *  the attributes are not available. Note that this attribute is currently
-   *  only available on Windows XP or later.
+  /** Returns keywords representing directory attributes. Returns an empty 
+   *  HashSet if the attributes are not available. Note that this attribute is 
+   *  currently only available on Windows XP or later.
    */
     public java.util.HashSet<String> getFlags(){
-        try{
-            return getFileAttributes().getFlags();
-        }
-        catch(Exception e){
-            return null;
-        }
+        return new File(this).getFlags();
     }
 
 

@@ -1093,7 +1093,6 @@ public class File implements Comparable {
             return getFileAttributes().getLastAccessTime();
         }
         catch(Exception e){
-            e.printStackTrace();
             return null;
         }
     }
@@ -1119,16 +1118,16 @@ public class File implements Comparable {
   //**************************************************************************
   //** getFlags
   //**************************************************************************
-  /** Returns keywords representing file attributes. Returns a null if the
-   *  attributes are not available. Note that this attribute is currently only
-   *  available on Windows XP or later.
+  /** Returns keywords representing file attributes. Returns an empty HashSet 
+   *  if the attributes are not available. Note that this attribute is  
+   *  currently only available on Windows XP or later.
    */
     public java.util.HashSet<String> getFlags(){
         try{
             return getFileAttributes().getFlags();
         }
         catch(Exception e){
-            return null;
+            return new java.util.HashSet<String>();
         }
     }
 
@@ -1198,7 +1197,7 @@ public class File implements Comparable {
 
                 }
                 catch(Exception e){
-                    e.printStackTrace();
+                    //e.printStackTrace();
 
                   //Don't update the static variable to give users a chance
                   //to fix the load error.
