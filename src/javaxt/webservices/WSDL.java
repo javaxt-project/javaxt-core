@@ -6,10 +6,9 @@ import javaxt.xml.DOM;
 /******************************************************************************
 /**  WSDL Parser - By Peter Borissow
 /*****************************************************************************/
-/**  Used to parse a WSDL file and generate a SSD (Simple Service Description).
- *   Once an SSD is generated, the class is used to can be used to extract
- *   portions of the WSDL (e.g. Method Names, etc) and can even be used to
- *   generate a SoapRequest.
+/**  Used to parse a WSDL return information about the web services documented
+ *   in the WSDL including service name and description, web methods, and input
+ *   parameters.
  *
  <pre>
 javaxt.webservices.WSDL wsdl = new javaxt.webservices.WSDL(url);
@@ -43,11 +42,12 @@ for (javaxt.webservices.Service service : wsdl.getServices()){
 
 public class WSDL {
         
-    private Document XMLDoc;        
-    private String SSD; //Simple Service Definition    
+    private Document wsdl;
+    private Document ssd; //Simple Service Definition
     private String vbCrLf = "\r\n"; 
     private String ElementNameSpace = "";
-    private String temp = "";
+    private java.util.HashMap<String, String> NameSpaces;
+    private NodeList Schema;
     
     private class Port{
         public String Name;
@@ -77,28 +77,133 @@ public class WSDL {
         public boolean IsComplex = false;
         public String minOccurs = "0";
         public String maxOccurs = "1";
-        
+        public boolean IsAttribute = false;
+
+        private java.util.ArrayList<Object> children = new java.util.ArrayList<Object>();
+
+
+        public Element(String Name, String Type){
+            this.Name = Name;
+            this.Type = stripNameSpace(Type);
+            IsComplex = isElementComplex(Type);
+        }
 
         public Element(Node node){
+
+            String nodeName = stripNameSpace(node.getNodeName());
             NamedNodeMap attr = node.getAttributes();
 
-            Name = getAttributeValue(attr, "name");                                                                
+
+            Name = getAttributeValue(attr, "name");
             Type = getAttributeValue(attr, "type");
             IsNillable = isElementNillable(getAttributeValue(attr, "nillable"));
             IsComplex = isElementComplex(Type);
             minOccurs = getAttributeValue(attr, "minOccurs");
             maxOccurs = getAttributeValue(attr, "maxOccurs");
-            
+
             if (minOccurs.length()==0) minOccurs = "0";
             if (maxOccurs.length()==0) maxOccurs = "1";
-            
-            Type = stripNameSpace(Type); 
-            //System.out.println(Type);
-            
+
+            Type = stripNameSpace(Type);
+
             String elementRef = getAttributeValue(attr, "ref");
             if (elementRef.length()>0){
                 Name = elementRef;
             }
+            
+            if (nodeName.equalsIgnoreCase("attribute")){
+                IsAttribute = true;
+                IsNillable = getAttributeValue(attr, "use").equalsIgnoreCase("optional");
+            }
+        }
+
+        public void addElement(Element element){
+
+          //Child elements should be unique.
+            boolean addElement = true;
+            java.util.Iterator it = children.iterator();
+            while (it.hasNext()){
+                Object child = it.next();
+                if (child instanceof Element){
+                    Element e = (Element) child;
+                    if (e.Name.equals(element.Name) && e.Type.equals(element.Type)){
+                        addElement = false;
+                    }
+                }
+            }
+            if (addElement) children.add(element);
+        }
+
+        public void addChoices(Choices choices){
+            children.add(choices);
+        }
+
+        public void addOptions(Options options){
+            children.add(options);
+        }
+
+
+        public String toString(){
+            StringBuffer xml = new StringBuffer();
+            xml.append("   <parameter " +
+                               "name=\"" + Name + "\" " +
+                               "type=\"" + Type + "\" " +
+                               "minOccurs=\"" + minOccurs + "\" " +
+                               "maxOccurs=\"" + maxOccurs + "\" " +
+                               "isattribute=\"" + IsAttribute + "\" " +
+                               "iscomplex=\"" + IsComplex + "\" " +
+                               "isnillable=\"" + IsNillable + "\">" + vbCrLf);
+
+            java.util.Iterator it = children.iterator();
+            while (it.hasNext()){
+                xml.append(it.next().toString());
+            }
+
+            xml.append("   </parameter>" + vbCrLf);
+            return xml.toString();
+        }
+    }
+
+    private class Options{
+        private java.util.ArrayList<String> options = new java.util.ArrayList<String>();
+        public Options(){}
+        public void addOption(String option){
+            options.add(option);
+        }
+        public String toString(){
+            StringBuffer xml = new StringBuffer();
+            if (!options.isEmpty()){
+                xml.append("<options>");
+                java.util.Iterator<String> it = options.iterator();
+                while (it.hasNext()){
+                    String option = it.next();
+                    xml.append("    <option value=\"" + option + "\">" + option + "</option>" + vbCrLf);
+                }
+                xml.append("</options>");
+            }
+            return xml.toString();
+        }
+    }
+
+    private class Choices{
+        private java.util.ArrayList<Element> choices = new java.util.ArrayList<Element>();
+        public Choices(){}
+        public void addChoice(Element choice){
+            choices.add(choice);
+        }
+        public String toString(){
+            StringBuffer xml = new StringBuffer();
+            if (!choices.isEmpty()){
+                xml.append("<options>");
+                java.util.Iterator<Element> it = choices.iterator();
+                while (it.hasNext()){
+                    xml.append("<option>");
+                    xml.append(it.next().toString());
+                    xml.append("</option>");
+                }
+                xml.append("</options>");
+            }
+            return xml.toString();
         }
     }
     
@@ -125,231 +230,35 @@ public class WSDL {
     }
 
     public WSDL(Document xml) {
-        XMLDoc = xml;
-
+        wsdl = xml;
+        NameSpaces = DOM.getNameSpaces(wsdl);
         ElementNameSpace = getElementNameSpace();
-        //getElements();
-        //importSchemas();
-        
-        SSD = "";        
-        generateSSD();
-        SSD = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + vbCrLf + 
-              "<ssd>" + vbCrLf + SSD + vbCrLf + "</ssd>";
-        
-        XMLDoc = DOM.createDocument(SSD);
+        parseWSDL();
     }
     
-    
 
-    
-    
-  //**************************************************************************
-  //** getElements
-  //**************************************************************************
-/*    
-    private void getElements(){
-        
-        Element[] Elements = null;
-        
-      //Find All Elements in the definitions/types/schema Section of the WSDL
-        NodeList Schema = getSchema();
-        Elements = getElements(Schema);
-        
-      //Find All Elements in the definitions/message/part/element Section of the WSDL (rare case)
-        
-        
-      //Import All Imported Elements
-        NodeList[] Schemas = getSchemas();
-        if (Schemas!=null){
-            for (int i=0; i<Schemas.length; i++){
-                 getElements(Schemas[i]);
-            }
-        }
-    }
-    
-    private Element[] getElements(NodeList Schema){
-        Element[] Elements = null;
-        if (Schema!=null){
-            for (int i=0; i<Schema.getLength(); i++){
-                 Node node = getNode(Schema.item(i),"element");
-                 if (node!=null){
-                     Element Element = new Element(node);
-                     Elements = resizeArray(Element,Elements);
-                 }
-            }
-        }
-        return Elements;
-    }
-*/    
-    
- 
-    
-    //private NodeList[] Schemas = null;
-    private StringBuffer auxSchemas;
-    private java.util.HashMap NameSpaces;
-    private void importSchemas(){
-        
-        //System.out.println("SOURCE = " + source);
-        //javaxt.io.File File = new javaxt.io.File(source);
-        
-        auxSchemas = new StringBuffer();
-        NameSpaces = new java.util.HashMap();
-        
-       //Loop through Schemas and Get Imports
-         NodeList Schema = getSchema();         
-         for (int i=0; i<Schema.getLength(); i++ ) {
-              Node node = getNode(Schema.item(i), "import");
-              if (node!=null){
-                  NamedNodeMap attr = node.getAttributes();
-                  String schemaLocation = getAttributeValue(attr, "schemaLocation");
-                  //schemaLocation = File.MapPath(schemaLocation);
-                  
-                  //Schemas = getSchemas(schemaLocation, Schemas);
-                  importSchemas(schemaLocation);
-                  
-                //Remove Import
-                  Node iSchema = node.getParentNode();
-                  iSchema.removeChild(node);
-              }
-         }
-         
-         auxSchemas.append(DOM.getText(Schema));
-         //return Schemas;
-/*         
-         String Attributes = "";
-         StringBuffer s = new StringBuffer();
-         java.util.Iterator iter = NameSpaces.keySet().iterator();
-         while(iter.hasNext()){
-             String key = (String) iter.next();
-             String value = (String) NameSpaces.get(key);
-             Attributes += " " + key + "=\"" + value + "\"";
-         }
-         s.append("<z" + Attributes + ">" + auxSchemas.toString() + "</z>");
-
-         
-        File = new utils.File("C:\\Temp\\trash.xml");
-        File.Save(s.toString());
-*/        
-         
-    }
-    
-    private void importSchemas(String schemaLocation){
-        //System.out.println("SOURCE = " + schemaLocation);
-        //javaxt.io.File File = new javaxt.io.File(schemaLocation);
-        Document doc = DOM.createDocument(schemaLocation);
-        if (doc!=null){
-
-
-            NameSpaces.putAll(DOM.getNameSpaces(doc));
-
-            
-            NodeList Schema = doc.getChildNodes();
-            Schema = getChildNodes(Schema,"schema");
-            //Schemas = resizeArray(auxSchemas, Schemas);
-            for (int i=0; i<Schema.getLength(); i++ ) {
-                 //System.out.println(Schema.item(i).getNodeName());
-                 Node node = getNode(Schema.item(i), "import");
-                 if (node!=null){
-                     NamedNodeMap attr = node.getAttributes();
-                     schemaLocation = getAttributeValue(attr, "schemaLocation");
-                     //schemaLocation = File.MapPath(schemaLocation);
-
-                     importSchemas(schemaLocation);
-
-                     Node iSchema = node.getParentNode();
-                     iSchema.removeChild(node);
-                 }
-            }
-            
-            auxSchemas.append(DOM.getText(Schema));
-            
-            //Schemas = resizeArray(Schema, Schemas);
-
-        }
-    }
-    
-/*    
-    private NodeList[] getSchemas(){
-        
-        System.out.println("SOURCE = " + source);
-        utils.File File = new utils.File(source);
-        
-        NodeList[] Schemas = null;
-        
-        
-       //Loop through Schemas and Get Imports
-         NodeList Schema = getSchema();         
-         for (int i=0; i<Schema.getLength(); i++ ) {
-              Node node = getNode(Schema.item(i), "import");
-              if (node!=null){
-                  NamedNodeMap attr = node.getAttributes();
-                  String schemaLocation = getAttributeValue(attr, "schemaLocation");
-                  schemaLocation = File.MapPath(schemaLocation);
-                  
-                  Schemas = getSchemas(schemaLocation, Schemas);
-                  
-
-                  
-                  Node iSchema = node.getParentNode();
-                  iSchema.removeChild(node);
-              }
-         }
-         return Schemas;
-         
-    }
-    
-    private NodeList[] getSchemas(String schemaLocation, NodeList[] Schemas){
-        
-        System.out.println("SOURCE = " + schemaLocation);
-        utils.File File = new utils.File(schemaLocation);
-        Document doc = xml.getDocument(schemaLocation);
-        if (doc!=null){
-
-            NodeList Schema = doc.getChildNodes();
-            Schema = getChildNodes(Schema,"schema");
-            //Schemas = resizeArray(auxSchemas, Schemas);
-            for (int i=0; i<Schema.getLength(); i++ ) {
-                 //System.out.println(Schema.item(i).getNodeName());
-                 Node node = getNode(Schema.item(i), "import");
-                 if (node!=null){
-                     NamedNodeMap attr = node.getAttributes();
-                     schemaLocation = getAttributeValue(attr, "schemaLocation");
-                     schemaLocation = File.MapPath(schemaLocation);
-
-                     Schemas = getSchemas(schemaLocation, Schemas);
-
-                     Node iSchema = node.getParentNode();
-                     iSchema.removeChild(node);
-                 }
-            }
-            
-            Schemas = resizeArray(Schema, Schemas);
-
-        }
-                  
-        return Schemas;
-        
-    }
-    
-*/
     
   //**************************************************************************
   //** getSSD
   //**************************************************************************
-    
-    public String getSSD(){
-        //utils.File File = new utils.File("C:\\Temp\\trash.xml");
-        //File.Save(SSD);
-        return SSD;
+  /** Returns a Simple Service Description (SSD) - an xml document which
+   *  outlines all the web methods and input parameters defined in
+   *  the WSDL. This document is significantly easier to parse and understand
+   *  than the original WSDL.
+   */
+    public Document getSSD(){
+        return ssd;
     }
     
     
   //**************************************************************************
   //** toString
   //**************************************************************************
-    
+  /** Returns a string representing an XML document containing a Simple
+   *  Service Description (SSD). Please see the getSSD() for more information.
+   */
     public String toString(){
-        return getSSD();
+        return DOM.getText(ssd);
     }
 
 
@@ -358,7 +267,7 @@ public class WSDL {
 
     
     private NamedNodeMap getDefinitionAttributes(){
-        NodeList Definitions = XMLDoc.getChildNodes();
+        NodeList Definitions = wsdl.getChildNodes();
         for (int i=0; i<Definitions.getLength(); i++ ) {
              if (Definitions.item(i).getNodeType() == 1){
                  if (contains(Definitions.item(i).getNodeName(), "definitions")) {
@@ -413,13 +322,11 @@ public class WSDL {
   //**************************************************************************
     
     private boolean isElementComplex(String elementType){
-        String elementNameSpace = getNameSpace(elementType);
-        if (elementNameSpace.toLowerCase().equals(ElementNameSpace.toLowerCase())){
-            return false;
+        String elementNameSpace = "";
+        if (elementType.contains(":")){
+            elementNameSpace = elementType.substring(0, elementType.indexOf(":"));
         }
-        else{
-            return true;
-        }        
+        return !elementNameSpace.equalsIgnoreCase(ElementNameSpace);
     }
 
     
@@ -435,15 +342,19 @@ public class WSDL {
             return false;
         }        
     }    
-    
+
+
   //**************************************************************************
-  //** generateSSD
+  //** parseWSDL
   //**************************************************************************    
-  
-    private void generateSSD(){       
-        //Extract services from WSDL:
-        //definitions->service (name attribute)
-        
+  /** Used to parse the WSDL and generate the SSD. */
+
+    private void parseWSDL(){
+
+        String SSD = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + vbCrLf +
+              "<ssd>" + vbCrLf;
+
+
         String ServiceName = "";
         String ServiceDescription = "";
         
@@ -454,12 +365,13 @@ public class WSDL {
 
         Port Port = null;
         Binding Binding = null;
-        Binding[] arrBindings = null;
+        java.util.ArrayList<Binding> arrBindings = null;
         Element Element = null;
-        Element[] arrElements = null; 
+        java.util.ArrayList<Element> arrElements = null;
         
 
       //Loop Through Definitions and Get Services
+      //definitions->service (name attribute)
         Definitions = getDefinitions();
         for (int i=0; i<Definitions.getLength(); i++ ) {         
             if (contains(Definitions.item(i).getNodeName(), "service")) {
@@ -484,8 +396,7 @@ public class WSDL {
                 
                 if (Port!=null){
                     
-                    
-                  //Update SSD
+                                      
                     SSD += " <service name=\"" + ServiceName + "\" url=\"" + Port.Address + "\" namespace=\"" + getTargetNameSpace() + "\">" + vbCrLf;
                     if (ServiceDescription!=null){
                     SSD += "  <description>" + ServiceDescription + "</description>" + vbCrLf;}
@@ -493,8 +404,8 @@ public class WSDL {
                     
                   //Get Bindings
                     arrBindings = getBindings(Port.Binding);
-                    for (int j=0; j<arrBindings.length; j++ ) {
-                         Binding = arrBindings[j];
+                    for (int j=0; j<arrBindings.size(); j++ ) {
+                         Binding = arrBindings.get(j);
 
                          
                        //Get Soap Action
@@ -512,74 +423,50 @@ public class WSDL {
                        //Get Response Element
                          String ResultsNode = "";
                          try{
-                         arrElements = getMessageType(Message.Output);
-                         for (int k=0; k<arrBindings.length; k++ ) {
-                              Element = arrElements[k];
-                              ResultsNode = Element.Name;
-                         }  
-                         
-                         }catch(Exception e){
+                             arrElements = getElements(Message.Output);
+                             for (int k=0; k<arrBindings.size(); k++ ) {
+                                  Element = arrElements.get(k);
+                                  ResultsNode = Element.Name;
+                             }
+                         }
+                         catch(Exception e){
                              //System.out.println(e.toString());
                          }
                          
                          
                          SSD +="  <method name=\"" + Binding.Operation + "\"" + SoapAction + " resultsNode=\"" + ResultsNode + "\">" + vbCrLf;
                          if (Message.Documentation!=null){
-                         SSD += "  <description>" + Message.Documentation + "</description>" + vbCrLf;}
-                         SSD += "  <parameters>" + vbCrLf;
-                         
-
-                         
-                       //Get Input Elements (Input Parameters)
-                         try{
-                         arrElements = getMessageType(Message.Input);
-                         for (int k=0; k<arrElements.length; k++ ) {
-                              Element = arrElements[k];
-                              
-                              
-                                SSD += "   <parameter " + 
-                                           "name=\"" + Element.Name + "\" " + 
-                                           "type=\"" + Element.Type + "\" " + 
-                                           "minOccurs=\"" + Element.minOccurs + "\" " + 
-                                           "maxOccurs=\"" + Element.maxOccurs + "\" " + 
-                                           "iscomplex=\"" + Element.IsComplex + "\" " + 
-                                           "isnillable=\"" + Element.IsNillable + "\">" + vbCrLf;
-                                try{
-                                if (Element.IsComplex){
-                                    temp = "";
-                                    decomposeComplexType(Element.Type, null);
-                                    SSD += temp;
-                                }
-                                }catch(Exception e){}
-                                
-                                SSD += "   </parameter>" + vbCrLf;
-
+                            SSD += "  <description>" + Message.Documentation + "</description>" + vbCrLf;
                          }
-                         }catch(Exception e){
-                             //System.out.println(e.toString());
-                             StackTraceElement[] arr = e.getStackTrace();
-                             for (int z=0; z<arr.length; z++){
-                                  //System.out.println(arr[z]);
+                         
+                         SSD += "  <parameters>" + vbCrLf;
+                         arrElements = getElements(Message.Input);
+                         try{
+                             for (int k=0; k<arrElements.size(); k++ ) {
+                                 Element = arrElements.get(k);
+                                 SSD += Element.toString();
                              }
                          }
-                         
-                         
+                         catch(Exception e){
+                             //System.out.println(e.toString());
+                         }
                          SSD += "  </parameters>" + vbCrLf;
-                         SSD +="  </method>" + vbCrLf; 
-                         
-                         
-                    
-                         
+
+
+                         SSD +="  </method>" + vbCrLf;
                     }
                     
                   //Update SSD
                     SSD += "  </methods>" + vbCrLf;
-                    SSD += " </service>" + vbCrLf;
-                    
-                
+                    SSD += " </service>" + vbCrLf;                                    
                 }
             }
-        }            
+        }
+
+        SSD += vbCrLf + "</ssd>";
+        ssd = DOM.createDocument(SSD);
+
+        knownTypes.clear();
     }  
     
     
@@ -633,7 +520,7 @@ public class WSDL {
   //** getBindings
   //************************************************************************** 
     
-    private Binding[] getBindings(String PortBinding){
+    private java.util.ArrayList<Binding> getBindings(String PortBinding){
         
         NodeList Definitions, ChildNodes;
         NamedNodeMap attr;
@@ -641,7 +528,7 @@ public class WSDL {
         String BindingName, BindingType, BindingStyle, BindingTransport;
         
         Binding Binding = null;
-        Binding[] arrBindings = null;
+        java.util.ArrayList<Binding> arrBindings = null;
         int BindingCount = -1;
         
         //Loop through definitions
@@ -657,7 +544,7 @@ public class WSDL {
                 if (BindingName.equals(PortBinding)){
                     
                     
-                    arrBindings = new Binding[0];
+                    arrBindings = new java.util.ArrayList<Binding>();
 
                     //Get Binding Transport/Style      
                     BindingStyle = BindingTransport = "";
@@ -693,8 +580,8 @@ public class WSDL {
                                  }
                             }
                             
-                            arrBindings = (Binding[])resizeArray(arrBindings,BindingCount+1);
-                            arrBindings[BindingCount] = Binding;
+
+                            arrBindings.add(Binding);
                         }
                     }  
                     
@@ -805,22 +692,20 @@ public class WSDL {
     
     
   //**************************************************************************
-  //** getMessageType
+  //** getElements
   //************************************************************************** 
-  /** Used to extract parameter names */
-    
-    private Element[] getMessageType(String MessageName){
-        //definitions->message->part (element name attribute)
-        
+  /** Returns a list of elements (parameters) associated with a given message.
+   *  definitions->message->part (element name attribute)
+   */    
+    private java.util.ArrayList<Element> getElements(String MessageName){
+
         NodeList Definitions, Messages;
         NamedNodeMap attr;
         
-        String messageName, element, name, type, min, max;
+        String messageName, name, type, min, max;
         
-        Element Element = null;
-        Element[] arrElements = new Element[0];
-        int ElementCount = -1;
-    
+
+        java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
 
       //Loop through Definitions and Find Messages
         Definitions = getDefinitions();
@@ -828,9 +713,9 @@ public class WSDL {
             if (contains(Definitions.item(i).getNodeName(), "message")) {
                 
                 attr = Definitions.item(i).getAttributes();
-                messageName = getAttributeValue(attr, "name");  
+                messageName = getAttributeValue(attr, "name");
                 if (messageName.equals(MessageName)){
-                
+
                   
 
                   //Loop through Messages and Find Message Parts
@@ -844,22 +729,21 @@ public class WSDL {
                             
                             if (type!=""){ //This is rare!
                                 
-                                ElementCount +=1;
-                                Element = new Element(Messages.item(j));
-                                arrElements = (Element[])resizeArray(arrElements,ElementCount+1);
-                                arrElements[ElementCount] = Element;
+                                
+                                Element element = new Element(Messages.item(j));
+                                elements.add(element);
 
                             }
                             else{      
-                                
-                                element = stripNameSpace(getAttributeValue(attr, "element")); 
-                                arrElements = getElementType(element);
+                              
+                                String element = stripNameSpace(getAttributeValue(attr, "element"));
+                                elements = getElement(element);
                             }
                             
                         }
                     }
                     
-                    return arrElements;
+                    return elements;
                 }
             }
         }
@@ -868,127 +752,13 @@ public class WSDL {
         
     }
 
-    
-  //**************************************************************************
-  //** getElementType
-  //************************************************************************** 
-  /** Used to extract parameters */
-    
-    private Element[] getElementType(String ElementName){
-        //definitions->types->schema->element (name attribute)
-        
-        Element[] arrElements = new Element[0];
-        int ElementCount = -1;
-        
-      //Loop Through Schemas and Find Elements
-        NodeList Schemas = getSchema();
 
-                for (int k=0; k<Schemas.getLength(); k++ ) {
-
-                  //Loop Through Elements
-                    if (contains(Schemas.item(k).getNodeName(), "element")) {
-
-
-                        //Compare method name to the the one we're searching for
-                        NamedNodeMap attrElement = Schemas.item(k).getAttributes();
-                        String elementName = getAttributeValue(attrElement, "name");
-                        String elementType = getAttributeValue(attrElement, "type");
-                        if (elementName.equals(ElementName)) {
-
-
-                            if (!DOM.hasChildren(Schemas.item(k))){ //Complex Type!
-                                String s = decomposeComplexType(stripNameSpace(elementType),null);
-                                Document doc = DOM.createDocument("<parameters>" + s + "</parameters>");
-                                NodeList Elements = doc.getElementsByTagName("parameter");
-                                for (int x=0; x<Elements.getLength(); x++ ) {
-                                     if (Elements.item(x).getNodeType()==1){
-                                         
-                                         ElementCount +=1;
-                                         Element Element = new Element(Elements.item(x));
-                                         arrElements = (Element[])resizeArray(arrElements,ElementCount+1);
-                                         arrElements[ElementCount] = Element;
-                                     }
-                                }
-                            }
-                            else{
-
-                                //Loop down to the second element
-                                try{
-                                    NodeList Elements = Schemas.item(k).getChildNodes();
-                                    for (int x=0; x<Elements.getLength(); x++ ) { //Schemas?
-                                        if (contains(Elements.item(x).getNodeName(), "complextype")) {
-                                            NodeList ComplexType = Elements.item(x).getChildNodes();
-                                            for (int y=0; y<ComplexType.getLength(); y++ ) { ////Schemas?
-                                                if (contains(ComplexType.item(y).getNodeName(), "sequence")) {
-                                                    NodeList Sequence = ComplexType.item(y).getChildNodes();
-                                                    for (int z=0; z<Sequence.getLength(); z++ ) {
-                                                        if (contains(Sequence.item(z).getNodeName(), "element")) {
-
-                                                            ElementCount +=1;
-                                                            Element Element = new Element(Sequence.item(z));
-                                                            arrElements = (Element[])resizeArray(arrElements,ElementCount+1);
-                                                            arrElements[ElementCount] = Element;
-
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                    }
-
-
-
-                                }
-                                catch(Exception e){
-                                    //SSD+="<error>" + e.toString() + "</error>";
-                                }
-
-                            } //end if complex type
-                            
-                            
-                            return arrElements;
-
-                        }
-
-
-                    }
-
-                }
-        
-        return null;
-    }
-    
-    
-    
-    private NodeList getChildNodes(NodeList ParentNodes, String NodeName){
-        for (int i=0; i<ParentNodes.getLength(); i++ ) {
-             Node node = ParentNodes.item(i);
-             if (node.getNodeType() == 1){
-                 //System.out.println(node.getNodeName());
-                 if (node.getNodeName().endsWith(NodeName)) { 
-                     return node.getChildNodes();
-                 }
-             }
-        }
-        return null;
-    }
-    
-    private Node getNode(Node node, String NodeName){
-       if (node.getNodeType()==1) {
-           if (node.getNodeName().endsWith(NodeName)){
-               return node;
-           }
-       }
-       return null;
-    }
-    
   //**************************************************************************
   //** getDefinitions
   //**************************************************************************    
     
     private NodeList getDefinitions(){
-        NodeList Definitions = XMLDoc.getChildNodes();
+        NodeList Definitions = wsdl.getChildNodes();
         if (Definitions!=null){
             for (int i=0; i<Definitions.getLength(); i++){
                  Node node = Definitions.item(i);
@@ -1025,131 +795,361 @@ public class WSDL {
 
     
   //**************************************************************************
-  //** getShemas
+  //** getShema
   //**************************************************************************  
     
     private NodeList getSchema(){
-        NodeList Types = getTypes();
-        if (Types!=null){
-            for (int i=0; i<Types.getLength(); i++){
-                 Node node = Types.item(i);
-                 if (node.getNodeType()==1){
-                     if (node.getNodeName().endsWith("schema")){
-                         return node.getChildNodes();
-                     }
-                 }
+        if (Schema==null) addSchema(wsdl, false);
+        return Schema;
+    }
+
+
+  //**************************************************************************
+  //** addSchema
+  //**************************************************************************
+  /** Used to add an external XSD.
+   *  @param followImports Flag used to indicate whether to download/parse XSD
+   *  files referenced by the schema/import nodes.
+   */
+    public void addSchema(Document xsd, boolean followImports){
+
+        if (xsd!=null){
+
+            Node outerNode = DOM.getOuterNode(xsd);
+            String outerNodeName = stripNameSpace(outerNode.getNodeName());
+
+            NodeList schemaNodes = null;
+            if (outerNodeName.equalsIgnoreCase("definitions")){
+                NodeList childNodes = outerNode.getChildNodes();
+                for (int i=0; i<childNodes.getLength(); i++){
+                    Node node = childNodes.item(i);
+                    if (stripNameSpace(node.getNodeName()).equalsIgnoreCase("types")){                        
+                        NodeList types = node.getChildNodes();
+                        for (int j=0; j<types.getLength(); j++){
+                            Node typeNode = types.item(j);
+                            if (stripNameSpace(typeNode.getNodeName()).equalsIgnoreCase("schema")){
+                                schemaNodes = typeNode.getChildNodes();
+                            }
+                        }
+                    }
+                }
+            }
+            else if (outerNodeName.equalsIgnoreCase("schema")){
+                schemaNodes = outerNode.getChildNodes();
+            }
+            else{
+                return;
+            }
+
+
+            NameSpaces.putAll(DOM.getNameSpaces(xsd));
+            StringBuffer auxSchemas = new StringBuffer();
+
+            
+          //Loop through Schemas and Get Imports            
+            for (int i=0; i<schemaNodes.getLength(); i++ ) {
+                Node node = getNode(schemaNodes.item(i), "import");
+                if (node!=null){
+                    NamedNodeMap attr = node.getAttributes();
+
+                    if (followImports){
+                        importSchemas(getAttributeValue(attr, "schemaLocation"), auxSchemas);
+                    }
+
+                    Node iSchema = node.getParentNode();
+                    iSchema.removeChild(node);
+                }
+            }
+
+
+            StringBuffer xml = new StringBuffer();
+            xml.append("<?xml version=\"1.0\"?>");
+            xml.append("<schemas");
+            java.util.Iterator<String> it = NameSpaces.keySet().iterator();
+            while (it.hasNext()){
+                String ns = it.next();
+                String url = (String) NameSpaces.get(ns);
+                xml.append(" xmlns:");
+                xml.append(ns);
+                xml.append("=\"");
+                xml.append(url);
+                xml.append("\"");
+            }
+            xml.append(">");
+            if (this.Schema!=null) xml.append(DOM.getText(this.Schema));
+            xml.append(DOM.getText(schemaNodes));
+            xml.append(auxSchemas);
+            xml.append("</schemas>");
+
+            boolean parseWSDL = this.Schema!=null;
+            this.Schema = DOM.getOuterNode(DOM.createDocument(xml.toString())).getChildNodes();
+            if (parseWSDL) parseWSDL();
+
+        }
+    }
+
+
+  //**************************************************************************
+  //** importSchemas
+  //**************************************************************************
+  /** Used to download and parse an XSD document. Used in conjunction with the
+   *  addSchema method. Note that this is a recursive function.
+   *
+   *  @param schemaLocation URL to the XSD file.
+   *  @param auxSchemas StringBuffer used to append new schema nodes.
+   */
+    private void importSchemas(String schemaLocation, StringBuffer auxSchemas){
+        
+        javaxt.http.Response response = new javaxt.http.Request(schemaLocation).getResponse();
+        String txt = response.getText();
+
+        Document doc = DOM.createDocument(txt);
+        if (doc!=null){
+
+
+            NameSpaces.putAll(DOM.getNameSpaces(doc));
+
+
+            NodeList Schema = doc.getChildNodes();
+            Schema = getChildNodes(Schema,"schema");
+            for (int i=0; i<Schema.getLength(); i++ ) {
+                Node node = getNode(Schema.item(i), "import");
+                if (node!=null){
+                    NamedNodeMap attr = node.getAttributes();
+                    schemaLocation = getAttributeValue(attr, "schemaLocation");
+
+                    importSchemas(schemaLocation, auxSchemas);
+
+                    Node iSchema = node.getParentNode();
+                    iSchema.removeChild(node);
+                }
+            }
+            auxSchemas.append(DOM.getText(Schema));
+        }
+    }
+
+
+
+
+  //**************************************************************************
+  //** getElement
+  //**************************************************************************
+  /** Used to find an element
+   *  definitions->types->schema->element (name attribute)
+   */
+    private java.util.ArrayList<Element> getElement(String ElementName){
+
+      //Loop Through Schemas and Find Elements
+        NodeList schemas = getSchema();
+        for (int i=0; i<schemas.getLength(); i++ ) {
+
+            Node elementNode = schemas.item(i);
+            String elementName = DOM.getAttributeValue(elementNode, "name");
+            String elementType = stripNameSpace(elementNode.getNodeName());
+
+            if (elementName.equals(ElementName)) {
+
+                if (elementType.equalsIgnoreCase("element")) {
+
+                    java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
+
+                    
+                    if (!DOM.hasChildren(elementNode)){ //Complex Type!
+
+                        Element element = new Element(elementNode);
+                        decomposeComplexType(stripNameSpace(element.Name), element);
+                        elements.add(element);
+
+                    }
+                    else{ //Simple Type
+
+                        Element element = new Element(elementNode);
+                        decomposeComplexType(stripNameSpace(element.Name), element);
+
+                        java.util.Iterator<Object> it = element.children.iterator();
+                        while (it.hasNext()){
+                            Object obj = it.next();
+                            if (obj instanceof Element){
+                                elements.add((Element) obj);
+                            }
+                            else{// ???
+                            }
+                        }
+                    }
+
+                    return elements;
+                }
             }
         }
+
         return null;
     }
-    
+
+  //**************************************************************************
+  //** knownTypes
+  //**************************************************************************
+  /** Hashmap of known Element Types. It is extremely important that you update
+   *  this hashmap whenever you find a new element to prevent StackOverflows
+   *  in the recursive decomposeComplexType method.
+   */
+    private java.util.HashMap<String, Element> knownTypes = new java.util.HashMap<String, Element>();
 
 
   //**************************************************************************
   //** decomposeComplexType (recursive function)
   //**************************************************************************    
     
-    private String decomposeComplexType(String ElementName, NodeList Types){
-        
-        if (Types==null) Types=getTypes();
-        NodeList Schemas = getSchema();
-        for (int x=0; x<Schemas.getLength(); x++ ) {
+    private void decomposeComplexType(String ElementName, Element parentElement){
 
-            String nodeName = Schemas.item(x).getNodeName().toLowerCase();
-            boolean isComplexType = false;
-            boolean isSimpleType = false;
+        if (knownTypes.containsKey(ElementName)){
+            Element Element = knownTypes.get(ElementName);
+            parentElement.addElement(Element);
+            return;
+        }
 
-            if (nodeName.equals("complextype") || 
-                nodeName.contains((CharSequence) ":complextype")){
-                isComplexType = true;
-            }
+        NodeList Schemas = getSchema(); 
+        for (int i=0; i<Schemas.getLength(); i++ ) {
 
-            if (nodeName.equals("simpletype") || 
-                nodeName.contains((CharSequence) ":simpletype")){
-                isSimpleType = true;
-            }
+            Node node = Schemas.item(i);
+            
+            String typeName = DOM.getAttributeValue(node, "name");
+            if (typeName.equals(ElementName)){
 
-            if (isComplexType || isSimpleType){
+                this.parseComplexNode(node, ElementName, parentElement);
 
-                NamedNodeMap attr = Schemas.item(x).getAttributes();
-                String typeName = getAttributeValue(attr, "name"); 
-
-
-                if (typeName.equals(ElementName)){
-
-
-                    if (isComplexType){
-
-                        NodeList ComplexType = Schemas.item(x).getChildNodes();
-                        for (int y=0; y<ComplexType.getLength(); y++ ) {
-                            if (ComplexType.item(y).getNodeName().endsWith("sequence")) {
-                                NodeList Sequence = ComplexType.item(y).getChildNodes();
-                                for (int z=0; z<Sequence.getLength(); z++ ) {
-                                    if (Sequence.item(z).getNodeName().endsWith("element")) {
-
-                                        Element Element = new Element(Sequence.item(z));
-                                        String elementType = stripNameSpace(Element.Type);
-
-                                        //Element.ComplexTypes = Elements;
-                                        temp += "   <parameter " + 
-                                                     "name=\"" + Element.Name + "\" " + 
-                                                     "type=\"" + elementType + "\" " + 
-                                                     "iscomplex=\"" + Element.IsComplex + "\" " + 
-                                                     "isnillable=\"" + Element.IsNillable + "\">" + vbCrLf;
-
-                                        if (Element.IsComplex){
-                                            decomposeComplexType(elementType,Types);
-                                        }
-
-                                        temp += "   </parameter>" + vbCrLf;
-                                    }
-                                }
-                            }
-                        }
-
-                    } //end if (isComplexType)
-
-
-                    if (isSimpleType){
-                        String Options = "";
-                        NodeList SimpleType = Schemas.item(x).getChildNodes();
-                        for (int y=0; y<SimpleType.getLength(); y++ ) {
-                             nodeName = SimpleType.item(y).getNodeName();
-                             if (nodeName.equals("restriction") || 
-                                 nodeName.contains((CharSequence) ":restriction")){
-                                 NodeList Restriction = SimpleType.item(y).getChildNodes();
-                                 for (int z=0; z<Restriction.getLength(); z++ ) {
-                                      nodeName = Restriction.item(z).getNodeName();
-                                      if (nodeName.equals("enumeration") || 
-                                          nodeName.contains((CharSequence) ":enumeration")){
-                                          attr = Restriction.item(z).getAttributes();
-                                          String OptionValue = getAttributeValue(attr, "value");
-                                          if (OptionValue.length()>0){
-                                              Options += "    <option value=\"" + OptionValue + "\">" + OptionValue + "</option>" + vbCrLf;
-                                          }
-                                      }
-                                 }
-                             }
-                        }
-
-                        if (Options.length()>0){
-                            temp += "   <options>" + vbCrLf;
-                            temp += Options;
-                            temp += "   </options>" + vbCrLf;
-                        }
-                    }
-
-                }
             }
 
         } //end loop     
 
-                
-        
-        return temp;
     }
+
     
 
+    private void parseComplexNode(Node node, String ElementName, Element parentElement){
+
+        String nodeName = stripNameSpace(node.getNodeName().toLowerCase());
+
+        if (nodeName.equals("element")){
+
+            if (!DOM.hasChildren(node)){
+
+                Element Element = new Element(node);
+                if (Element.IsComplex){
+                    decomposeComplexType(stripNameSpace(Element.Type), parentElement);
+                }
+
+            }
+            else{
+
+                NodeList complexTypes = node.getChildNodes();
+                for (Node complexNode : DOM.getNodes(complexTypes)){
+                    parseComplexNode(complexNode, ElementName, parentElement);
+                }
+
+
+            }
+        }
+        else if (nodeName.equals("complextype")){
+            NodeList complexTypes = node.getChildNodes();
+            for (Node complexNode : DOM.getNodes(complexTypes)){
+                String complexType = stripNameSpace(complexNode.getNodeName());
+                if (complexType.equalsIgnoreCase("sequence")) {
+                    NodeList sequenceNodes = complexNode.getChildNodes();
+                    for (Node sequenceNode : DOM.getNodes(sequenceNodes)){
+                        if (stripNameSpace(sequenceNode.getNodeName()).equals("element")) {
+
+                            Element Element = new Element(sequenceNode);
+                            parentElement.addElement(Element);
+                            knownTypes.put(ElementName, Element);
+
+                            if (Element.IsComplex){
+                                decomposeComplexType(stripNameSpace(Element.Type), Element);
+                            }
+                        }
+                    }
+                }
+                if (complexType.equalsIgnoreCase("attribute")) {
+
+                    Element Element = new Element(complexNode);
+                    parentElement.addElement(Element);
+                    knownTypes.put(ElementName, Element);
+
+                    if (Element.IsComplex){
+                        decomposeComplexType(stripNameSpace(Element.Type), Element);
+                    }
+
+                }
+                if (complexType.equalsIgnoreCase("simpleContent")) {
+
+                    NodeList childNodes = complexNode.getChildNodes();
+                    for (Node childNode : DOM.getNodes(childNodes)){
+                        if (stripNameSpace(childNode.getNodeName()).equalsIgnoreCase("extension")){
+
+                            Element Element = new Element(ElementName, DOM.getAttributeValue(childNode, "base"));
+                            if (Element.IsComplex){
+                                //TODO
+                            }
+
+
+                            NodeList attributes = childNode.getChildNodes();
+                            for (Node attribute : DOM.getNodes(attributes) ){
+                                Element.addElement(new Element(attribute));
+                            }
+
+                            parentElement.addElement(Element);
+                            knownTypes.put(ElementName, Element);
+
+                        }
+                    }
+                }
+                else if(complexType.equalsIgnoreCase("choice")) {
+
+                    Choices choices = new Choices();
+                    NodeList choiceNodes = complexNode.getChildNodes();
+                    for (int k=0; k<choiceNodes.getLength(); k++){
+                        Node choiceNode = choiceNodes.item(k);
+                        if (stripNameSpace(choiceNode.getNodeName()).equalsIgnoreCase("element")){
+
+                            Element Element = new Element(choiceNode);
+
+                                choices.addChoice(Element);
+
+                                if (Element.IsComplex){
+                                    decomposeComplexType(stripNameSpace(Element.Type), Element);
+                                }
+
+                        }
+                    }
+                    parentElement.addChoices(choices);
+                }
+            }
+        }
+        else if (nodeName.equals("simpletype")){
+
+            Options options = new Options();
+            NodeList SimpleType = node.getChildNodes();
+            for (int y=0; y<SimpleType.getLength(); y++ ) {
+                if (stripNameSpace(SimpleType.item(y).getNodeName()).equals("restriction")){
+                    NodeList Restriction = SimpleType.item(y).getChildNodes();
+                    for (int z=0; z<Restriction.getLength(); z++ ) {
+                        if (stripNameSpace(Restriction.item(z).getNodeName()).equals("enumeration")){
+                            NamedNodeMap attr = Restriction.item(z).getAttributes();
+                            String OptionValue = getAttributeValue(attr, "value");
+                            if (OptionValue.length()>0){
+                                options.addOption(OptionValue);
+                            }
+                        }
+                    }
+                }
+            }
+
+            parentElement.addOptions(options);
+
+        }
+        else{
+            System.err.println("Unsupported element type: " + nodeName);
+        }
+    }
     
     
   // </editor-fold>
@@ -1237,32 +1237,26 @@ public class WSDL {
     
     
   //**************************************************************************
-  //** getServices -> NEW!
+  //** getServices
   //**************************************************************************
   /**  Used to retrieve an array of Services from an SSD NodeList */
     
     public Service[] getServices(){
         
-        Service[] arrServices = new Service[0];
+        java.util.ArrayList<Service> services = new java.util.ArrayList<Service>();
         
-        NodeList Services = XMLDoc.getElementsByTagName("service"); 
-        for (int i=0; i<Services.getLength(); i++){ 
-             if (Services.item(i).getNodeType()==1){
-                 Service Service = getService(Services.item(i));
-                 
-                 if (Service!=null){
-                     int x = arrServices.length;
-                     arrServices = (Service[])resizeArray(arrServices,x+1);
-                     arrServices[x] = Service;
-                 }
-             }
+        for (Node serviceNode : DOM.getNodes(ssd.getElementsByTagName("service"))){
+            Service service = getService(serviceNode);
+            if (service!=null){
+                services.add(service);
+            }
         }
                 
-        if (arrServices.length == 0){
+        if (services.isEmpty()){
             return null;
         }
         else{
-            return arrServices;
+            return services.toArray(new Service[services.size()]);
         }
     }
     
@@ -1305,37 +1299,33 @@ public class WSDL {
     
     
   //**************************************************************************
-  //** getMethods -> NEW!
+  //** getMethods
   //**************************************************************************
   /**  Used to retrieve an array of methods from an SSD NodeList */
     
-    private Method[] getMethods(NodeList Methods){
+    private Method[] getMethods(NodeList methodNodes){
+
+        java.util.ArrayList<Method> methods = new java.util.ArrayList<Method>();
         
-        Method[] arrMethods = new Method[0];
-        
-        for (int i=0; i<Methods.getLength(); i++){ 
-             if (Methods.item(i).getNodeType()==1){
-                 Method method = getMethod(Methods.item(i));
-                 
-                 if (method!=null){
-                     int x = arrMethods.length;
-                     arrMethods = (Method[])resizeArray(arrMethods,x+1);
-                     arrMethods[x] = method;
-                 }
-             }
+        for (Node methodNode : DOM.getNodes(methodNodes)){
+
+            Method method = getMethod(methodNode);
+            if (method!=null){
+                methods.add(method);
+            }
         }
-                
-        if (arrMethods.length == 0){
+        
+        if (methods.isEmpty()){
             return null;
         }
         else{
-            return arrMethods;
+            return methods.toArray(new Method[methods.size()]);
         }
     }
     
     
   //**************************************************************************
-  //** getMethod -> NEW!
+  //** getMethod
   //**************************************************************************
   /**  Used to retrieve a method from an SSD Method Node */
     
@@ -1377,37 +1367,29 @@ public class WSDL {
     
     
   //**************************************************************************
-  //** getParameters -> NEW!
+  //** getParameters
   //**************************************************************************
   /**  Used to retrieve an array of parameters from an SSD NodeList */
     
-    private Parameter[] getParameters(NodeList Parameters){
+    private Parameter[] getParameters(NodeList parameterNodes){
         
-        Parameter[] arrParameters = new Parameter[0];
-       
-        for (int i=0; i<Parameters.getLength(); i++){ 
-             if (Parameters.item(i).getNodeType()==1){
-                 Parameter Parameter = getParameter(Parameters.item(i));
-                 
+        java.util.ArrayList<Parameter> parameters = new java.util.ArrayList<Parameter>();
 
-                 
-                 int numParams = arrParameters.length;
-                 arrParameters = (Parameter[])resizeArray(arrParameters,numParams+1);
-                 arrParameters[numParams] = Parameter;
-                 
-               //Need to verify recursion logic here!
-                 if (Parameter.isComplex()){
-                     Parameter.Children = getParameters(Parameter.ChildNodes);
-                 }
-                 
-             }
+        for (Node parameterNode : DOM.getNodes(parameterNodes)){
+            Parameter parameter = getParameter(parameterNode);
+            parameters.add(parameter);
+
+          //Need to verify recursion logic here!
+            if (parameter.isComplex()){
+                parameter.Children = getParameters(parameter.ChildNodes);
+            }
         }
         
-        if (arrParameters.length == 0){
+        if (parameters.isEmpty()){
             return null;
         }
         else{
-            return arrParameters;
+            return parameters.toArray(new Parameter[parameters.size()]);
         }
     }
     
@@ -1422,7 +1404,7 @@ public class WSDL {
         NamedNodeMap attr = ParameterNode.getAttributes();
         Parameter.Name = getAttributeValue(attr, "name");
         Parameter.Type = getAttributeValue(attr, "type");
-        //Parameter.IsComplex = bool(getAttributeValue(attr, "iscomplex"));
+        Parameter.IsAttribute = bool(getAttributeValue(attr, "isattribute"));
         Parameter.IsNillable = bool(getAttributeValue(attr, "isnillable"));
         Parameter.minOccurs = getAttributeValue(attr, "minOccurs");
         Parameter.ChildNodes = ParameterNode.getChildNodes();
@@ -1446,37 +1428,22 @@ public class WSDL {
   //**************************************************************************
   /**  Used to retrieve an array of options from an SSD NodeList */
     
-    private Option[] getOptions(NodeList Options){
+    private Option[] getOptions(NodeList optionNodes){
         
-        Option[] arrOptions = new Option[0];
-       
-        for (int i=0; i<Options.getLength(); i++){ 
-             if (Options.item(i).getNodeType()==1){
-                 String NodeName = Options.item(i).getNodeName();
-                 
-                 if (NodeName.equalsIgnoreCase("options")){
-                     NodeList ChildNodes = Options.item(i).getChildNodes();
-                     for (int j=0; j<ChildNodes.getLength(); j++){ 
-                          if (ChildNodes.item(j).getNodeType()==1){
-                         
-                             Option Option = getOption(ChildNodes.item(j));
-
-                             int numOptions = arrOptions.length;
-                             arrOptions = (Option[])resizeArray(arrOptions,numOptions+1);
-                             arrOptions[numOptions] = Option;
-                          }
-                     }
-                 
-                 }
-                 
-             }
+        java.util.ArrayList<Option> options = new java.util.ArrayList<Option>();
+        for (Node optionNode : DOM.getNodes(optionNodes)){
+            if (optionNode.getNodeName().equalsIgnoreCase("options")){
+                for (Node childNode : DOM.getNodes(optionNode.getChildNodes())){
+                    options.add(getOption(childNode));
+                }
+            }
         }
         
-        if (arrOptions.length == 0){
+        if (options.isEmpty()){
             return null;
         }
-        else{            
-            return arrOptions;
+        else{
+            return options.toArray(new Option[options.size()]);
         }
     }
     
@@ -1533,7 +1500,30 @@ public class WSDL {
     
     
 // </editor-fold>
-    
+
+
+    private NodeList getChildNodes(NodeList ParentNodes, String NodeName){
+        for (int i=0; i<ParentNodes.getLength(); i++ ) {
+             Node node = ParentNodes.item(i);
+             if (node.getNodeType() == 1){
+                 //System.out.println(node.getNodeName());
+                 if (node.getNodeName().endsWith(NodeName)) {
+                     return node.getChildNodes();
+                 }
+             }
+        }
+        return null;
+    }
+
+    private Node getNode(Node node, String NodeName){
+       if (node.getNodeType()==1) {
+           if (node.getNodeName().endsWith(NodeName)){
+               return node;
+           }
+       }
+       return null;
+    }
+
     
   //**************************************************************************
   //** getAttributeValue
@@ -1555,47 +1545,18 @@ public class WSDL {
 
     
   //**************************************************************************
-  //** getNameSpace
-  //**************************************************************************
-    
-    private String getNameSpace(String str){
-        return left(str, instr(str, ":")-1);
-    }      
-    
-  //**************************************************************************
   //** stripNameSpace
   //**************************************************************************
     
     private String stripNameSpace(String str){
-        return right(str, len(str) - instr(str, ":"));
-    }   
-
-    
-    
-  //**************************************************************************
-  //** resizeArray
-  //**************************************************************************
-    
-    private static Object resizeArray(Object oldArray, int newSize) {
-       int oldSize = java.lang.reflect.Array.getLength(oldArray);
-       Class elementType = oldArray.getClass().getComponentType();
-       Object newArray = java.lang.reflect.Array.newInstance(
-             elementType,newSize);
-       int preserveLength = Math.min(oldSize,newSize);
-       if (preserveLength > 0)
-          System.arraycopy (oldArray,0,newArray,0,preserveLength);
-       return newArray; 
-    }    
-    
+        if (str.contains(":")) str = str.substring(str.lastIndexOf(":")+1);
+        return str;
+    }
     
   //**************************************************************************
   //** Legacy VB String Functions
   //**************************************************************************
     
-    private int instr(String str, String ch){ return string.instr(str,ch); }
     private boolean contains(String str, String ch){ return string.contains(str,ch,true); }
-    private int len(String str){ return string.len(str); }
-    private String left(String str, int n){ return string.left(str,n); }
-    private String right(String str, int n){ return string.right(str,n); }  
-    
+
 }

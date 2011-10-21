@@ -139,7 +139,7 @@ public class SoapResponse {
    *  byte array. Assumes that the response is Base64 encoded.
    */
     public byte[] toByteArray(){
-        return javaxt.utils.Base64.decode(message);
+        return javaxt.utils.Base64.decode(message.trim());
     }
 
 

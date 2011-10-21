@@ -172,25 +172,24 @@ public class DOM {
   //** getText
   //**************************************************************************
   /** Converts a NodeList to a String */
-    
+
     public static String getText(NodeList nodeList){
         StringBuffer ret = new StringBuffer();
-
         for (int i=0; i<nodeList.getLength(); i++ ) {
              Node node = nodeList.item(i);
              if (node.getNodeType()==1){
-                 String NodeName = node.getNodeName();
-                 String Attributes = getAttributes(node);
-                 ret.append("<" + NodeName + Attributes + ">");
-                 ret.append(getNodeValue(node));
-                 ret.append("</" + NodeName + ">");
+
+                 if (hasChildren(node)){
+                     ret.append(getNodeValue(node));
+                 }
+                 else{
+                     ret.append("<" + node.getNodeName() + getAttributes(node) + "/>");
+                 }
+
              }
         }
-        
-        
         return ret.toString();
     }
-    
     
   //**************************************************************************
   //** getAttributes
@@ -266,9 +265,9 @@ public class DOM {
   //** getNodeValue
   //**************************************************************************    
   /** Returns the value of a given node as text. If the node has children, the
-   *  method will return an xml fragment. Note that the outer node of the xml
-   *  fragment will include the input node. The outer node is provided so
-   *  that client can serialize the xml to a new DOM document.
+   *  method will return an xml fragment which will include the input node as
+   *  the outer node. This is a legacy feature which should be deprecated over
+   *  time.
    */
     public static String getNodeValue(Node node){
         
@@ -297,7 +296,7 @@ public class DOM {
         if (tree.getNodeType()==1){
             String Attributes = getAttributes(tree);
             xmlTree.append("<" + tree.getNodeName() + Attributes + ">");
-            if(hasChildren(tree)) {
+            if (hasChildren(tree)) {
                 
                 NodeList xmlNodeList = tree.getChildNodes();
                 for (int i=0; i<xmlNodeList.getLength(); i++){
@@ -404,7 +403,8 @@ public class DOM {
   /** Returns an array of nodes that match a given tagName (node name). The
    *  results will include all nodes that match, regardless of namespace. To
    *  narrow the results to a specific namespace, simply include the namespace
-   *  prefix in the tag name (e.g. "t:Contact").
+   *  prefix in the tag name (e.g. "t:Contact"). Returns an empty array if
+   *  no nodes are found.
    */
     public static org.w3c.dom.Node[] getElementsByTagName(String tagName, Node node){
         java.util.ArrayList<Node> nodes = new java.util.ArrayList<Node>();
@@ -434,4 +434,14 @@ public class DOM {
         }
     }
 
+    
+  /** Converts a NodeList into an array to simplify nested loops. */
+    public static Node[] getNodes(NodeList nodeList){
+        java.util.ArrayList<Node> nodes = new java.util.ArrayList<Node>();
+        for (int i=0; i<nodeList.getLength(); i++){
+            Node node = nodeList.item(i);
+            if (node.getNodeType()==1) nodes.add(node);
+        }
+        return nodes.toArray(new Node[nodes.size()]);
+    }
 }

@@ -53,20 +53,28 @@ public class SoapRequest {
 
 
       //Insert parameters (inside the method node)
-        if (parameters instanceof Parameters){
-            body.append(parameters.toString());
-        }
-        else if (parameters instanceof String){
-            body.append(parameters);
-        }
-        else if (parameters instanceof String[]){
-            String[] values = (String[]) parameters;
-            Parameter[] params = method.getParameters().getArray();
-            if (params!=null){
-                for (int i=0; i<params.length; i++ ) {
-                     String parameterName = params[i].getName();
-                     String parameterValue = values[i];
-                     body.append("<" + parameterName + "><![CDATA[" + parameterValue + "]]></" + parameterName + ">");
+        if (parameters!=null){
+            if (method.getParameters().getArray()!=null){
+                if (parameters instanceof Parameters){
+                    body.append(parameters.toString());
+                }
+                if (parameters instanceof Parameter){
+                    method.getParameters().setValue((Parameter)parameters);
+                    body.append(method.getParameters().toString());
+                }
+                else if (parameters instanceof String){
+                    body.append(parameters); //assumes parameters is a correctly formatted xml fragment
+                }
+                else if (parameters instanceof String[]){
+                    String[] values = (String[]) parameters;
+                    Parameter[] params = method.getParameters().getArray();
+                    if (params!=null){
+                        for (int i=0; i<params.length; i++ ) {
+                             String parameterName = params[i].getName();
+                             String parameterValue = values[i];
+                             body.append("<" + parameterName + "><![CDATA[" + parameterValue + "]]></" + parameterName + ">");
+                        }
+                    }
                 }
             }
         }

@@ -17,7 +17,7 @@ public class Parameter {
     protected String minOccurs = "0";
     protected String maxOccurs = "1";
     protected boolean IsNillable;
-    //protected boolean IsComplex;
+    protected boolean IsAttribute;
 
     protected Node ParentNode;
     protected NodeList ChildNodes;
@@ -32,6 +32,17 @@ public class Parameter {
         return Value;
     }
 
+    public void setValue(int value){
+        setValue(value+"");
+    }
+
+    public void setValue(double value){
+        setValue(value+"");
+    }
+
+    public void setValue(boolean value){
+        setValue(value+"");
+    }
 
     public void setValue(String Value){
 
@@ -64,13 +75,13 @@ public class Parameter {
         setValue(javaxt.utils.Base64.encodeBytes(bytes));
     }
 
-    public void setValue(java.util.Date ParameterValue){
+    public void setValue(java.util.Date date){
 
       //2003-11-24T00:00:00.0000000-05:00
         java.text.SimpleDateFormat formatter =
              new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSSSZ");
 
-        String d = formatter.format(ParameterValue).replace(" ", "T");
+        String d = formatter.format(date).replace(" ", "T");
 
         String d1 = d.substring(0,d.length()-2);
         String d2 = d.substring(d.length()-2);

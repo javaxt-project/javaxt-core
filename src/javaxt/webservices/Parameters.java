@@ -31,8 +31,13 @@ public class Parameters {
     }
 
 
+    public void setValue(Parameter p){
+        if (Parameters==null) return;
+        Parameter parameter = getParameter(p.getName());
+        if (parameter!=null) parameter.setValue(p.getValue());
+    }
 
-    /** Used to set a parameter value. Use "/" character to seperate nodes */
+    /** Used to set a parameter value. Use "/" character to separate nodes */
     public void setValue(String parameterName, String parameterValue){
         if (Parameters==null) return;
         Parameter parameter = getParameter(parameterName);
@@ -131,6 +136,34 @@ public class Parameters {
     }
 
 
+
+
+    private String getAttributes(){
+        StringBuffer attr = new StringBuffer();
+        if (Parameters!=null){
+            for (Parameter parameter : Parameters){
+                if (parameter.IsAttribute){
+                    
+                    if (parameter.isComplex()){
+                        Parameter[] children = parameter.getChildren();
+                        if (children!=null){
+                            attr.append(new Parameters(children).getAttributes());
+                        }
+                    }                    
+                    else{
+                        attr.append(" ");
+                        attr.append(parameter.getName());
+                        attr.append("=\"");
+                        attr.append(parameter.getValue());
+                        attr.append("\"");
+                    }
+                }
+            }
+        }
+        return attr.toString();
+    }
+
+
     private void getParameters(Parameter[] Parameters){
         if (Parameters!=null){
             for (int i=0; i<Parameters.length; i++){
@@ -141,34 +174,41 @@ public class Parameters {
     }
 
     private void getParameter(Parameter parameter){
-        String ParameterName = parameter.getName();
-        xml.append("<" + ParameterName + ">");
 
-        if (parameter.isComplex()){
-            getParameters(parameter.getChildren());
+        if (parameter.IsAttribute){
+            //xml.append("<" + parameter.getName());
         }
         else{
-            String ParameterValue = parameter.getValue();
-            if (ParameterValue==null) ParameterValue = "";
 
-            /*
-            String[] find = new String[]{"<",">","&","'","\""};
-            String[] replace = new String[]{"&lt;","&gt;","&amp;","&apos;","&quot;"};
-            for (int i=0; i<find.length; i++){
-                 ParameterValue = ParameterValue.replace((CharSequence)find[i], (CharSequence)replace[i]);
-            }
-            */
+            String ParameterName = parameter.getName();
+            xml.append("<" + ParameterName + getAttributes() + ">");
 
-            if (ParameterValue.trim().length()>0){
-                if (parameter.Type.equalsIgnoreCase("base64Binary")){
-                    xml.append(ParameterValue);
+            if (parameter.isComplex()){
+                getParameters(parameter.getChildren());
+            }
+            else{
+                String ParameterValue = parameter.getValue();
+                if (ParameterValue==null) ParameterValue = "";
+
+                /*
+                String[] find = new String[]{"<",">","&","'","\""};
+                String[] replace = new String[]{"&lt;","&gt;","&amp;","&apos;","&quot;"};
+                for (int i=0; i<find.length; i++){
+                     ParameterValue = ParameterValue.replace((CharSequence)find[i], (CharSequence)replace[i]);
                 }
-                else{
-                    xml.append("<![CDATA[" + ParameterValue + "]]>");
+                */
+
+                if (ParameterValue.trim().length()>0){
+                    if (parameter.Type.equalsIgnoreCase("base64Binary")){
+                        xml.append(ParameterValue);
+                    }
+                    else{
+                        xml.append("<![CDATA[" + ParameterValue + "]]>");
+                    }
                 }
             }
+            xml.append("</" + ParameterName + ">");
         }
-        xml.append("</" + ParameterName + ">");
     }
 
 
