@@ -26,18 +26,6 @@ for (javaxt.webservices.Service service : wsdl.getServices()){
 }
  </pre>
  * 
- *   Note that this parser works for most xml web services in production. That
- *   said, there are a couple limitations. Here's a short list of outstanding
- *   tasks:
- *   <ul>
- *   <ul>
- *   <li>Finish the Parameters.setValue() method to support arrays</li>
- *   <li>Verify that the namespace is identified and used properly (currently
- *   assume one targetNamespace per wsdl)</li>
- *   <li>Test whether parameters are identified properly</li>
- *   <li>Need to test against wsdls w/multiple services</li>
- *   </ul>
- *   </ul>
  *****************************************************************************/
 
 public class WSDL {
@@ -210,29 +198,66 @@ public class WSDL {
     
 
   //**************************************************************************
-  //** Creates a new instance of wsdl
+  //** Constructor
   //**************************************************************************    
-  /** Instantiate wsdl parser using a url to a wsdl (java.net.url) */
+  /** Instantiate wsdl parser using a url to a wsdl (java.net.url)
+   */
     public WSDL(java.net.URL url){
-        this(new javaxt.http.Request(url).getResponse().getXML());
+        this(new javaxt.http.Request(url).getResponse().getXML(), null, true);
     }
     
     public WSDL(String url){
-        this(new javaxt.http.Request(url).getResponse().getXML());
+        this(new javaxt.http.Request(url).getResponse().getXML(), null, true);
     }
     
     public WSDL(java.net.URL url, String HttpProxyServer){
-        this(new javaxt.http.Request(url).getResponse().getXML());
+        this(new javaxt.http.Request(url).getResponse().getXML(), null, false); //<-- Can't automatically follow imports with a proxy server...
     }
 
     public WSDL(java.io.File xml) {
-        this(new javaxt.io.File(xml).getXML());
+        this(new javaxt.io.File(xml).getXML(), null, true);
     }
 
-    public WSDL(Document xml) {
-        wsdl = xml;
+    public WSDL(java.io.File xml, boolean followImports) {
+        this(new javaxt.io.File(xml).getXML(), null, followImports);
+    }
+
+    public WSDL(Document wsdl) {
+        this(wsdl, null, true);
+    }
+
+    public WSDL(Document wsdl, boolean followImports) {
+        this(wsdl, null, followImports);
+    }
+
+    public WSDL(Document wsdl, Document xsd) {
+        this(wsdl, new Document[]{xsd});
+    }
+
+    public WSDL(Document wsdl, Document[] xsd) {
+        this(wsdl, xsd, false);
+    }
+
+    public WSDL(Document wsdl, Document[] xsd, boolean followImports) {
+        this.wsdl = wsdl;
         NameSpaces = DOM.getNameSpaces(wsdl);
         ElementNameSpace = getElementNameSpace();
+
+        if (xsd==null){
+            xsd = new Document[1];
+            xsd[0] = wsdl;
+        }
+        else{
+            Document[] arr = new Document[xsd.length+1];
+            arr[0] = wsdl;
+            for (int i=1; i<arr.length; i++){
+                arr[i] = xsd[i-1];
+            }
+            xsd = arr;
+        }
+
+
+        addSchema(xsd, followImports, false);
         parseWSDL();
     }
     
@@ -347,8 +372,21 @@ public class WSDL {
   //**************************************************************************
   //** parseWSDL
   //**************************************************************************    
-  /** Used to parse the WSDL and generate the SSD. */
-
+  /** Used to parse the WSDL and generate the SSD.
+   *  Note that this parser works for most xml web services in production. That
+   *  said, there are a couple limitations. Here's a short list of outstanding
+   *  tasks:
+   *  <ul>
+   *   <ul>
+   *   <li>Implement support for Abstract Types</li>
+   *   <li>Finish the Parameters.setValue() method to support arrays</li>
+   *   <li>Verify that the namespace is identified and used properly (currently
+   *   assume one targetNamespace per wsdl)</li>
+   *   <li>Test whether parameters are identified properly</li>
+   *   <li>Need to test against wsdls w/multiple services</li>
+   *   </ul>
+   *  </ul>
+   */
     private void parseWSDL(){
 
         String SSD = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + vbCrLf +
@@ -798,8 +836,7 @@ public class WSDL {
   //** getShema
   //**************************************************************************  
     
-    private NodeList getSchema(){
-        if (Schema==null) addSchema(wsdl, false);
+    private NodeList getSchema(){        
         return Schema;
     }
 
@@ -812,80 +849,115 @@ public class WSDL {
    *  files referenced by the schema/import nodes.
    */
     public void addSchema(Document xsd, boolean followImports){
+        addSchema(new Document[]{xsd}, followImports);
+    }
 
-        if (xsd!=null){
 
-            Node outerNode = DOM.getOuterNode(xsd);
-            String outerNodeName = stripNameSpace(outerNode.getNodeName());
+  //**************************************************************************
+  //** addSchemas
+  //**************************************************************************
+  /** Used to add multiple external XSDs.
+   *  @param followImports Flag used to indicate whether to download/parse XSD
+   *  files referenced by the schema/import nodes.
+   */
+    public void addSchema(Document[] xsd, boolean followImports){
+        this.addSchema(xsd, followImports, true);
+    }
 
-            NodeList schemaNodes = null;
-            if (outerNodeName.equalsIgnoreCase("definitions")){
-                NodeList childNodes = outerNode.getChildNodes();
-                for (int i=0; i<childNodes.getLength(); i++){
-                    Node node = childNodes.item(i);
-                    if (stripNameSpace(node.getNodeName()).equalsIgnoreCase("types")){                        
-                        NodeList types = node.getChildNodes();
-                        for (int j=0; j<types.getLength(); j++){
-                            Node typeNode = types.item(j);
-                            if (stripNameSpace(typeNode.getNodeName()).equalsIgnoreCase("schema")){
-                                schemaNodes = typeNode.getChildNodes();
+
+    private void addSchema(Document[] XSDs, boolean followImports, boolean parseWSDL){
+
+        if (XSDs==null) return;
+        if (XSDs.length==0) return;
+
+
+      //Create xml document to store all the schema
+        StringBuffer xml = new StringBuffer();
+        xml.append("<?xml version=\"1.0\"?>");
+        xml.append("<schemas");
+        java.util.Iterator<String> it = NameSpaces.keySet().iterator();
+        while (it.hasNext()){
+            String ns = it.next();
+            String url = (String) NameSpaces.get(ns);
+            xml.append(" xmlns:");
+            xml.append(ns);
+            xml.append("=\"");
+            xml.append(url);
+            xml.append("\"");
+        }
+        xml.append(">");
+
+
+      //Add existing schema
+        if (this.Schema!=null) xml.append(DOM.getText(this.Schema));
+
+
+      //Loop through the new schemas
+        for (Document xsd : XSDs){
+
+            if (xsd!=null){
+
+                Node outerNode = DOM.getOuterNode(xsd);
+                String outerNodeName = stripNameSpace(outerNode.getNodeName());
+
+                NodeList schemaNodes = null;
+                if (outerNodeName.equalsIgnoreCase("definitions")){
+                    NodeList childNodes = outerNode.getChildNodes();
+                    for (int i=0; i<childNodes.getLength(); i++){
+                        Node node = childNodes.item(i);
+                        if (stripNameSpace(node.getNodeName()).equalsIgnoreCase("types")){
+                            NodeList types = node.getChildNodes();
+                            for (int j=0; j<types.getLength(); j++){
+                                Node typeNode = types.item(j);
+                                if (stripNameSpace(typeNode.getNodeName()).equalsIgnoreCase("schema")){
+                                    schemaNodes = typeNode.getChildNodes();
+                                }
                             }
                         }
                     }
                 }
-            }
-            else if (outerNodeName.equalsIgnoreCase("schema")){
-                schemaNodes = outerNode.getChildNodes();
-            }
-            else{
-                return;
-            }
-
-
-            NameSpaces.putAll(DOM.getNameSpaces(xsd));
-            StringBuffer auxSchemas = new StringBuffer();
-
-            
-          //Loop through Schemas and Get Imports            
-            for (int i=0; i<schemaNodes.getLength(); i++ ) {
-                Node node = getNode(schemaNodes.item(i), "import");
-                if (node!=null){
-                    NamedNodeMap attr = node.getAttributes();
-
-                    if (followImports){
-                        importSchemas(getAttributeValue(attr, "schemaLocation"), auxSchemas);
-                    }
-
-                    Node iSchema = node.getParentNode();
-                    iSchema.removeChild(node);
+                else if (outerNodeName.equalsIgnoreCase("schema")){
+                    schemaNodes = outerNode.getChildNodes();
                 }
+                else{
+                    return;
+                }
+
+
+                NameSpaces.putAll(DOM.getNameSpaces(xsd));
+                StringBuffer auxSchemas = new StringBuffer();
+
+
+              //Loop through Schemas and Get Imports
+                for (int i=0; i<schemaNodes.getLength(); i++ ) {
+                    Node node = getNode(schemaNodes.item(i), "import");
+                    if (node!=null){
+                        NamedNodeMap attr = node.getAttributes();
+
+                        if (followImports){
+                            importSchemas(getAttributeValue(attr, "schemaLocation"), auxSchemas);
+                        }
+
+                        Node iSchema = node.getParentNode();
+                        iSchema.removeChild(node);
+                    }
+                }
+
+
+              //Insert new schemas
+                xml.append(DOM.getText(schemaNodes));
+                xml.append(auxSchemas);
+
+
             }
-
-
-            StringBuffer xml = new StringBuffer();
-            xml.append("<?xml version=\"1.0\"?>");
-            xml.append("<schemas");
-            java.util.Iterator<String> it = NameSpaces.keySet().iterator();
-            while (it.hasNext()){
-                String ns = it.next();
-                String url = (String) NameSpaces.get(ns);
-                xml.append(" xmlns:");
-                xml.append(ns);
-                xml.append("=\"");
-                xml.append(url);
-                xml.append("\"");
-            }
-            xml.append(">");
-            if (this.Schema!=null) xml.append(DOM.getText(this.Schema));
-            xml.append(DOM.getText(schemaNodes));
-            xml.append(auxSchemas);
-            xml.append("</schemas>");
-
-            boolean parseWSDL = this.Schema!=null;
-            this.Schema = DOM.getOuterNode(DOM.createDocument(xml.toString())).getChildNodes();
-            if (parseWSDL) parseWSDL();
-
         }
+
+
+      //Finish writing the xml document, serialize it to a DOM object, and reparse the WSDL
+        xml.append("</schemas>");
+        //boolean parseWSDL = this.Schema!=null;
+        this.Schema = DOM.getOuterNode(DOM.createDocument(xml.toString())).getChildNodes();
+        if (parseWSDL) parseWSDL();
     }
 
 
@@ -934,7 +1006,7 @@ public class WSDL {
   //**************************************************************************
   //** getElement
   //**************************************************************************
-  /** Used to find an element
+  /** Used to find an element with a given name.
    *  definitions->types->schema->element (name attribute)
    */
     private java.util.ArrayList<Element> getElement(String ElementName){
@@ -996,14 +1068,17 @@ public class WSDL {
 
 
   //**************************************************************************
-  //** decomposeComplexType (recursive function)
+  //** decomposeComplexType
   //**************************************************************************    
-    
+  /** Used to find a complex type and break it down into a collection of simple
+   *  types. Note that this is a recursive function.
+   */
     private void decomposeComplexType(String ElementName, Element parentElement){
 
-        if (knownTypes.containsKey(ElementName)){
-            Element Element = knownTypes.get(ElementName);
-            parentElement.addElement(Element);
+      //Find element in the list of known element types. Return match to bypass
+      //the recursive reach and prevent possible stack overflow.
+        if (knownTypes.containsKey(ElementName)){            
+            parentElement.addElement(knownTypes.get(ElementName));
             return;
         }
 
@@ -1014,13 +1089,9 @@ public class WSDL {
             
             String typeName = DOM.getAttributeValue(node, "name");
             if (typeName.equals(ElementName)){
-
-                this.parseComplexNode(node, ElementName, parentElement);
-
+                parseComplexNode(node, ElementName, parentElement);
             }
-
-        } //end loop     
-
+        }
     }
 
     
@@ -1039,14 +1110,12 @@ public class WSDL {
                 }
 
             }
-            else{
+            else{ //Simple type
 
                 NodeList complexTypes = node.getChildNodes();
                 for (Node complexNode : DOM.getNodes(complexTypes)){
                     parseComplexNode(complexNode, ElementName, parentElement);
                 }
-
-
             }
         }
         else if (nodeName.equals("complextype")){
@@ -1060,26 +1129,41 @@ public class WSDL {
 
                             Element Element = new Element(sequenceNode);
                             parentElement.addElement(Element);
-                            knownTypes.put(ElementName, Element);
 
                             if (Element.IsComplex){
                                 decomposeComplexType(stripNameSpace(Element.Type), Element);
                             }
+                            else{
+                                knownTypes.put(ElementName, Element);
+                            }
                         }
                     }
                 }
-                if (complexType.equalsIgnoreCase("attribute")) {
+                else if (complexType.equalsIgnoreCase("attribute")) {
 
                     Element Element = new Element(complexNode);
                     parentElement.addElement(Element);
-                    knownTypes.put(ElementName, Element);
 
                     if (Element.IsComplex){
                         decomposeComplexType(stripNameSpace(Element.Type), Element);
                     }
+                    else{
+                        knownTypes.put(ElementName, Element);
+                    }
 
                 }
-                if (complexType.equalsIgnoreCase("simpleContent")) {
+                else if (complexType.equalsIgnoreCase("attributeGroup")) {
+
+                    java.util.Iterator<Element> it = getAttributes(complexNode).iterator();
+                    while (it.hasNext()){
+                        Element Element = it.next();
+
+                        parentElement.addElement(Element);
+                        //knownTypes.put(ElementName, Element);
+                    }
+
+                }
+                else if (complexType.equalsIgnoreCase("simpleContent") || complexType.equalsIgnoreCase("complexContent")) {
 
                     NodeList childNodes = complexNode.getChildNodes();
                     for (Node childNode : DOM.getNodes(childNodes)){
@@ -1087,22 +1171,20 @@ public class WSDL {
 
                             Element Element = new Element(ElementName, DOM.getAttributeValue(childNode, "base"));
                             if (Element.IsComplex){
-                                //TODO
+                                //???
                             }
 
-
-                            NodeList attributes = childNode.getChildNodes();
-                            for (Node attribute : DOM.getNodes(attributes) ){
-                                Element.addElement(new Element(attribute));
+                            java.util.Iterator<Element> it = getAttributes(childNode).iterator();
+                            while (it.hasNext()){
+                                Element.addElement(it.next());
                             }
 
                             parentElement.addElement(Element);
-                            knownTypes.put(ElementName, Element);
 
                         }
                     }
                 }
-                else if(complexType.equalsIgnoreCase("choice")) {
+                else if (complexType.equalsIgnoreCase("choice")) {
 
                     Choices choices = new Choices();
                     NodeList choiceNodes = complexNode.getChildNodes();
@@ -1112,44 +1194,189 @@ public class WSDL {
 
                             Element Element = new Element(choiceNode);
 
-                                choices.addChoice(Element);
+                            choices.addChoice(Element);
 
-                                if (Element.IsComplex){
-                                    decomposeComplexType(stripNameSpace(Element.Type), Element);
-                                }
-
+                            if (Element.IsComplex){
+                                decomposeComplexType(stripNameSpace(Element.Type), Element);
+                            }
+                            else{
+                                knownTypes.put(ElementName, Element);
+                            }
                         }
                     }
                     parentElement.addChoices(choices);
                 }
-            }
-        }
-        else if (nodeName.equals("simpletype")){
-
-            Options options = new Options();
-            NodeList SimpleType = node.getChildNodes();
-            for (int y=0; y<SimpleType.getLength(); y++ ) {
-                if (stripNameSpace(SimpleType.item(y).getNodeName()).equals("restriction")){
-                    NodeList Restriction = SimpleType.item(y).getChildNodes();
-                    for (int z=0; z<Restriction.getLength(); z++ ) {
-                        if (stripNameSpace(Restriction.item(z).getNodeName()).equals("enumeration")){
-                            NamedNodeMap attr = Restriction.item(z).getAttributes();
-                            String OptionValue = getAttributeValue(attr, "value");
-                            if (OptionValue.length()>0){
-                                options.addOption(OptionValue);
-                            }
-                        }
-                    }
+                else if (complexType.equalsIgnoreCase("annotation")) {
+                    //Do nothing
+                }
+                else{
+                    //System.out.println("Unsupported complexType: " + complexType);
                 }
             }
 
-            parentElement.addOptions(options);
+
+
+          //TODO: Need to come up with logic to deal with abstract types!
+            /*
+            boolean isAbstract = bool(DOM.getAttributeValue(node, "abstract"));
+            if (!isAbstract) isAbstract = ElementName.equals(parentElement.Type);
+            if (isAbstract && parentElement.children.size()==0){
+                System.out.println("Find implementations of " + ElementName + " " + parentElement.children.size());
+
+                java.util.ArrayList<Element> elements = findImplementations(ElementName);
+                if (!elements.isEmpty()){
+                    Choices choices = new Choices();
+                    java.util.Iterator<Element> it = elements.iterator();
+                    while (it.hasNext()){
+                        choices.addChoice(it.next());
+                    }
+                    parentElement.addChoices(choices);
+                }
+
+            }
+            */
+
+        }
+        else if (nodeName.equals("simpletype")){
+
+            for (Node restriction : DOM.getElementsByTagName("restriction", node)){
+                String base = DOM.getAttributeValue(restriction, "base");
+
+                if (!isElementComplex(base)){
+                    parentElement.Type = stripNameSpace(base);
+                    parentElement.IsComplex = false;
+                }
+                else{
+                    //???
+                }
+
+                Node[] enumeration = DOM.getElementsByTagName("enumeration", restriction);
+                if (enumeration.length>0){
+                    Options options = new Options();
+                    for (Node valueNode : enumeration){
+                        String value = DOM.getAttributeValue(valueNode, "value");
+                        if (value.length()>0) options.addOption(value);
+                    }
+                    parentElement.addOptions(options);
+                }
+            }
+        }
+        else if (nodeName.equals("attributegroup")){
+
+            java.util.Iterator<Element> it = getAttributes(node).iterator();
+            while (it.hasNext()){
+                Element Element = it.next();
+                parentElement.addElement(Element);
+                //knownTypes.put(ElementName, Element);
+            }
 
         }
         else{
-            System.err.println("Unsupported element type: " + nodeName);
+            System.out.println("Unsupported element type: " + nodeName);
         }
     }
+
+
+  //**************************************************************************
+  //** getAttributes
+  //**************************************************************************
+  /** Used to return a list of attributes within an attributeGroup. Note that
+   *  this is a recursive function.
+   */
+    private java.util.ArrayList<Element> getAttributes(Node attributeGroup){
+        java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
+        String name = DOM.getAttributeValue(attributeGroup, "name");
+        String ref = DOM.getAttributeValue(attributeGroup, "ref");
+        if (name.length()>0){
+
+            NodeList attributes = attributeGroup.getChildNodes();
+            for (Node attribute : DOM.getNodes(attributes)){
+
+                String attributeNodeName = stripNameSpace(attribute.getNodeName());
+                if (attributeNodeName.equalsIgnoreCase("attribute")){
+                    Element element = new Element(attribute);
+                    elements.add(element);
+                    if (element.IsComplex){
+                        decomposeComplexType(stripNameSpace(element.Type), element);
+                    }                    
+                }
+                else if (attributeNodeName.equalsIgnoreCase("attributeGroup")){
+                    java.util.Iterator<Element> it = getAttributes(attribute).iterator();
+                    while (it.hasNext()){
+                        elements.add(it.next());
+                    }
+                }
+            }
+        }
+        else if (ref.length()>0){
+
+            Element temp = new Element("", name);
+            decomposeComplexType(stripNameSpace(ref), temp);
+            java.util.Iterator<Object> it = temp.children.iterator();
+            while (it.hasNext()){
+                Object obj = it.next();
+                if (obj instanceof Element){
+                    elements.add((Element)obj);
+                }
+            }
+        }
+
+        return elements;
+    }
+
+
+    /** Used to find implementations of a given abstract type. */
+    private java.util.ArrayList<Element> findImplementations(String base){
+        java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
+        NodeList Schemas = getSchema();
+        for (int i=0; i<Schemas.getLength(); i++ ) {
+
+            Node node = Schemas.item(i);
+
+            String typeName = DOM.getAttributeValue(node, "name");
+            String nodeName = stripNameSpace(node.getNodeName().toLowerCase());
+
+            if (nodeName.equals("complextype")){
+
+
+                boolean isAbstract = bool(DOM.getAttributeValue(node, "abstract"));
+                if (!isAbstract){
+                    NodeList complexTypes = node.getChildNodes();
+                    for (Node complexNode : DOM.getNodes(complexTypes)){
+                        String complexType = stripNameSpace(complexNode.getNodeName());
+
+
+
+                        if (complexType.equalsIgnoreCase("simpleContent") || complexType.equalsIgnoreCase("complexContent")) {
+
+
+                            NodeList childNodes = complexNode.getChildNodes();
+                            for (Node childNode : DOM.getNodes(childNodes)){
+                                if (stripNameSpace(childNode.getNodeName()).equalsIgnoreCase("extension")){
+
+                                    if (DOM.getAttributeValue(childNode, "base").equals(base)){
+
+                                        System.out.println("\t" + typeName);
+                                        elements.add(new Element(node));
+
+                                    }
+
+                                }
+                            }
+
+                        }
+
+
+                    }
+                }
+
+            }
+        }
+
+        return elements;
+    }
+
+
     
     
   // </editor-fold>
