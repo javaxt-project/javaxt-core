@@ -204,6 +204,9 @@ public class DOM {
             for (int j=0; j<attr.getLength(); j++){
                  String name = attr.item(j).getNodeName();
                  String value = attr.item(j).getTextContent();
+                 if (value==null) value = attr.item(j).getNodeValue();
+                 if (value==null) value = "";
+                 //System.out.println(name + "=" + attr.item(j).getNodeValue());
                  Attributes += " " + name + "=\"" + value + "\"";
             }
         }
@@ -305,7 +308,13 @@ public class DOM {
 
             }
             else{
-                xmlTree.append(tree.getTextContent());
+
+                String nodeValue = tree.getTextContent();
+                if (nodeValue == null){
+                    nodeValue = "";
+                }
+                
+                xmlTree.append(nodeValue);
             }
 
             xmlTree.append("</" + tree.getNodeName() + ">");  

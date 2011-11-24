@@ -311,8 +311,9 @@ public class Date {
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /** Returns the current date as a String */
-    
+  /** Returns the current date as a String in the following format:
+   *  "EEE MMM dd HH:mm:ss z yyyy"
+   */
     public String toString(){      
         return toString("EEE MMM dd HH:mm:ss z yyyy");
     }
@@ -331,6 +332,18 @@ public class Date {
             new SimpleDateFormat(format, currentLocale);
         if (timeZone!=null) currFormatter.setTimeZone(timeZone);
         return currFormatter.format(currDate);
+    }
+
+
+  //**************************************************************************
+  //** toLong
+  //**************************************************************************
+  /** Returns a long integer used to represent the Date in the following
+   *  format: "yyyyMMddHHmmssSSS". Please use the getTime() method to get the
+   *  the number of milliseconds since January 1, 1970, 00:00:00 UTC.
+   */
+    public long toLong(){
+        return Long.parseLong(this.toString("yyyyMMddHHmmssSSS"));
     }
 
 
@@ -660,7 +673,13 @@ public class Date {
   /** Used to determine whether a date has a timestamp.
    */
     public boolean hasTimeStamp(){
-        java.util.Calendar cal = getCalendar();
+        return hasTimeStamp(getDate());
+    }
+
+
+    private static boolean hasTimeStamp(java.util.Date date){
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTime(date);
         int hour = cal.get(java.util.Calendar.HOUR);
         int min = cal.get(java.util.Calendar.MINUTE);
         int sec = cal.get(java.util.Calendar.SECOND);
@@ -668,4 +687,78 @@ public class Date {
         if (hour>0 || min>0 || sec>0 || ms>0) return true;
         return false;
     }
+
+    private static class DateComparer implements java.util.Comparator {
+
+        public final int compare(Object a, Object b){
+
+            if (a==null || b==null) return -1;
+
+            java.util.Date d1 = null;
+            java.util.Date d2 = null;
+
+            if (a instanceof java.util.Date) d1 = ((java.util.Date) a);
+            else if (a instanceof javaxt.utils.Date) d1 = ((javaxt.utils.Date) a).getDate();
+
+            if (b instanceof java.util.Date) d2 = ((java.util.Date) b);
+            else if (b instanceof javaxt.utils.Date) d2 = ((javaxt.utils.Date) b).getDate();
+
+
+            if (d1==null || d2==null) return -1;
+
+
+            Long x = d1.getTime();
+            Long y = d2.getTime();
+            int result = x.compareTo(y);
+
+
+          //The following block of code is used to tweak the results when
+          //comparing 2 dates that have the same day, month, and year but one
+          //of the dates doesn't have a timestamp. The date with the timestamp
+          //will come out older that the date without the timestamp.
+
+            if (result!=0){
+
+                java.util.Calendar c1 = java.util.Calendar.getInstance();
+                c1.setTime(d1);
+
+                java.util.Calendar c2 = java.util.Calendar.getInstance();
+                c2.setTime(d2);
+
+                if (c1.get(java.util.Calendar.YEAR)==c2.get(java.util.Calendar.YEAR)){
+                    if (c1.get(java.util.Calendar.MONTH)==c2.get(java.util.Calendar.MONTH)){
+                        if (c1.get(java.util.Calendar.DATE)==c2.get(java.util.Calendar.DATE)){
+                            if (hasTimeStamp(d1)==true && hasTimeStamp(d2)==false){
+                                result = -1;
+                            }
+                            else if(hasTimeStamp(d1)==false && hasTimeStamp(d2)==true){
+                                result = 1;
+                            }
+                        }
+                    }
+                }
+
+
+            }
+
+            return result;
+        }
+
+    }
+    
+
+  //**************************************************************************
+  //** sortDates
+  //**************************************************************************
+  /** Static method used to sort dates in a list. Older dates appear first in
+   *  the output.
+   */
+    public static java.util.List sortDates(java.util.List dates){
+        while(dates.contains(null)){
+            dates.remove(null);
+        }
+        java.util.Collections.sort(dates, new DateComparer());
+        return dates;
+    }
+
 }

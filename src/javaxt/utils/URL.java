@@ -397,6 +397,19 @@ public class URL {
     }
 
 
+  //**************************************************************************
+  //** setPath
+  //**************************************************************************
+  /**  Used to update the path portion of the URL
+   */
+    public void setPath(String path){
+        if (path!=null){
+            path = path.trim();
+            if (!path.startsWith("/")) path = "/" + path;
+        }
+        this.path = path;
+    }
+
 
   //**************************************************************************
   //** toString

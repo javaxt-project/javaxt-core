@@ -8,6 +8,7 @@ import java.util.*;
 import com.sun.image.codec.jpeg.*;
 import java.awt.geom.AffineTransform;
 import java.awt.color.ColorSpace;
+import javax.imageio.metadata.*;
 
 //import java.awt.geom.*;
 //Imports for JP2
@@ -26,8 +27,6 @@ import java.awt.color.ColorSpace;
 public class Image {
     
     private BufferedImage bufferedImage = null; 
-    private int width = 0;
-    private int height = 0;
     private Vector corners = null;
     
     private float outputQuality = 1f; //0.9f; //0.5f;
@@ -36,6 +35,9 @@ public class Image {
     
     public static String[] InputFormats = getFormats(ImageIO.getReaderFormatNames());
     public static String[] OutputFormats = getFormats(ImageIO.getWriterFormatNames());
+
+
+    private Metadata metadata = null;
 
 
   //**************************************************************************
@@ -63,9 +65,7 @@ public class Image {
         this(new ByteArrayInputStream(byteArray));
     }
     
-    public Image(int Width, int Height){
-        this.width = Width;
-        this.height = Height;
+    public Image(int width, int height){
         this.bufferedImage = 
                 new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         
@@ -74,23 +74,17 @@ public class Image {
     
     public Image(BufferedImage bufferedImage){
         this.bufferedImage = bufferedImage;
-        this.width = bufferedImage.getWidth();
-        this.height = bufferedImage.getHeight();
     }
 
 
     public Image(RenderedImage img) {
         if (img instanceof BufferedImage) {
             this.bufferedImage = (BufferedImage) img;
-            this.width = bufferedImage.getWidth();
-            this.height = bufferedImage.getHeight();
         }
         else{
             java.awt.image.ColorModel cm = img.getColorModel();
-            int width = img.getWidth();
-            int height = img.getHeight();
             java.awt.image.WritableRaster raster =
-                cm.createCompatibleWritableRaster(width, height);
+                cm.createCompatibleWritableRaster(img.getWidth(), img.getHeight());
             boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
             java.util.Hashtable properties = new java.util.Hashtable();
             String[] keys = img.getPropertyNames();
@@ -102,8 +96,6 @@ public class Image {
             BufferedImage result = new BufferedImage(cm, raster, isAlphaPremultiplied, properties);
             img.copyData(raster);
             this.bufferedImage = result;
-            this.width = bufferedImage.getWidth();
-            this.height = bufferedImage.getHeight();
         }
     }
 
@@ -127,8 +119,8 @@ public class Image {
         //Font font = new Font(fontName, Font.TRUETYPE_FONT, fontSize);
 
         FontMetrics fm = t.getFontMetrics(font);
-        this.width = fm.stringWidth(text);
-        this.height = fm.getHeight();
+        int width = fm.stringWidth(text);
+        int height = fm.getHeight();
         int descent = fm.getDescent();
 
         t.dispose();
@@ -149,8 +141,8 @@ public class Image {
         g2d.drawString(text, 0, height-descent);
 
     }
-    
-    
+
+
   //**************************************************************************
   //** setBackgroundColor
   //**************************************************************************
@@ -169,6 +161,9 @@ public class Image {
         if (imageType == 0) {
             imageType = BufferedImage.TYPE_INT_ARGB;
         }
+
+        int width = this.getWidth();
+        int height = this.getHeight();
 
         BufferedImage bi = new BufferedImage(width, height, imageType);
         Graphics2D g2d = bi.createGraphics();
@@ -287,16 +282,18 @@ public class Image {
   /**  Used to add text to the image at a given position. */
     
     public void addText(String text, int x, int y){
-        
-      //Create Graphics
+        addText(text, x, y, new Font ("SansSerif",Font.TRUETYPE_FONT,12), 0, 0, 0);
+    }
+
+    public void addText(String text, int x, int y, String fontName, int fontSize, int r, int g, int b){
+        addText(text, x, y, new Font(fontName, Font.TRUETYPE_FONT, fontSize), r,g,b);
+    }
+
+    public void addText(String text, int x, int y, Font font, int r, int g, int b){
         g2d = getGraphics();
-             
-        g2d.setColor(Color.BLACK); 
-        g2d.setFont (new Font ("SansSerif",Font.TRUETYPE_FONT,12));
+        g2d.setColor(new Color(r, g, b));
+        g2d.setFont(font);
         g2d.drawString(text, x, y);
-        
-      //Graphics context no longer needed so dispose it
-        //g2d.dispose();
     }
     
     
@@ -325,7 +322,14 @@ public class Image {
    */
     
     public Color getColor(int x, int y){
-        return new Color(bufferedImage.getRGB(x, y));
+        //return new Color(bufferedImage.getRGB(x, y)); //<--This will return an incorrect alpha value
+        
+        int pixel = bufferedImage.getRGB(x, y);
+        int alpha = (pixel >> 24) & 0xff;
+        int red = (pixel >> 16) & 0xff;
+        int green = (pixel >> 8) & 0xff;
+        int blue = (pixel) & 0xff;
+        return new java.awt.Color(red, green, blue, alpha);
     }
     
     
@@ -400,8 +404,6 @@ public class Image {
             img = in;
             g2d.drawImage(img, x, y, null);
             bufferedImage = bi;
-            width = bufferedImage.getWidth();
-            height = bufferedImage.getHeight();
         }
         else{
             Graphics2D g2d = bufferedImage.createGraphics();
@@ -422,54 +424,54 @@ public class Image {
         addImage(in.getBufferedImage(),x,y,expand);
     }
 
-    
+
     
   //**************************************************************************
   //** createBufferedImage
   //**************************************************************************
-    
-    private void createBufferedImage(java.io.File File){
+  /** Used to create a BufferedImage from a File */
+
+    private void createBufferedImage(java.io.File file){
         try{
-            
-            //long startTime = getStartTime();
-            
-            bufferedImage = ImageIO.read(File); 
-            width = bufferedImage.getWidth();
-            height = bufferedImage.getHeight();
-            
-            if (bufferedImage.getType()==BufferedImage.TYPE_BYTE_INDEXED){
-                
-                BufferedImage bi = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-                Graphics2D g2d = bi.createGraphics();
-                java.awt.Image img = bufferedImage;
-                g2d.drawImage(img, 0, 0, null);
-                bufferedImage = bi;
-            }
-            
-            
-            //System.out.println("Input image is " + width + "x" + height + "...");
-            //System.out.println("Opened file in " + getEllapsedTime(startTime) + " ms...");
-            
+            createBufferedImage(new FileInputStream(file));
         }
         catch(Exception e){
             printError(e);
         }
     }
+
+
+  //**************************************************************************
+  //** createBufferedImage
+  //**************************************************************************
+  /** Used to create a BufferedImage from a InputStream */
     
     private void createBufferedImage(java.io.InputStream input){
         try{
-            
-            long startTime = getStartTime();
-            
-            bufferedImage = ImageIO.read(input); 
-            width = bufferedImage.getWidth();
-            height = bufferedImage.getHeight();
-            input.close();
-            
-            
-            //System.out.println("Input image is " + width + "x" + height + "...");
-            //System.out.println("Opened file in " + getEllapsedTime(startTime) + " ms...");
-            
+            //bufferedImage = ImageIO.read(input);
+
+            javax.imageio.stream.ImageInputStream stream = ImageIO.createImageInputStream(input);
+
+            Iterator iter = ImageIO.getImageReaders(stream);
+            if (!iter.hasNext()) {
+                return;
+            }
+
+            ImageReader reader = (ImageReader)iter.next();
+            ImageReadParam param = reader.getDefaultReadParam();
+            reader.setInput(stream, true, true);
+
+            try {
+                bufferedImage = reader.read(0, param);
+                metadata = new Metadata(reader.getImageMetadata(0));
+            }
+            finally {
+                reader.dispose();
+                stream.close();
+            }
+
+
+            input.close(); 
         }
         catch(Exception e){
             printError(e);
@@ -483,11 +485,12 @@ public class Image {
   //**************************************************************************
   /**  Used to rotate the image (clockwise). Rotation angle is specified in 
    *   degrees relative to the top of the image. 
-   */
-    
+   */    
     public void rotate(double Degrees){
         
       //Define Image Center (Axis of Rotation)
+        int width = this.getWidth();
+        int height = this.getHeight();
         int cx = width/2;
         int cy = height/2;
 
@@ -502,9 +505,11 @@ public class Image {
         for (int i=0; i<corners.length; i+=2){
             
            //Rotates the given point theta radians around (cx,cy)
-             int x = getInt( (Math.cos(theta)*(corners[i]-cx) -
+             int x = javaxt.utils.string.toInt(
+                             (Math.cos(theta)*(corners[i]-cx) -
                               Math.sin(theta)*(corners[i+1]-cy)+cx) );
-             int y = getInt( (Math.sin(theta)*(corners[i]-cx) +
+             int y = javaxt.utils.string.toInt(
+                             (Math.sin(theta)*(corners[i]-cx) +
                               Math.cos(theta)*(corners[i+1]-cy)+cy) );
 
            //Update our bounds
@@ -527,7 +532,6 @@ public class Image {
         Graphics2D g2d = result.createGraphics();
         
       //Enable anti-alias and Cubic Resampling
-        RenderingHints rhints = g2d.getRenderingHints();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                              RenderingHints.VALUE_ANTIALIAS_ON);
         
@@ -543,23 +547,12 @@ public class Image {
         
       //Update Class Variables
         this.bufferedImage = result;
-        this.width = bufferedImage.getWidth();
-        this.height = bufferedImage.getHeight();
         
       //Delete Heavy Objects
         result = null;
         xform = null;
+    }
 
-    }
-    
-  //**************************************************************************
-  //** getInt
-  //**************************************************************************  
-  /**  Converts a double to an integer value, rounding the double as needed */
-    
-    private int getInt(double value){
-        return (int) Math.round(value);
-    }
     
   //**************************************************************************
   //** Rotate Clockwise
@@ -569,7 +562,8 @@ public class Image {
     public void rotateClockwise(){
         rotate(90);
     }
-    
+
+
   //**************************************************************************
   //** Rotate Counter Clockwise
   //**************************************************************************
@@ -588,10 +582,10 @@ public class Image {
    */
     
     public void setWidth(int Width){
-        double ratio = (double)Width/(double)width;
+        double ratio = (double)Width/(double)this.getWidth();
         
-        double dw = width * ratio;
-        double dh = height * ratio;
+        double dw = this.getWidth() * ratio;
+        double dh = this.getHeight() * ratio;
 
         int outputWidth =  (int)Math.round(dw); 
         int outputHeight = (int)Math.round(dh); 
@@ -608,10 +602,10 @@ public class Image {
    */
     
     public void setHeight(int Height){
-        double ratio = (double)Height/(double)height;
+        double ratio = (double)Height/(double)this.getHeight();
         
-        double dw = width * ratio;
-        double dh = height * ratio;
+        double dw = this.getWidth() * ratio;
+        double dh = this.getHeight() * ratio;
 
         int outputWidth =  (int)Math.round(dw); 
         int outputHeight = (int)Math.round(dh); 
@@ -640,10 +634,13 @@ public class Image {
     
     public void resize(int Width, int Height, boolean maintainRatio){
         
-        long startTime = getStartTime();
+        //long startTime = getStartTime();
         
         int outputWidth = Width;
         int outputHeight = Height;
+
+        int width = this.getWidth();
+        int height = this.getHeight();
         
         if (maintainRatio){
 
@@ -677,8 +674,6 @@ public class Image {
         g2d.dispose();
 
         this.bufferedImage = bi;
-        this.width = outputWidth;
-        this.height = outputHeight;
         
         outputImage = null;
         bi = null;
@@ -749,7 +744,10 @@ public class Image {
   /**  Used to sharpen the image using a 3x3 kernal. */
     
     public void sharpen(){
-        
+
+        int width = this.getWidth();
+        int height = this.getHeight();
+
       //define kernal
         Kernel kernel = new Kernel(3, 3,
             new float[] {
@@ -824,23 +822,23 @@ public class Image {
         if (imageType == 0) {
           imageType = BufferedImage.TYPE_INT_ARGB;
         }
-        BufferedImage out = new BufferedImage(width,height,imageType);
+        BufferedImage out = new BufferedImage(getWidth(),getHeight(),imageType);
         Graphics2D g2d = out.createGraphics();
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         g2d.drawImage(bufferedImage,0,0,null);
         g2d.dispose();
         bufferedImage = out;
     }
-    
+
+
   //**************************************************************************
   //** Flip (Horizonal)
   //**************************************************************************
   /**  Used to flip an image along it's y-axis (horizontal). Vertical flipping 
    *   is supported via the rotate method (i.e. rotate +/-180).
-   */
-    
+   */    
     public void flip(){
-        BufferedImage out = new BufferedImage(width, height, getImageType());
+        BufferedImage out = new BufferedImage(getWidth(), getHeight(), getImageType());
         AffineTransform tx = AffineTransform.getScaleInstance(-1, 1);
         tx.translate(-bufferedImage.getWidth(), 0);
         AffineTransformOp op = new AffineTransformOp(tx, AffineTransformOp.TYPE_BICUBIC);
@@ -857,26 +855,105 @@ public class Image {
     
     public void crop(int x, int y, int width, int height){
         bufferedImage = bufferedImage.getSubimage(x,y,width,height);
-        this.width = bufferedImage.getWidth();
-        this.height = bufferedImage.getHeight();
     }
-    
-    
+
+
+  //**************************************************************************
+  //** copy
+  //**************************************************************************
+  /** Returns a copy of the current image. */
+
+    public Image copy(){
+        return new Image(bufferedImage);
+    }
+
+
+  //**************************************************************************
+  //** copyRect
+  //**************************************************************************
+  /** Returns a copy of a given rectangle. */
+
+    public Image copyRect(int x, int y, int width, int height){
+        return new Image(bufferedImage.getSubimage(x,y,width,height));
+    }
+
+
+  //**************************************************************************
+  //** trim
+  //**************************************************************************
+  /** Used to remove excess pixels from an image by cropping the image to its
+   *  "true" extents. Crop bounds are determined by finding the first non-null
+   *  or non-white pixel on each side of the image.
+   */
+    public void trim(){
+        int top = 0;
+        int bottom = 0;
+        int left = 0;
+        int right = 0;
+
+        for (int y=0; y<bufferedImage.getHeight(); y++){
+            for (int x=0; x<bufferedImage.getWidth(); x++){
+                if (hasColor(bufferedImage.getRGB(x, y))){
+                    bottom = y;
+                    break;
+                }
+            }
+        }
+
+        for (int y=bufferedImage.getHeight()-1; y>-1; y--){
+            for (int x=0; x<bufferedImage.getWidth(); x++){
+                if (hasColor(bufferedImage.getRGB(x, y))){
+                    top = y;
+                    break;
+                }
+            }
+        }
+
+        for (int x=0; x<bufferedImage.getWidth(); x++){
+            for (int y=0; y<bufferedImage.getHeight(); y++){
+                if (hasColor(bufferedImage.getRGB(x, y))){
+                    right = x;
+                    break;
+                }
+            }
+        }
+
+        for (int x=bufferedImage.getWidth()-1; x>-1; x--){
+            for (int y=0; y<bufferedImage.getHeight(); y++){
+                if (hasColor(bufferedImage.getRGB(x, y))){
+                    left = x;
+                    break;
+                }
+            }
+        }
+        
+        if (left==right || top==bottom){
+            bufferedImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        }
+        else{
+            bufferedImage = bufferedImage.getSubimage(left,top,right-left,bottom-top);
+        }
+    }
+
+
+  //**************************************************************************
+  //** getMetadata
+  //**************************************************************************
+  /** Returns metadata associated with this image.
+   */
+    public Metadata getMetadata(){
+        return metadata;
+    }
+
+
   //**************************************************************************
   //** getBufferedImage
   //**************************************************************************
-  /**  Returns a java.awt.image.BufferedImage copy of the current image. */
-    
+  /**  Returns the java.awt.image.BufferedImage represented by the current
+   *   image.
+   */
     public BufferedImage getBufferedImage(){
-        try{
-            //return ImageIO.read(new ByteArrayInputStream(getByteArray()));
-            return bufferedImage;
-        }
-        catch(Exception e){
-            System.out.println(e);
-            //printError(e);
-            return null;
-        }
+        return bufferedImage;
     }
     
     
@@ -978,18 +1055,17 @@ public class Image {
   /**  Exports the image to a file. Output format is determined by the output 
    *   file extension. 
    */
-    
     public void saveAs(javaxt.io.File OutputFile){
         saveAs(OutputFile.toFile());
     }
-    
+
+
   //**************************************************************************
   //** saveAs
   //**************************************************************************
   /**  Exports the image to a file. Output format is determined by the output 
    *   file extension. 
    */
-    
     public void saveAs(String PathToImageFile){
         saveAs(new java.io.File(PathToImageFile));
     }
@@ -1001,7 +1077,6 @@ public class Image {
   /**  Exports the image to a file. Output format is determined by the output 
    *   file extension. 
    */
-    
     public void saveAs(java.io.File OutputFile){
         try{
           //Create output directory
@@ -1068,9 +1143,7 @@ public class Image {
     }
     
     
-    
-    
-    
+
     
   //**************************************************************************
   //** isJPEG
@@ -1120,7 +1193,7 @@ public class Image {
             //if (t==BufferedImage.OPAQUE) System.out.println("OPAQUE");
             
             if (t==BufferedImage.TRANSLUCENT){
-                bi = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                bi = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_RGB);
                 Graphics2D biContext = bi.createGraphics();
                 biContext.drawImage ( bufferedImage, 0, 0, null );
             }
@@ -1170,7 +1243,27 @@ public class Image {
             return "";
         }
     }
+
     
+  //**************************************************************************
+  //** hasColor
+  //**************************************************************************
+  /** Used to determine whether a given pixel has a color value. Returns false
+   *  if the pixel is white or transparent.
+   */
+    private boolean hasColor(int pixel){
+
+        int a = (pixel >> 24) & 0xff;
+        int r = (pixel >> 16) & 0xff;
+        int g = (pixel >> 8) & 0xff;
+        int b = (pixel) & 0xff;
+
+        if ((r==255 && g==255 && b==255) || a==0 ){
+            return false;
+        }
+        return true;
+    }
+
     
   //**************************************************************************
   //** equals
@@ -1235,423 +1328,528 @@ public class Image {
     
     
     
-    
-    
-    
-    
-    
-
-   //***************************************************************************
-   //**  Skew Class
-   //***************************************************************************
-   /**
-    *   Used to skew an image. Adapted from 2 image processing classes developed 
-    *   by Jerry Huxtable (http://www.jhlabs.com) and released under 
-    *   the Apache License, Version 2.0.
-    *
-    ***************************************************************************/
-
-    private class Skew {
-
-
-        public final static int ZERO = 0;
-        public final static int CLAMP = 1;
-        public final static int WRAP = 2;
-
-        public final static int NEAREST_NEIGHBOUR = 0;
-        public final static int BILINEAR = 1;
-
-        protected int edgeAction = ZERO;
-        protected int interpolation = BILINEAR;
-
-        protected Rectangle transformedSpace;
-        protected Rectangle originalSpace;
-
-        private float x0, y0, x1, y1, x2, y2, x3, y3;
-        private float dx1, dy1, dx2, dy2, dx3, dy3;
-        private float A, B, C, D, E, F, G, H, I;
-
-
-        private BufferedImage src;
-        private BufferedImage dst;
-
-      //**************************************************************************
-      //** Constructor
-      //**************************************************************************
-      /**  Creates a new instance of Skew */
-
-        public Skew(BufferedImage src) {
-            this.src = src;
-            this.dst = new BufferedImage(src.getWidth(), src.getHeight(), src.getType());
-        }
-
-        public Skew(javaxt.io.Image src) {
-            this(src.getBufferedImage());
-        }
-
-
-        public BufferedImage setCorners(float x0, float y0, 
-                                        float x1, float y1, 
-                                        float x2, float y2, 
-                                        float x3, float y3) {
-                this.x0 = x0;
-                this.y0 = y0;
-                this.x1 = x1;
-                this.y1 = y1;
-                this.x2 = x2;
-                this.y2 = y2;
-                this.x3 = x3;
-                this.y3 = y3;
-
-                dx1 = x1-x2;
-                dy1 = y1-y2;
-                dx2 = x3-x2;
-                dy2 = y3-y2;
-                dx3 = x0-x1+x2-x3;
-                dy3 = y0-y1+y2-y3;
-
-                float a11, a12, a13, a21, a22, a23, a31, a32;
-
-                if (dx3 == 0 && dy3 == 0) {
-                        a11 = x1-x0;
-                        a21 = x2-x1;
-                        a31 = x0;
-                        a12 = y1-y0;
-                        a22 = y2-y1;
-                        a32 = y0;
-                        a13 = a23 = 0;
-                } else {
-                        a13 = (dx3*dy2-dx2*dy3)/(dx1*dy2-dy1*dx2);
-                        a23 = (dx1*dy3-dy1*dx3)/(dx1*dy2-dy1*dx2);
-                        a11 = x1-x0+a13*x1;
-                        a21 = x3-x0+a23*x3;
-                        a31 = x0;
-                        a12 = y1-y0+a13*y1;
-                        a22 = y3-y0+a23*y3;
-                        a32 = y0;
-                }
-
-            A = a22 - a32*a23;
-            B = a31*a23 - a21;
-            C = a21*a32 - a31*a22;
-            D = a32*a13 - a12;
-            E = a11 - a31*a13;
-            F = a31*a12 - a11*a32;
-            G = a12*a23 - a22*a13;
-            H = a21*a13 - a11*a23;
-            I = a11*a22 - a21*a12;
-
-
-            return filter(src,dst);
-
-        }
 
 
 
-        protected void transformSpace(Rectangle rect) {
-                rect.x = (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
-                rect.y = (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
-                rect.width = (int)Math.max( Math.max( x0, x1 ), Math.max( x2, x3 ) ) - rect.x;
-                rect.height = (int)Math.max( Math.max( y0, y1 ), Math.max( y2, y3 ) ) - rect.y;
-        }
+//***************************************************************************
+//**  Metadata Class
+//***************************************************************************
+/**
+ *   Provides methods to read/write image metadata.
+ *
+ ***************************************************************************/
+public class Metadata{
 
-    
-        public float getOriginX() {
-                return x0 - (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
-        }
+    private IIOMetadata metadata;
 
-        public float getOriginY() {
-                return y0 - (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
-        }
-    
-
-        private BufferedImage filter( BufferedImage src, BufferedImage dst ) {
-            int width = src.getWidth();
-            int height = src.getHeight();
-            int type = src.getType();
-            WritableRaster srcRaster = src.getRaster();
-
-            originalSpace = new Rectangle(0, 0, width, height);
-            transformedSpace = new Rectangle(0, 0, width, height);
-            transformSpace(transformedSpace);
-
-            if ( dst == null ) {
-                ColorModel dstCM = src.getColorModel();
-                            dst = new BufferedImage(dstCM, dstCM.createCompatibleWritableRaster(transformedSpace.width, transformedSpace.height), dstCM.isAlphaPremultiplied(), null);
-            }
-            WritableRaster dstRaster = dst.getRaster();
-
-            int[] inPixels = getRGB( src, 0, 0, width, height, null );
-
-            if ( interpolation == NEAREST_NEIGHBOUR )
-                    return filterPixelsNN( dst, width, height, inPixels, transformedSpace );
-
-            int srcWidth = width;
-            int srcHeight = height;
-            int srcWidth1 = width-1;
-            int srcHeight1 = height-1;
-            int outWidth = transformedSpace.width;
-            int outHeight = transformedSpace.height;
-            int outX, outY;
-            int index = 0;
-            int[] outPixels = new int[outWidth];
-
-            outX = transformedSpace.x;
-            outY = transformedSpace.y;
-            float[] out = new float[2];
-
-            for (int y = 0; y < outHeight; y++) {
-                for (int x = 0; x < outWidth; x++) {
-                    transformInverse(outX+x, outY+y, out);
-                    int srcX = (int)Math.floor( out[0] );
-                    int srcY = (int)Math.floor( out[1] );
-                    float xWeight = out[0]-srcX;
-                    float yWeight = out[1]-srcY;
-                    int nw, ne, sw, se;
-
-                    if ( srcX >= 0 && srcX < srcWidth1 && srcY >= 0 && srcY < srcHeight1) {
-                            // Easy case, all corners are in the image
-                            int i = srcWidth*srcY + srcX;
-                            nw = inPixels[i];
-                            ne = inPixels[i+1];
-                            sw = inPixels[i+srcWidth];
-                            se = inPixels[i+srcWidth+1];
-                    } else {
-                            // Some of the corners are off the image
-                            nw = getPixel( inPixels, srcX, srcY, srcWidth, srcHeight );
-                            ne = getPixel( inPixels, srcX+1, srcY, srcWidth, srcHeight );
-                            sw = getPixel( inPixels, srcX, srcY+1, srcWidth, srcHeight );
-                            se = getPixel( inPixels, srcX+1, srcY+1, srcWidth, srcHeight );
-                    }
-                    outPixels[x] = bilinearInterpolate(xWeight, yWeight, nw, ne, sw, se); 
-                }
-                setRGB( dst, 0, y, transformedSpace.width, 1, outPixels );
-            }
-                return dst;
-        }
-
-        final private int getPixel( int[] pixels, int x, int y, int width, int height ) {
-            if (x < 0 || x >= width || y < 0 || y >= height) {
-                switch (edgeAction) {
-                case ZERO:
-                default:
-                    return 0;
-                case WRAP:
-                    return pixels[(mod(y, height) * width) + mod(x, width)];
-                case CLAMP:
-                    return pixels[(clamp(y, 0, height-1) * width) + clamp(x, 0, width-1)];
-                }
-            }
-            return pixels[ y*width+x ];
-        }
-
-
-        protected BufferedImage filterPixelsNN( BufferedImage dst, int width, int height, int[] inPixels, Rectangle transformedSpace ) {
-            int srcWidth = width;
-            int srcHeight = height;
-            int outWidth = transformedSpace.width;
-            int outHeight = transformedSpace.height;
-            int outX, outY, srcX, srcY;
-            int[] outPixels = new int[outWidth];
-
-            outX = transformedSpace.x;
-            outY = transformedSpace.y;
-            int[] rgb = new int[4];
-            float[] out = new float[2];
-
-            for (int y = 0; y < outHeight; y++) {
-                for (int x = 0; x < outWidth; x++) {
-                    transformInverse(outX+x, outY+y, out);
-                    srcX = (int)out[0];
-                    srcY = (int)out[1];
-                    // int casting rounds towards zero, so we check out[0] < 0, not srcX < 0
-                    if (out[0] < 0 || srcX >= srcWidth || out[1] < 0 || srcY >= srcHeight) {
-                            int p;
-                            switch (edgeAction) {
-                            case ZERO:
-                            default:
-                                p = 0;
-                                break;
-                            case WRAP:
-                                p = inPixels[(mod(srcY, srcHeight) * srcWidth) + mod(srcX, srcWidth)];
-                                break;
-                            case CLAMP:
-                                p = inPixels[(clamp(srcY, 0, srcHeight-1) * srcWidth) + clamp(srcX, 0, srcWidth-1)];
-                                break;
-                            }
-                            outPixels[x] = p;
-                    } else {
-                            int i = srcWidth*srcY + srcX;
-                            rgb[0] = inPixels[i];
-                            outPixels[x] = inPixels[i];
-                    }
-                }
-                setRGB( dst, 0, y, transformedSpace.width, 1, outPixels );
-            }
-            return dst;
-        }
-
-
-        protected void transformInverse(int x, int y, float[] out) {
-                out[0] = originalSpace.width * (A*x+B*y+C)/(G*x+H*y+I);
-                out[1] = originalSpace.height * (D*x+E*y+F)/(G*x+H*y+I);
-        }
-
-/*
-        public Rectangle2D getBounds2D( BufferedImage src ) {
-            return new Rectangle(0, 0, src.getWidth(), src.getHeight());
-        }
-
-        public Point2D getPoint2D( Point2D srcPt, Point2D dstPt ) {
-            if ( dstPt == null )
-                dstPt = new Point2D.Double();
-            dstPt.setLocation( srcPt.getX(), srcPt.getY() );
-            return dstPt;
-        }
-*/
-        
-        /**
-         * A convenience method for getting ARGB pixels from an image. This tries to avoid the performance
-         * penalty of BufferedImage.getRGB unmanaging the image.
-         */
-        public int[] getRGB( BufferedImage image, int x, int y, int width, int height, int[] pixels ) {
-                int type = image.getType();
-                if ( type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB )
-                        return (int [])image.getRaster().getDataElements( x, y, width, height, pixels );
-                return image.getRGB( x, y, width, height, pixels, 0, width );
-        }
-
-        /**
-         * A convenience method for setting ARGB pixels in an image. This tries to avoid the performance
-         * penalty of BufferedImage.setRGB unmanaging the image.
-         */
-        public void setRGB( BufferedImage image, int x, int y, int width, int height, int[] pixels ) {
-                int type = image.getType();
-                if (type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB)
-                    image.getRaster().setDataElements( x, y, width, height, pixels );
-                else
-                    image.setRGB( x, y, width, height, pixels, 0, width );
-        }
-        
-        
-        
-	/**
-	 * Clamp a value to an interval.
-	 * @param a the lower clamp threshold
-	 * @param b the upper clamp threshold
-	 * @param x the input parameter
-	 * @return the clamped value
-	 */
-	private float clamp(float x, float a, float b) {
-		return (x < a) ? a : (x > b) ? b : x;
-	}
-
-	/**
-	 * Clamp a value to an interval.
-	 * @param a the lower clamp threshold
-	 * @param b the upper clamp threshold
-	 * @param x the input parameter
-	 * @return the clamped value
-	 */
-	private int clamp(int x, int a, int b) {
-		return (x < a) ? a : (x > b) ? b : x;
-	}
-
-	/**
-	 * Return a mod b. This differs from the % operator with respect to negative numbers.
-	 * @param a the dividend
-	 * @param b the divisor
-	 * @return a mod b
-	 */
-	private double mod(double a, double b) {
-		int n = (int)(a/b);
-		
-		a -= n*b;
-		if (a < 0)
-			return a + b;
-		return a;
-	}
-
-	/**
-	 * Return a mod b. This differs from the % operator with respect to negative numbers.
-	 * @param a the dividend
-	 * @param b the divisor
-	 * @return a mod b
-	 */
-	private float mod(float a, float b) {
-		int n = (int)(a/b);
-		
-		a -= n*b;
-		if (a < 0)
-			return a + b;
-		return a;
-	}
-
-	/**
-	 * Return a mod b. This differs from the % operator with respect to negative numbers.
-	 * @param a the dividend
-	 * @param b the divisor
-	 * @return a mod b
-	 */
-	private int mod(int a, int b) {
-		int n = a/b;
-		
-		a -= n*b;
-		if (a < 0)
-			return a + b;
-		return a;
-	}
-        
-        
-	/**
-	 * Bilinear interpolation of ARGB values.
-	 * @param x the X interpolation parameter 0..1
-	 * @param y the y interpolation parameter 0..1
-	 * @param rgb array of four ARGB values in the order NW, NE, SW, SE
-	 * @return the interpolated value
-	 */
-	private int bilinearInterpolate(float x, float y, int nw, int ne, int sw, int se) {
-		float m0, m1;
-		int a0 = (nw >> 24) & 0xff;
-		int r0 = (nw >> 16) & 0xff;
-		int g0 = (nw >> 8) & 0xff;
-		int b0 = nw & 0xff;
-		int a1 = (ne >> 24) & 0xff;
-		int r1 = (ne >> 16) & 0xff;
-		int g1 = (ne >> 8) & 0xff;
-		int b1 = ne & 0xff;
-		int a2 = (sw >> 24) & 0xff;
-		int r2 = (sw >> 16) & 0xff;
-		int g2 = (sw >> 8) & 0xff;
-		int b2 = sw & 0xff;
-		int a3 = (se >> 24) & 0xff;
-		int r3 = (se >> 16) & 0xff;
-		int g3 = (se >> 8) & 0xff;
-		int b3 = se & 0xff;
-
-		float cx = 1.0f-x;
-		float cy = 1.0f-y;
-
-		m0 = cx * a0 + x * a1;
-		m1 = cx * a2 + x * a3;
-		int a = (int)(cy * m0 + y * m1);
-
-		m0 = cx * r0 + x * r1;
-		m1 = cx * r2 + x * r3;
-		int r = (int)(cy * m0 + y * m1);
-
-		m0 = cx * g0 + x * g1;
-		m1 = cx * g2 + x * g3;
-		int g = (int)(cy * m0 + y * m1);
-
-		m0 = cx * b0 + x * b1;
-		m1 = cx * b2 + x * b3;
-		int b = (int)(cy * m0 + y * m1);
-
-		return (a << 24) | (r << 16) | (g << 8) | b;
-	}
-        
-
+    public Metadata(IIOMetadata metadata){
+        this.metadata = metadata;
     }
 
-}
+  //**************************************************************************
+  //** getIIOMetadata
+  //**************************************************************************
+  /** Returns IIOMetadata associated with this image. You can iterate through
+   *  the metadata using an xml parser like this:
+   <pre>
+    IIOMetadata metadata = image.getMetadata();
+    for (String name : metadata.getMetadataFormatNames()) {
+        System.out.println( "Format name: " + name );
+        org.w3c.dom.Node metadataNode = metadata.getAsTree(name);
+        System.out.println(javaxt.xml.DOM.getNodeValue(metadataNode));
+    }
+   </pre>
+   */
+    public IIOMetadata getIIOMetadata(){
+        return metadata;
+    }
+
+
+
+
+  //**************************************************************************
+  //** addMetadata
+  //**************************************************************************
+  /** Creates a new metadata entry under the "javax_imageio_1.0" node.
+   *  @param category Metadata category (e.g. "Chroma", "Compression", "Data",
+   *  "Dimension", "Transparency", etc).
+   *
+    public void addMetadata(String category, String key, String value){
+
+        IIOMetadataNode horiz = new IIOMetadataNode(key);
+        horiz.setAttribute("value", value);
+
+        IIOMetadataNode categoryNode = new IIOMetadataNode(category);
+        categoryNode.appendChild(horiz);
+
+        IIOMetadataNode root = new IIOMetadataNode("javax_imageio_2.0");
+        root.appendChild(categoryNode);
+        try{
+            if (metadata==null){
+                Iterator<ImageWriter> iw = ImageIO.getImageWritersByFormatName("png");
+                ImageWriter writer = iw.next();
+                ImageWriteParam writeParam = writer.getDefaultWriteParam();
+                ImageTypeSpecifier typeSpecifier = ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_ARGB);
+                metadata = writer.getDefaultImageMetadata(typeSpecifier, writeParam);
+                if (metadata==null){
+                    System.out.println("Failed to create Metadata");
+                    return;
+                }
+
+            }
+            metadata.mergeTree("javax_imageio_2.0", root);
+
+
+            String[] names = metadata.getMetadataFormatNames();
+            int length = names.length;
+            for (int i = 0; i < length; i++) {
+                System.out.println( "Format name: " + names[ i ] );
+                org.w3c.dom.Node metadataNode = metadata.getAsTree(names[i]);
+                System.out.println(javaxt.xml.DOM.getNodeValue(metadataNode));
+            }
+
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+
+
+    public String getMetadata(String key){
+        String[] names = metadata.getMetadataFormatNames();
+        int length = names.length;
+        for (int i = 0; i < length; i++) {
+            System.out.println( "Format name: " + names[ i ] );
+            org.w3c.dom.Node metadataNode = metadata.getAsTree(names[i]);
+            System.out.println(javaxt.xml.DOM.getNodeValue(metadataNode));
+            for (org.w3c.dom.Node node : javaxt.xml.DOM.getElementsByTagName(key, metadataNode)){
+                String value = javaxt.xml.DOM.getAttributeValue(node, "value");
+                if (value.length()>0) return value;
+            }
+        }
+
+        return null;
+    }
+    */
+} //end metadata class
+
+    
+    
+    
+    
+
+//***************************************************************************
+//**  Skew Class
+//***************************************************************************
+/**
+ *   Used to skew an image. Adapted from 2 image processing classes developed
+ *   by Jerry Huxtable (http://www.jhlabs.com) and released under
+ *   the Apache License, Version 2.0.
+ *
+ ***************************************************************************/
+
+private class Skew {
+
+    public final static int ZERO = 0;
+    public final static int CLAMP = 1;
+    public final static int WRAP = 2;
+
+    public final static int NEAREST_NEIGHBOUR = 0;
+    public final static int BILINEAR = 1;
+
+    protected int edgeAction = ZERO;
+    protected int interpolation = BILINEAR;
+
+    protected Rectangle transformedSpace;
+    protected Rectangle originalSpace;
+
+    private float x0, y0, x1, y1, x2, y2, x3, y3;
+    private float dx1, dy1, dx2, dy2, dx3, dy3;
+    private float A, B, C, D, E, F, G, H, I;
+
+
+    private BufferedImage src;
+    private BufferedImage dst;
+
+
+    public Skew(BufferedImage src) {
+        this.src = src;
+        this.dst = new BufferedImage(src.getWidth(), src.getHeight(), src.getType());
+    }
+
+    public Skew(javaxt.io.Image src) {
+        this(src.getBufferedImage());
+    }
+
+
+    public BufferedImage setCorners(float x0, float y0,
+                                    float x1, float y1,
+                                    float x2, float y2,
+                                    float x3, float y3)
+    {
+            this.x0 = x0;
+            this.y0 = y0;
+            this.x1 = x1;
+            this.y1 = y1;
+            this.x2 = x2;
+            this.y2 = y2;
+            this.x3 = x3;
+            this.y3 = y3;
+
+            dx1 = x1-x2;
+            dy1 = y1-y2;
+            dx2 = x3-x2;
+            dy2 = y3-y2;
+            dx3 = x0-x1+x2-x3;
+            dy3 = y0-y1+y2-y3;
+
+            float a11, a12, a13, a21, a22, a23, a31, a32;
+
+            if (dx3 == 0 && dy3 == 0) {
+                    a11 = x1-x0;
+                    a21 = x2-x1;
+                    a31 = x0;
+                    a12 = y1-y0;
+                    a22 = y2-y1;
+                    a32 = y0;
+                    a13 = a23 = 0;
+            } else {
+                    a13 = (dx3*dy2-dx2*dy3)/(dx1*dy2-dy1*dx2);
+                    a23 = (dx1*dy3-dy1*dx3)/(dx1*dy2-dy1*dx2);
+                    a11 = x1-x0+a13*x1;
+                    a21 = x3-x0+a23*x3;
+                    a31 = x0;
+                    a12 = y1-y0+a13*y1;
+                    a22 = y3-y0+a23*y3;
+                    a32 = y0;
+            }
+
+        A = a22 - a32*a23;
+        B = a31*a23 - a21;
+        C = a21*a32 - a31*a22;
+        D = a32*a13 - a12;
+        E = a11 - a31*a13;
+        F = a31*a12 - a11*a32;
+        G = a12*a23 - a22*a13;
+        H = a21*a13 - a11*a23;
+        I = a11*a22 - a21*a12;
+
+
+        return filter(src,dst);
+    }
+
+
+
+    protected void transformSpace(Rectangle rect) {
+            rect.x = (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
+            rect.y = (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
+            rect.width = (int)Math.max( Math.max( x0, x1 ), Math.max( x2, x3 ) ) - rect.x;
+            rect.height = (int)Math.max( Math.max( y0, y1 ), Math.max( y2, y3 ) ) - rect.y;
+    }
+
+
+    public float getOriginX() {
+            return x0 - (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
+    }
+
+    public float getOriginY() {
+            return y0 - (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
+    }
+
+
+    private BufferedImage filter( BufferedImage src, BufferedImage dst ) {
+        int width = src.getWidth();
+        int height = src.getHeight();
+        //int type = src.getType();
+        //WritableRaster srcRaster = src.getRaster();
+
+        originalSpace = new Rectangle(0, 0, width, height);
+        transformedSpace = new Rectangle(0, 0, width, height);
+        transformSpace(transformedSpace);
+
+        if ( dst == null ) {
+            ColorModel dstCM = src.getColorModel();
+            dst = new BufferedImage(
+                    dstCM,
+                    dstCM.createCompatibleWritableRaster(transformedSpace.width, transformedSpace.height),
+                    dstCM.isAlphaPremultiplied(),
+                    null
+                );
+        }
+        //WritableRaster dstRaster = dst.getRaster();
+
+        int[] inPixels = getRGB( src, 0, 0, width, height, null );
+
+        if ( interpolation == NEAREST_NEIGHBOUR )
+                return filterPixelsNN( dst, width, height, inPixels, transformedSpace );
+
+        int srcWidth = width;
+        int srcHeight = height;
+        int srcWidth1 = width-1;
+        int srcHeight1 = height-1;
+        int outWidth = transformedSpace.width;
+        int outHeight = transformedSpace.height;
+        int outX, outY;
+        //int index = 0;
+        int[] outPixels = new int[outWidth];
+
+        outX = transformedSpace.x;
+        outY = transformedSpace.y;
+        float[] out = new float[2];
+
+        for (int y = 0; y < outHeight; y++) {
+            for (int x = 0; x < outWidth; x++) {
+                transformInverse(outX+x, outY+y, out);
+                int srcX = (int)Math.floor( out[0] );
+                int srcY = (int)Math.floor( out[1] );
+                float xWeight = out[0]-srcX;
+                float yWeight = out[1]-srcY;
+                int nw, ne, sw, se;
+
+                if ( srcX >= 0 && srcX < srcWidth1 && srcY >= 0 && srcY < srcHeight1) {
+                        // Easy case, all corners are in the image
+                        int i = srcWidth*srcY + srcX;
+                        nw = inPixels[i];
+                        ne = inPixels[i+1];
+                        sw = inPixels[i+srcWidth];
+                        se = inPixels[i+srcWidth+1];
+                } else {
+                        // Some of the corners are off the image
+                        nw = getPixel( inPixels, srcX, srcY, srcWidth, srcHeight );
+                        ne = getPixel( inPixels, srcX+1, srcY, srcWidth, srcHeight );
+                        sw = getPixel( inPixels, srcX, srcY+1, srcWidth, srcHeight );
+                        se = getPixel( inPixels, srcX+1, srcY+1, srcWidth, srcHeight );
+                }
+                outPixels[x] = bilinearInterpolate(xWeight, yWeight, nw, ne, sw, se);
+            }
+            setRGB( dst, 0, y, transformedSpace.width, 1, outPixels );
+        }
+            return dst;
+    }
+
+    final private int getPixel( int[] pixels, int x, int y, int width, int height ) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            switch (edgeAction) {
+            case ZERO:
+            default:
+                return 0;
+            case WRAP:
+                return pixels[(mod(y, height) * width) + mod(x, width)];
+            case CLAMP:
+                return pixels[(clamp(y, 0, height-1) * width) + clamp(x, 0, width-1)];
+            }
+        }
+        return pixels[ y*width+x ];
+    }
+
+
+    protected BufferedImage filterPixelsNN( BufferedImage dst, int width, int height, int[] inPixels, Rectangle transformedSpace ) {
+        int srcWidth = width;
+        int srcHeight = height;
+        int outWidth = transformedSpace.width;
+        int outHeight = transformedSpace.height;
+        int outX, outY, srcX, srcY;
+        int[] outPixels = new int[outWidth];
+
+        outX = transformedSpace.x;
+        outY = transformedSpace.y;
+        int[] rgb = new int[4];
+        float[] out = new float[2];
+
+        for (int y = 0; y < outHeight; y++) {
+            for (int x = 0; x < outWidth; x++) {
+                transformInverse(outX+x, outY+y, out);
+                srcX = (int)out[0];
+                srcY = (int)out[1];
+                // int casting rounds towards zero, so we check out[0] < 0, not srcX < 0
+                if (out[0] < 0 || srcX >= srcWidth || out[1] < 0 || srcY >= srcHeight) {
+                        int p;
+                        switch (edgeAction) {
+                        case ZERO:
+                        default:
+                            p = 0;
+                            break;
+                        case WRAP:
+                            p = inPixels[(mod(srcY, srcHeight) * srcWidth) + mod(srcX, srcWidth)];
+                            break;
+                        case CLAMP:
+                            p = inPixels[(clamp(srcY, 0, srcHeight-1) * srcWidth) + clamp(srcX, 0, srcWidth-1)];
+                            break;
+                        }
+                        outPixels[x] = p;
+                } else {
+                        int i = srcWidth*srcY + srcX;
+                        rgb[0] = inPixels[i];
+                        outPixels[x] = inPixels[i];
+                }
+            }
+            setRGB( dst, 0, y, transformedSpace.width, 1, outPixels );
+        }
+        return dst;
+    }
+
+
+    protected void transformInverse(int x, int y, float[] out) {
+            out[0] = originalSpace.width * (A*x+B*y+C)/(G*x+H*y+I);
+            out[1] = originalSpace.height * (D*x+E*y+F)/(G*x+H*y+I);
+    }
+
+/*
+    public Rectangle2D getBounds2D( BufferedImage src ) {
+        return new Rectangle(0, 0, src.getWidth(), src.getHeight());
+    }
+
+    public Point2D getPoint2D( Point2D srcPt, Point2D dstPt ) {
+        if ( dstPt == null )
+            dstPt = new Point2D.Double();
+        dstPt.setLocation( srcPt.getX(), srcPt.getY() );
+        return dstPt;
+    }
+*/
+
+    /**
+     * A convenience method for getting ARGB pixels from an image. This tries to avoid the performance
+     * penalty of BufferedImage.getRGB unmanaging the image.
+     */
+    public int[] getRGB( BufferedImage image, int x, int y, int width, int height, int[] pixels ) {
+            int type = image.getType();
+            if ( type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB )
+                    return (int [])image.getRaster().getDataElements( x, y, width, height, pixels );
+            return image.getRGB( x, y, width, height, pixels, 0, width );
+    }
+
+    /**
+     * A convenience method for setting ARGB pixels in an image. This tries to avoid the performance
+     * penalty of BufferedImage.setRGB unmanaging the image.
+     */
+    public void setRGB( BufferedImage image, int x, int y, int width, int height, int[] pixels ) {
+            int type = image.getType();
+            if (type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB)
+                image.getRaster().setDataElements( x, y, width, height, pixels );
+            else
+                image.setRGB( x, y, width, height, pixels, 0, width );
+    }
+
+
+
+    /**
+     * Clamp a value to an interval.
+     * @param a the lower clamp threshold
+     * @param b the upper clamp threshold
+     * @param x the input parameter
+     * @return the clamped value
+     */
+    private float clamp(float x, float a, float b) {
+            return (x < a) ? a : (x > b) ? b : x;
+    }
+
+    /**
+     * Clamp a value to an interval.
+     * @param a the lower clamp threshold
+     * @param b the upper clamp threshold
+     * @param x the input parameter
+     * @return the clamped value
+     */
+    private int clamp(int x, int a, int b) {
+            return (x < a) ? a : (x > b) ? b : x;
+    }
+
+    /**
+     * Return a mod b. This differs from the % operator with respect to negative numbers.
+     * @param a the dividend
+     * @param b the divisor
+     * @return a mod b
+     */
+    private double mod(double a, double b) {
+            int n = (int)(a/b);
+
+            a -= n*b;
+            if (a < 0)
+                    return a + b;
+            return a;
+    }
+
+    /**
+     * Return a mod b. This differs from the % operator with respect to negative numbers.
+     * @param a the dividend
+     * @param b the divisor
+     * @return a mod b
+     */
+    private float mod(float a, float b) {
+            int n = (int)(a/b);
+
+            a -= n*b;
+            if (a < 0)
+                    return a + b;
+            return a;
+    }
+
+    /**
+     * Return a mod b. This differs from the % operator with respect to negative numbers.
+     * @param a the dividend
+     * @param b the divisor
+     * @return a mod b
+     */
+    private int mod(int a, int b) {
+            int n = a/b;
+
+            a -= n*b;
+            if (a < 0)
+                    return a + b;
+            return a;
+    }
+
+
+    /**
+     * Bilinear interpolation of ARGB values.
+     * @param x the X interpolation parameter 0..1
+     * @param y the y interpolation parameter 0..1
+     * @param rgb array of four ARGB values in the order NW, NE, SW, SE
+     * @return the interpolated value
+     */
+    private int bilinearInterpolate(float x, float y, int nw, int ne, int sw, int se) {
+            float m0, m1;
+            int a0 = (nw >> 24) & 0xff;
+            int r0 = (nw >> 16) & 0xff;
+            int g0 = (nw >> 8) & 0xff;
+            int b0 = nw & 0xff;
+            int a1 = (ne >> 24) & 0xff;
+            int r1 = (ne >> 16) & 0xff;
+            int g1 = (ne >> 8) & 0xff;
+            int b1 = ne & 0xff;
+            int a2 = (sw >> 24) & 0xff;
+            int r2 = (sw >> 16) & 0xff;
+            int g2 = (sw >> 8) & 0xff;
+            int b2 = sw & 0xff;
+            int a3 = (se >> 24) & 0xff;
+            int r3 = (se >> 16) & 0xff;
+            int g3 = (se >> 8) & 0xff;
+            int b3 = se & 0xff;
+
+            float cx = 1.0f-x;
+            float cy = 1.0f-y;
+
+            m0 = cx * a0 + x * a1;
+            m1 = cx * a2 + x * a3;
+            int a = (int)(cy * m0 + y * m1);
+
+            m0 = cx * r0 + x * r1;
+            m1 = cx * r2 + x * r3;
+            int r = (int)(cy * m0 + y * m1);
+
+            m0 = cx * g0 + x * g1;
+            m1 = cx * g2 + x * g3;
+            int g = (int)(cy * m0 + y * m1);
+
+            m0 = cx * b0 + x * b1;
+            m1 = cx * b2 + x * b3;
+            int b = (int)(cy * m0 + y * m1);
+
+            return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+
+} //end skew class
+
+} //end image class
