@@ -1,16 +1,20 @@
 package javaxt.io;
-import java.awt.image.*;
-import java.awt.*;
 import java.io.*;
 import javax.imageio.*;
-//import javax.imageio.stream.*;
-import java.util.*;
-import com.sun.image.codec.jpeg.*;
-import java.awt.geom.AffineTransform;
-import java.awt.color.ColorSpace;
 import javax.imageio.metadata.*;
 
-//import java.awt.geom.*;
+import java.awt.image.*;
+import java.awt.color.ColorSpace;
+import java.awt.geom.AffineTransform;
+import java.awt.*;
+
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Vector;
+import java.util.Iterator;
+
+import com.sun.image.codec.jpeg.*;
+
 //Imports for JP2
 //import javax.media.jai.RenderedOp;
 //import com.sun.media.imageio.plugins.jpeg2000.J2KImageReadParam;
@@ -115,8 +119,6 @@ public class Image {
         Graphics2D t = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics();
         t.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                              RenderingHints.VALUE_ANTIALIAS_ON);
-
-        //Font font = new Font(fontName, Font.TRUETYPE_FONT, fontSize);
 
         FontMetrics fm = t.getFontMetrics(font);
         int width = fm.stringWidth(text);
@@ -571,6 +573,30 @@ public class Image {
     
     public void rotateCounterClockwise(){
         rotate(-90);
+    }
+
+
+  //**************************************************************************
+  //** Auto-Rotate
+  //**************************************************************************
+  /**  Used to automatically rotate the image based on the image metadata
+   *   (EXIF Orientation tag).
+   */
+    public void rotate(){
+
+        Integer orientation = metadata.getOrientation();
+        if (orientation!=null){
+            switch (orientation) {
+                case 1: return; //"Top, left side (Horizontal / normal)"
+                case 2: flip(); //"Top, right side (Mirror horizontal)";
+                case 3: rotate(180); //"Bottom, right side (Rotate 180)";
+                //case 4: return "Bottom, left side (Mirror vertical)";
+                case 5: {flip(); rotate(270);} //"Left side, top (Mirror horizontal and rotate 270 CW)";
+                case 6: rotate(90); //"Right side, top (Rotate 90 CW)";
+                case 7: {flip(); rotate(90);} //"Right side, bottom (Mirror horizontal and rotate 90 CW)";
+                case 8: rotate(270); //"Left side, bottom (Rotate 270 CW)";
+            }
+        }
     }
     
     
@@ -1338,10 +1364,13 @@ public class Image {
  *   Provides methods to read/write image metadata.
  *
  ***************************************************************************/
+
 public class Metadata{
 
     private IIOMetadata metadata;
-
+    private HashMap<Integer, String> exif;
+    private HashMap<Integer, String> iptc;
+    
     public Metadata(IIOMetadata metadata){
         this.metadata = metadata;
     }
@@ -1349,10 +1378,10 @@ public class Metadata{
   //**************************************************************************
   //** getIIOMetadata
   //**************************************************************************
-  /** Returns IIOMetadata associated with this image. You can iterate through
-   *  the metadata using an xml parser like this:
+  /** Returns the raw, javax.imageio.metadata.IIOMetadata associated with this
+   * image. You can iterate through the metadata using an xml parser like this:
    <pre>
-    IIOMetadata metadata = image.getMetadata();
+    IIOMetadata metadata = image.getMetadata().getIIOMetadata();
     for (String name : metadata.getMetadataFormatNames()) {
         System.out.println( "Format name: " + name );
         org.w3c.dom.Node metadataNode = metadata.getAsTree(name);
@@ -1364,79 +1393,807 @@ public class Metadata{
         return metadata;
     }
 
-
+  //**************************************************************************
+  //** getIptcData
+  //**************************************************************************
+  /** Returns the raw IPTC byte array (marker 0xED).
+   */
+    public byte[] getIptcData(){
+        return (byte[]) getUnknownTags(0xED)[0].getUserObject();
+    }
 
 
   //**************************************************************************
-  //** addMetadata
+  //** getIptcTags
   //**************************************************************************
-  /** Creates a new metadata entry under the "javax_imageio_1.0" node.
-   *  @param category Metadata category (e.g. "Chroma", "Compression", "Data",
-   *  "Dimension", "Transparency", etc).
-   *
-    public void addMetadata(String category, String key, String value){
+  /** Used to parse EXIF metadata and return a list of key/value pairs found
+   *  in the metadata. Does *not* return the MakerNote (tag 37500, hex 0x927C).
+   */
+    public HashMap<Integer, String> getIptcTags(){
 
-        IIOMetadataNode horiz = new IIOMetadataNode(key);
-        horiz.setAttribute("value", value);
+        if (iptc==null){
+            iptc = new HashMap<Integer, String>();
+            for (IIOMetadataNode marker : getUnknownTags(0xED)){
+                byte[] iptcData = (byte[]) marker.getUserObject();
+                HashMap<Integer, String> tags = new MetadataParser(iptcData, 0xED).getTags();
+                iptc.putAll(tags);
+            }
+        }
+        return iptc;
+    }
+    
 
-        IIOMetadataNode categoryNode = new IIOMetadataNode(category);
-        categoryNode.appendChild(horiz);
+  //**************************************************************************
+  //** getExifData
+  //**************************************************************************
+  /** Returns the raw EXIF byte array (marker 0xE1).
+   */
+    public byte[] getExifData(){
+        return (byte[]) getUnknownTags(0xE1)[0].getUserObject();
+    }
+    
 
-        IIOMetadataNode root = new IIOMetadataNode("javax_imageio_2.0");
-        root.appendChild(categoryNode);
+  //**************************************************************************
+  //** getExifTags
+  //**************************************************************************
+  /** Used to parse EXIF metadata and return a list of key/value pairs found
+   *  in the metadata. Does *not* return the MakerNote (tag 37500, hex 0x927C).
+   */
+    public HashMap<Integer, String> getExifTags(){
+
+        if (exif==null){
+            exif = new HashMap<Integer, String>();
+            for (IIOMetadataNode marker : getUnknownTags(0xE1)){
+                byte[] exifData = (byte[]) marker.getUserObject();
+                HashMap<Integer, String> tags = new MetadataParser(exifData, 0xE1).getTags();
+                exif.putAll(tags);
+            }
+        }
+        return exif;
+    }
+
+  //**************************************************************************
+  //** getModel
+  //**************************************************************************
+  /**  Returns the model of the camera used to capture the image. Value is
+   *   derived from an EXIF tag (0x0110).
+   */
+    public String getModel(){
+        return getExifTags().get(0x0110);
+    }
+
+  //**************************************************************************
+  //** getFocalLength
+  //**************************************************************************
+  /**  Returns the focal length of the camera used to capture the image. Value
+   *   is derived from an EXIF tag (0x920A).
+   */
+    public String getFocalLength(){
+        return getExifTags().get(0x920A);
+    }
+
+  //**************************************************************************
+  //** getAperture
+  //**************************************************************************
+  /**  Returns the aperture (f-stop) used to capture the image. Value
+   *   is derived from an EXIF tag (0x829D).
+   */
+    public String getAperture(){
+        return getExifTags().get(0x829D);
+    }
+
+
+  //**************************************************************************
+  //** getShutterSpeed
+  //**************************************************************************
+  /**  Returns the shutter speed (exposure time) used to capture the image. */
+
+    public String getShutterSpeed(){
+        return getExifTags().get(0x9201); //0x829A?
+    }
+
+
+  //**************************************************************************
+  //** getAcquisitionDate
+  //**************************************************************************
+  /**  Returns the date/time of the image. Value is derived from an EXIF tag
+   *   (0x0132).
+   */
+    public java.util.Date getAcquisitionDate(){
+        String d = getExifTags().get(0x0132); //use 0x9003 instead?
         try{
-            if (metadata==null){
-                Iterator<ImageWriter> iw = ImageIO.getImageWritersByFormatName("png");
-                ImageWriter writer = iw.next();
-                ImageWriteParam writeParam = writer.getDefaultWriteParam();
-                ImageTypeSpecifier typeSpecifier = ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_ARGB);
-                metadata = writer.getDefaultImageMetadata(typeSpecifier, writeParam);
-                if (metadata==null){
-                    System.out.println("Failed to create Metadata");
+            return new java.text.SimpleDateFormat
+               ("yyyy:MM:dd HH:mm:ss", java.util.Locale.US).parse(d);
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getOrientation
+  //**************************************************************************
+  /**  Returns an integer value representing the orientation of the image.
+   *   The value is derived from an EXIF tag (0x0112). You can get a
+   *   description of the orientation like this:
+   <pre>
+    String desc = "";
+    switch (metadata.getOrientation()) {
+        case 1: desc = "Top, left side (Horizontal / normal)";
+        case 2: desc = "Top, right side (Mirror horizontal)";
+        case 3: desc = "Bottom, right side (Rotate 180)";
+        case 4: desc = "Bottom, left side (Mirror vertical)";
+        case 5: desc = "Left side, top (Mirror horizontal and rotate 270 CW)";
+        case 6: desc = "Right side, top (Rotate 90 CW)";
+        case 7: desc = "Right side, bottom (Mirror horizontal and rotate 90 CW)";
+        case 8: desc = "Left side, bottom (Rotate 270 CW)";
+    }
+   </pre>
+   */
+    public Integer getOrientation(){
+        try{
+            return Integer.parseInt(getExifTags().get(0x0112));
+        }
+        catch(Exception e){
+            return null;
+        }        
+    }
+
+
+  //**************************************************************************
+  //** getGPSCoordinate
+  //**************************************************************************
+  /** Returns the x/y (lon/lat) coordinate tuple for the image. Value is
+   *  derived from an EXIF tag (0x0001, 0x0002, 0x0003, 0x0004).
+   */
+    public double[] getGPSCoordinate(){
+        getExifTags();
+        try{
+            Double lat = Double.parseDouble(exif.get(0x0002));
+            Double lon = Double.parseDouble(exif.get(0x0004));
+            String latRef = exif.get(0x0001); //N
+            String lonRef = exif.get(0x0003); //W
+
+            if (!latRef.equalsIgnoreCase("N")) lat = -lat;
+            if (!lonRef.equalsIgnoreCase("N")) lon = -lon;
+
+            return new double[]{lon, lat};
+        }
+        catch(Exception e){
+        }
+        return null;
+    }
+
+
+  //**************************************************************************
+  //** getGPSDatum
+  //**************************************************************************
+  /** Returns the datum associated with the GPS coordinate. Value is 
+   *  derived from an EXIF tag (0x0012). 
+   */
+    public String getGPSDatum(){
+        return getExifTags().get(0x0012);
+    }
+    
+
+  //**************************************************************************
+  //** getUnknownTags
+  //**************************************************************************
+  /** Returns a list of "unknown" IIOMetadataNodes for a given MarkerTag. You
+   *  can use this method to retrieve EXIF, IPTC, XPM, and other format
+   *  specific metadata. Example:
+   <pre>
+    byte[] IptcData = (byte[]) metadata.getUnknownTags(0xED)[0].getUserObject();
+    byte[] ExifData = (byte[]) metadata.getUnknownTags(0xE1)[0].getUserObject();
+   </pre>
+   */
+    public IIOMetadataNode[] getUnknownTags(int MarkerTag){
+        java.util.ArrayList<IIOMetadataNode> markers = new java.util.ArrayList<IIOMetadataNode>();
+        for (String name : metadata.getMetadataFormatNames()) {
+            IIOMetadataNode node=(IIOMetadataNode) metadata.getAsTree(name);
+            org.w3c.dom.Node[] unknownNodes = javaxt.xml.DOM.getElementsByTagName("unknown", node);
+            for (org.w3c.dom.Node unknownNode : unknownNodes){
+                try{
+                    int marker = Integer.parseInt(javaxt.xml.DOM.getAttributeValue(unknownNode, "MarkerTag"));
+                    if (marker==MarkerTag) markers.add((IIOMetadataNode) unknownNode);
+                }
+                catch(Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
+        return markers.toArray(new IIOMetadataNode[markers.size()]);
+    }
+
+  //**************************************************************************
+  //** getMetadataByTagName
+  //**************************************************************************
+  /** Returns a list of IIOMetadataNodes for a tag name (e.g. "Chroma",
+   *  "Compression", "Data", "Dimension", "Transparency", etc).
+   <pre>
+    for (IIOMetadataNode unknownNode : metadata.getMetadataByTagName("unknown")){
+        int marker = Integer.parseInt(javaxt.xml.DOM.getAttributeValue(unknownNode, "MarkerTag"));
+        System.out.println(marker + "\t" + "0x" + Integer.toHexString(marker));
+    }
+   </pre>
+   */
+    public IIOMetadataNode[] getMetadataByTagName(String tagName){
+        java.util.ArrayList<IIOMetadataNode> tags = new java.util.ArrayList<IIOMetadataNode>();
+        for (String name : metadata.getMetadataFormatNames()) {
+            IIOMetadataNode node=(IIOMetadataNode) metadata.getAsTree(name);
+            org.w3c.dom.Node[] unknownNodes = javaxt.xml.DOM.getElementsByTagName(tagName, node);
+            for (org.w3c.dom.Node unknownNode : unknownNodes){
+                tags.add((IIOMetadataNode) unknownNode);
+            }
+        }  
+        return tags.toArray(new IIOMetadataNode[tags.size()]);
+    }
+} //end metadata class
+    
+
+
+//******************************************************************************
+//**  MetadataParser Class
+//******************************************************************************
+/**
+ *   Class used to decode EXIF and IPTC metadata. The EXIF parser is based on 2
+ *   classes developed by Norman Walsh and released under the W3C open source
+ *   license. The original classes can be found in the W3C Jigsaw project
+ *   ("Exif.java" and "ExifData.java" in the "org.w3c.tools.jpeg" package.
+ *   <br/>
+ *   You may use this code in any open source or commercial project provided
+ *   that you publish the standard W3C Software Notice and License Agreement:
+ *
+ <pre>
+  ------------------------------------------------------------------------------
+  Copyright © 1994-2001 World Wide Web Consortium, (Massachusetts Institute of
+  Technology, Institut National de Recherche en Informatique et en Automatique,
+  Keio University). All Rights Reserved. http://www.w3.org/Consortium/Legal/
+
+  This W3C work (including software, documents, or other related items) is 
+  being provided by the copyright holders under the following license. By
+  obtaining, using and/or copying this work, you (the licensee) agree that you
+  have read, understood, and will comply with the following terms and
+  conditions:
+
+  Permission to use, copy, modify, and distribute this software and its
+  documentation, with or without modification, for any purpose and without fee
+  or royalty is hereby granted, provided that you include the following on ALL
+  copies of the software and documentation or portions thereof, including
+  modifications, that you make:
+
+      1. The full text of this NOTICE in a location viewable to users of the
+         redistributed or derivative work.
+
+      2. Any pre-existing intellectual property disclaimers, notices, or terms
+         and conditions. If none exist, a short notice of the following form
+         (hypertext is preferred, text is permitted) should be used within the
+         body of any redistributed or derivative code:
+         "Copyright © [$date-of-software] World Wide Web Consortium,
+         (Massachusetts Institute of Technology, Institut National de Recherche
+         en Informatique et en Automatique, Keio University). All Rights
+         Reserved. http://www.w3.org/Consortium/Legal/"
+
+      3. Notice of any changes or modifications to the W3C files, including the
+         date changes were made. (We recommend you provide URIs to the location
+         from which the code is derived.)
+
+  THIS SOFTWARE AND DOCUMENTATION IS PROVIDED "AS IS," AND COPYRIGHT HOLDERS
+  MAKE NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+  LIMITED TO, WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR
+  PURPOSE OR THAT THE USE OF THE SOFTWARE OR DOCUMENTATION WILL NOT INFRINGE
+  ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS.
+
+  COPYRIGHT HOLDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL OR
+  CONSEQUENTIAL DAMAGES ARISING OUT OF ANY USE OF THE SOFTWARE OR DOCUMENTATION.
+
+  The name and trademarks of copyright holders may NOT be used in advertising 
+  or publicity pertaining to the software without specific, written prior
+  permission. Title to copyright in this software and any associated
+  documentation will at all times remain with copyright holders.
+  ------------------------------------------------------------------------------
+ </pre>
+ *
+ * Implementation notes:
+ * <ul>
+ * <li>String values are %-encoded to protect the caller from values that might
+ * not be legitimate UTF-8 strings.</li>
+ * <li>The EXIF format includes unsigned integers which aren't directly
+ * available in Java. They probably have to be turned into longs but for the
+ * moment, they're all treated as signed. This shouldn't be a problem b/c we've
+ * never seen an EXIF unsigned value too large to represent in a Java int.</li>
+ * <li>In merging the Exif and ExifData classes I removed the MakerNote parser
+ * (tag 37500, hex 0x927C). It was extremely expensive to parse and the tag
+ * value was completely incomprehensible to me.</li>
+ * <li>Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
+ * hex 0x8825).</li>
+ * </ul>
+ *
+ * @version $Revision: 1.1 $
+ * @author  Norman Walsh
+ * @copyright Copyright (c) 2003 Norman Walsh
+ ******************************************************************************/
+
+private class MetadataParser {
+
+    private final int bytesPerFormat[] = { 0, 1, 1, 2, 4, 8, 1,
+            1, 2, 4, 8, 4, 8 };
+    private final int NUM_FORMATS = 12;
+    private final int FMT_BYTE = 1;
+    private final int FMT_STRING = 2;
+    private final int FMT_USHORT = 3;
+    private final int FMT_ULONG = 4;
+    private final int FMT_URATIONAL = 5;
+    private final int FMT_SBYTE = 6;
+    private final int FMT_UNDEFINED = 7;
+    private final int FMT_SSHORT = 8;
+    private final int FMT_SLONG = 9;
+    private final int FMT_SRATIONAL = 10;
+    //private final int FMT_SINGLE = 11;
+    //private final int FMT_DOUBLE = 12;
+
+    private byte[] data = null;
+    private boolean intelOrder = false;
+
+    private final int TAG_EXIF_OFFSET = 0x8769;
+    private final int TAG_INTEROP_OFFSET = 0xa005;
+
+
+    private HashMap<Integer, String> tags = new HashMap<Integer, String>();
+
+
+    public MetadataParser(byte[] data, int marker) {
+        switch (marker) {
+            case 0xED: parseIptc(data);
+            case 0xE1: parseExif(data);
+        }
+    }
+
+
+  //**************************************************************************
+  //** parseExif
+  //**************************************************************************
+  /** Used to parse EXIF metadata
+   */
+    public void parseExif(byte[] exifData) {
+
+
+        String dataStr = new String(exifData);
+        if (exifData.length <= 4 || !"Exif".equals(dataStr.substring(0, 4))) {
+            //System.err.println("Not really EXIF data");
+            return;
+        }
+
+        String byteOrderMarker = dataStr.substring(6, 8);
+        if ("II".equals(byteOrderMarker)) {
+            intelOrder = true;
+        } else if ("MM".equals(byteOrderMarker)) {
+            intelOrder = false;
+        } else {
+            // bogus!
+            //System.err.println("Bogus byte order in EXIF data.");
+            return;
+        }
+
+        data = exifData;
+
+        int checkValue = get16u(8);
+        if (checkValue != 0x2a) {
+            data = null;
+            //System.err.println("Check value fails: 0x"+ Integer.toHexString(checkValue));
+            return;
+        }
+
+
+        if (data==null) return;
+        
+
+        int firstOffset = get32u(10);
+        processExifDir(6 + firstOffset, 6);
+
+
+      //Process GPS Directory -- NEW!!
+        try{
+            Integer gpsOffset = Integer.parseInt(tags.get(0x8825));
+            if (gpsOffset>0) processExifDir(6 + gpsOffset, 6);
+        }
+        catch(Exception e){
+        }
+    }
+
+
+  //**************************************************************************
+  //** parseIptc
+  //**************************************************************************
+  /** Used to parse IPTC metadata
+   */
+    private void parseIptc(byte[] iptcData) {
+
+        data = iptcData;
+
+        int offset = 0;       
+        while (offset < data.length) {
+            if (data[offset] == 0x1c) {
+
+                offset++;
+
+                int directoryType;
+                int tagType;
+                int tagByteCount;
+                try {
+                    directoryType = data[offset++];
+                    tagType = data[offset++];
+                    tagByteCount = get16u(offset); 
+                    offset += 2;
+                }
+                catch (Exception e) {
                     return;
                 }
 
+
+                int tagIdentifier = tagType | (directoryType << 8);
+
+                String str = "";
+                if (tagByteCount < 1 || tagByteCount>(data.length-offset)) {
+                }
+                else {
+                    try {
+                        str = new String(data, offset, tagByteCount, "UTF-8");
+                        offset += tagByteCount;
+                    }
+                    catch (Exception ex) {
+                    }
+                }
+                tags.put(tagIdentifier, str);
             }
-            metadata.mergeTree("javax_imageio_2.0", root);
-
-
-            String[] names = metadata.getMetadataFormatNames();
-            int length = names.length;
-            for (int i = 0; i < length; i++) {
-                System.out.println( "Format name: " + names[ i ] );
-                org.w3c.dom.Node metadataNode = metadata.getAsTree(names[i]);
-                System.out.println(javaxt.xml.DOM.getNodeValue(metadataNode));
+            else{
+                offset++;
             }
-
         }
-        catch(Exception e){
-            e.printStackTrace();
+    }
+
+
+  //**************************************************************************
+  //** getTags
+  //**************************************************************************
+  /** Returns key/value pairs representing the EXIF or IPTC data. Note that
+   *  EXIF Maker Notes are ignored.
+   */
+    public java.util.HashMap<Integer, String> getTags() {
+        return tags;
+    }
+
+    private void processExifDir(int dirStart, int offsetBase) {
+
+        int numEntries = get16u(dirStart);
+        //System.err.println("EXIF: numEntries: " + numEntries);
+
+        for (int de = 0; de < numEntries; de++) {
+            int dirOffset = dirStart + 2 + (12 * de);
+
+            int tag = get16u(dirOffset);
+            int format = get16u(dirOffset + 2);
+            int components = get32u(dirOffset + 4);
+
+            //System.err.println("EXIF: entry: 0x" + Integer.toHexString(tag)
+            //		 + " " + format
+            //		 + " " + components);
+
+            if (format < 0 || format > NUM_FORMATS) {
+                //System.err.println("Bad number of formats in EXIF dir: " + format);
+                return;
+            }
+
+            int byteCount = components * bytesPerFormat[format];
+            int valueOffset = dirOffset + 8;
+
+            if (byteCount > 4) {
+                int offsetVal = get32u(dirOffset + 8);
+                valueOffset = offsetBase + offsetVal;
+            }
+
+            //System.err.println("valueOffset: " + valueOffset +
+            //                                     " byteCount: " + byteCount);
+
+            Integer iTag = new Integer(tag);
+
+            if (tag == TAG_EXIF_OFFSET || tag == TAG_INTEROP_OFFSET) {
+                int subdirOffset = get32u(valueOffset);
+
+                //System.err.println("offset: " + subdirOffset+
+                //                                ":"+offsetBase+subdirOffset);
+
+                processExifDir(offsetBase + subdirOffset, offsetBase);
+            }
+            else {
+
+                int tagName = iTag;
+
+                if (iTag!=0x927c){
+                    switch (format) {
+                    case FMT_UNDEFINED:
+                        assignUndefined(tagName, valueOffset, byteCount);
+                        break;
+                    case FMT_STRING:
+                        assignString(tagName, valueOffset, byteCount);
+                        break;
+                    case FMT_SBYTE:
+                        assignSByte(tagName, valueOffset);
+                        break;
+                    case FMT_BYTE:
+                        assignByte(tagName, valueOffset);
+                        break;
+                    case FMT_USHORT:
+                        assignUShort(tagName, valueOffset);
+                        break;
+                    case FMT_SSHORT:
+                        assignSShort(tagName, valueOffset);
+                        break;
+                    case FMT_ULONG:
+                        assignULong(tagName, valueOffset);
+                        break;
+                    case FMT_SLONG:
+                        assignSLong(tagName, valueOffset);
+                        break;
+                    case FMT_URATIONAL:
+                    case FMT_SRATIONAL:
+                        assignRational(tagName, valueOffset);
+                        break;
+                    default:
+                        //System.err.println("Unknown format " + format +
+                        //                   " for " + tagName);
+                    }
+                }
+            }
         }
     }
 
 
 
-    public String getMetadata(String key){
-        String[] names = metadata.getMetadataFormatNames();
-        int length = names.length;
-        for (int i = 0; i < length; i++) {
-            System.out.println( "Format name: " + names[ i ] );
-            org.w3c.dom.Node metadataNode = metadata.getAsTree(names[i]);
-            System.out.println(javaxt.xml.DOM.getNodeValue(metadataNode));
-            for (org.w3c.dom.Node node : javaxt.xml.DOM.getElementsByTagName(key, metadataNode)){
-                String value = javaxt.xml.DOM.getAttributeValue(node, "value");
-                if (value.length()>0) return value;
-            }
+    private void assignUndefined(int tagName, int offset,
+            int length) {
+        String result = getUndefined(offset, length);
+        if (!"".equals(result)) {
+            tags.put(tagName, result);
+        }
+    }
+
+    private void assignString(int tagName, int offset, int length) {
+        String result = getString(offset, length);
+        if (!"".equals(result)) {
+            tags.put(tagName, result);
+        }
+    }
+
+    private void assignSByte(int tagName, int offset) {
+        int result = (int) convertAnyValue(FMT_SBYTE, offset);
+        tags.put(tagName, "" + result);
+    }
+
+    private void assignByte(int tagName, int offset) {
+        int result = (int) convertAnyValue(FMT_BYTE, offset);
+        tags.put(tagName, "" + result);
+    }
+
+    private void assignUShort(int tagName, int offset) {
+        int result = (int) convertAnyValue(FMT_USHORT, offset);
+        tags.put(tagName, "" + result);
+    }
+
+    private void assignSShort(int tagName, int offset) {
+        int result = (int) convertAnyValue(FMT_SSHORT, offset);
+        tags.put(tagName, "" + result);
+    }
+
+    private void assignULong(int tagName, int offset) {
+        int result = (int) convertAnyValue(FMT_ULONG, offset);
+        tags.put(tagName, "" + result);
+    }
+
+    private void assignSLong(int tagName, int offset) {
+        int result = (int) convertAnyValue(FMT_SLONG, offset);
+        tags.put(tagName, "" + result);
+    }
+
+    private void assignRational(int tagName, int offset) {
+        int num = get32s(offset);
+        int den = get32s(offset + 4);
+        String result = "";
+
+        // This is a bit silly, I really ought to find a real GCD algorithm
+        if (num % 10 == 0 && den % 10 == 0) {
+            num = num / 10;
+            den = den / 10;
         }
 
-        return null;
+        if (num % 5 == 0 && den % 5 == 0) {
+            num = num / 5;
+            den = den / 5;
+        }
+
+        if (num % 3 == 0 && den % 3 == 0) {
+            num = num / 3;
+            den = den / 3;
+        }
+
+        if (num % 2 == 0 && den % 2 == 0) {
+            num = num / 2;
+            den = den / 2;
+        }
+
+        if (den == 0) {
+            result = "0";
+        } else if (den == 1) {
+            result = "" + num; // "" + int sure looks ugly...
+        } else {
+            result = "" + num + "/" + den;
+        }
+
+
+        tags.put(tagName, "" + result);
+    }
+
+    private int get16s(int offset) {
+        if (data == null) {
+            return 0;
+        }
+
+        int hi, lo;
+
+        if (intelOrder) {
+            hi = data[offset + 1];
+            lo = data[offset];
+        } else {
+            hi = data[offset];
+            lo = data[offset + 1];
+        }
+
+        lo = lo & 0xFF;
+        hi = hi & 0xFF;
+
+        return (hi << 8) + lo;
+    }
+
+    private int get16u(int offset) {
+        if (data == null) {
+            return 0;
+        }
+
+        int value = get16s(offset);
+        value = value & 0xFFFF;
+        return value;
+    }
+
+    private int get32s(int offset) {
+        if (data == null) {
+            return 0;
+        }
+
+        int n1, n2, n3, n4;
+
+        if (intelOrder) {
+            n1 = data[offset + 3] & 0xFF;
+            n2 = data[offset + 2] & 0xFF;
+            n3 = data[offset + 1] & 0xFF;
+            n4 = data[offset] & 0xFF;
+        } else {
+            n1 = data[offset] & 0xFF;
+            n2 = data[offset + 1] & 0xFF;
+            n3 = data[offset + 2] & 0xFF;
+            n4 = data[offset + 3] & 0xFF;
+        }
+
+        int value = (n1 << 24) + (n2 << 16) + (n3 << 8) + n4;
+
+        return value;
+    }
+
+    private int get32u(int offset) {
+        if (data == null) {
+            return 0;
+        }
+
+        // I don't know how to represent an unsigned in Java!
+        return get32s(offset);
+    }
+
+    /*
+    private byte[] getBytes(int offset, int length) {
+        if (data == null || length == 0) {
+            return null;
+        }
+
+        byte[] raw = new byte[length];
+        for (int count = offset; length > 0; count++, length--) {
+            raw[count - offset] = data[count];
+        }
+
+        return raw;
     }
     */
-} //end metadata class
 
-    
-    
-    
+    private String getString(int offset, int length) {
+        return getString(offset, length, true);
+    }
+
+    private String getUndefined(int offset, int length) {
+        return getString(offset, length, false);
+    }
+
+    private String getString(int offset, int length, boolean nullTerminated) {
+        if (data == null) {
+            return "";
+        }
+
+        String result = "";
+
+        for (int count = offset; (length > 0)
+                && (!nullTerminated || data[count] != 0); count++, length--) {
+            short ub = data[count];
+            ub = (short) (ub & 0xFF);
+
+            String ch = "" + (char) ub;
+            if ((ub == '%') || (ub < ' ') || (ub > '~')) {
+                ch = Integer.toHexString((char) ub);
+                if (ch.length() < 2) {
+                    ch = "0" + ch;
+                }
+                ch = "%" + ch;
+            }
+            result += ch;
+        }
+
+        return result;
+    }
+
+    private double convertAnyValue(int format, int offset) {
+        if (data == null) {
+            return 0.0;
+        }
+
+        double value = 0.0;
+
+        switch (format) {
+        case FMT_SBYTE:
+            value = data[offset];
+            break;
+        case FMT_BYTE:
+            int iValue = data[offset];
+            iValue = iValue & 0xFF;
+            value = iValue;
+            break;
+        case FMT_USHORT:
+            value = get16u(offset);
+            break;
+        case FMT_ULONG:
+            value = get32u(offset);
+            break;
+        case FMT_URATIONAL:
+        case FMT_SRATIONAL:
+            int num = get32s(offset);
+            int den = get32s(offset + 4);
+
+            if (den == 0) {
+                value = 0;
+            } else {
+                value = (double) num / (double) den;
+            }
+            break;
+        case FMT_SSHORT:
+            value = get16s(offset);
+            break;
+        case FMT_SLONG:
+            value = get32s(offset);
+            break;
+        default:
+            //System.err.println("Unexpected number format: " + format);
+        }
+
+        return value;
+    }
+}
+
     
 
 //***************************************************************************
@@ -1488,42 +2245,42 @@ private class Skew {
                                     float x2, float y2,
                                     float x3, float y3)
     {
-            this.x0 = x0;
-            this.y0 = y0;
-            this.x1 = x1;
-            this.y1 = y1;
-            this.x2 = x2;
-            this.y2 = y2;
-            this.x3 = x3;
-            this.y3 = y3;
+        this.x0 = x0;
+        this.y0 = y0;
+        this.x1 = x1;
+        this.y1 = y1;
+        this.x2 = x2;
+        this.y2 = y2;
+        this.x3 = x3;
+        this.y3 = y3;
 
-            dx1 = x1-x2;
-            dy1 = y1-y2;
-            dx2 = x3-x2;
-            dy2 = y3-y2;
-            dx3 = x0-x1+x2-x3;
-            dy3 = y0-y1+y2-y3;
+        dx1 = x1-x2;
+        dy1 = y1-y2;
+        dx2 = x3-x2;
+        dy2 = y3-y2;
+        dx3 = x0-x1+x2-x3;
+        dy3 = y0-y1+y2-y3;
 
-            float a11, a12, a13, a21, a22, a23, a31, a32;
+        float a11, a12, a13, a21, a22, a23, a31, a32;
 
-            if (dx3 == 0 && dy3 == 0) {
-                    a11 = x1-x0;
-                    a21 = x2-x1;
-                    a31 = x0;
-                    a12 = y1-y0;
-                    a22 = y2-y1;
-                    a32 = y0;
-                    a13 = a23 = 0;
-            } else {
-                    a13 = (dx3*dy2-dx2*dy3)/(dx1*dy2-dy1*dx2);
-                    a23 = (dx1*dy3-dy1*dx3)/(dx1*dy2-dy1*dx2);
-                    a11 = x1-x0+a13*x1;
-                    a21 = x3-x0+a23*x3;
-                    a31 = x0;
-                    a12 = y1-y0+a13*y1;
-                    a22 = y3-y0+a23*y3;
-                    a32 = y0;
-            }
+        if (dx3 == 0 && dy3 == 0) {
+            a11 = x1-x0;
+            a21 = x2-x1;
+            a31 = x0;
+            a12 = y1-y0;
+            a22 = y2-y1;
+            a32 = y0;
+            a13 = a23 = 0;
+        } else {
+            a13 = (dx3*dy2-dx2*dy3)/(dx1*dy2-dy1*dx2);
+            a23 = (dx1*dy3-dy1*dx3)/(dx1*dy2-dy1*dx2);
+            a11 = x1-x0+a13*x1;
+            a21 = x3-x0+a23*x3;
+            a31 = x0;
+            a12 = y1-y0+a13*y1;
+            a22 = y3-y0+a23*y3;
+            a32 = y0;
+        }
 
         A = a22 - a32*a23;
         B = a31*a23 - a21;
@@ -1542,19 +2299,19 @@ private class Skew {
 
 
     protected void transformSpace(Rectangle rect) {
-            rect.x = (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
-            rect.y = (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
-            rect.width = (int)Math.max( Math.max( x0, x1 ), Math.max( x2, x3 ) ) - rect.x;
-            rect.height = (int)Math.max( Math.max( y0, y1 ), Math.max( y2, y3 ) ) - rect.y;
+        rect.x = (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
+        rect.y = (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
+        rect.width = (int)Math.max( Math.max( x0, x1 ), Math.max( x2, x3 ) ) - rect.x;
+        rect.height = (int)Math.max( Math.max( y0, y1 ), Math.max( y2, y3 ) ) - rect.y;
     }
 
 
     public float getOriginX() {
-            return x0 - (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
+        return x0 - (int)Math.min( Math.min( x0, x1 ), Math.min( x2, x3 ) );
     }
 
     public float getOriginY() {
-            return y0 - (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
+        return y0 - (int)Math.min( Math.min( y0, y1 ), Math.min( y2, y3 ) );
     }
 
 
@@ -1571,18 +2328,18 @@ private class Skew {
         if ( dst == null ) {
             ColorModel dstCM = src.getColorModel();
             dst = new BufferedImage(
-                    dstCM,
-                    dstCM.createCompatibleWritableRaster(transformedSpace.width, transformedSpace.height),
-                    dstCM.isAlphaPremultiplied(),
-                    null
-                );
+                dstCM,
+                dstCM.createCompatibleWritableRaster(transformedSpace.width, transformedSpace.height),
+                dstCM.isAlphaPremultiplied(),
+                null
+            );
         }
         //WritableRaster dstRaster = dst.getRaster();
 
         int[] inPixels = getRGB( src, 0, 0, width, height, null );
 
         if ( interpolation == NEAREST_NEIGHBOUR )
-                return filterPixelsNN( dst, width, height, inPixels, transformedSpace );
+            return filterPixelsNN( dst, width, height, inPixels, transformedSpace );
 
         int srcWidth = width;
         int srcHeight = height;
@@ -1608,18 +2365,18 @@ private class Skew {
                 int nw, ne, sw, se;
 
                 if ( srcX >= 0 && srcX < srcWidth1 && srcY >= 0 && srcY < srcHeight1) {
-                        // Easy case, all corners are in the image
-                        int i = srcWidth*srcY + srcX;
-                        nw = inPixels[i];
-                        ne = inPixels[i+1];
-                        sw = inPixels[i+srcWidth];
-                        se = inPixels[i+srcWidth+1];
+                    // Easy case, all corners are in the image
+                    int i = srcWidth*srcY + srcX;
+                    nw = inPixels[i];
+                    ne = inPixels[i+1];
+                    sw = inPixels[i+srcWidth];
+                    se = inPixels[i+srcWidth+1];
                 } else {
-                        // Some of the corners are off the image
-                        nw = getPixel( inPixels, srcX, srcY, srcWidth, srcHeight );
-                        ne = getPixel( inPixels, srcX+1, srcY, srcWidth, srcHeight );
-                        sw = getPixel( inPixels, srcX, srcY+1, srcWidth, srcHeight );
-                        se = getPixel( inPixels, srcX+1, srcY+1, srcWidth, srcHeight );
+                    // Some of the corners are off the image
+                    nw = getPixel( inPixels, srcX, srcY, srcWidth, srcHeight );
+                    ne = getPixel( inPixels, srcX+1, srcY, srcWidth, srcHeight );
+                    sw = getPixel( inPixels, srcX, srcY+1, srcWidth, srcHeight );
+                    se = getPixel( inPixels, srcX+1, srcY+1, srcWidth, srcHeight );
                 }
                 outPixels[x] = bilinearInterpolate(xWeight, yWeight, nw, ne, sw, se);
             }
@@ -1644,7 +2401,9 @@ private class Skew {
     }
 
 
-    protected BufferedImage filterPixelsNN( BufferedImage dst, int width, int height, int[] inPixels, Rectangle transformedSpace ) {
+    protected BufferedImage filterPixelsNN( BufferedImage dst, int width, 
+            int height, int[] inPixels, Rectangle transformedSpace )
+    {
         int srcWidth = width;
         int srcHeight = height;
         int outWidth = transformedSpace.width;
@@ -1664,24 +2423,24 @@ private class Skew {
                 srcY = (int)out[1];
                 // int casting rounds towards zero, so we check out[0] < 0, not srcX < 0
                 if (out[0] < 0 || srcX >= srcWidth || out[1] < 0 || srcY >= srcHeight) {
-                        int p;
-                        switch (edgeAction) {
-                        case ZERO:
-                        default:
-                            p = 0;
-                            break;
-                        case WRAP:
-                            p = inPixels[(mod(srcY, srcHeight) * srcWidth) + mod(srcX, srcWidth)];
-                            break;
-                        case CLAMP:
-                            p = inPixels[(clamp(srcY, 0, srcHeight-1) * srcWidth) + clamp(srcX, 0, srcWidth-1)];
-                            break;
-                        }
-                        outPixels[x] = p;
+                    int p;
+                    switch (edgeAction) {
+                    case ZERO:
+                    default:
+                        p = 0;
+                        break;
+                    case WRAP:
+                        p = inPixels[(mod(srcY, srcHeight) * srcWidth) + mod(srcX, srcWidth)];
+                        break;
+                    case CLAMP:
+                        p = inPixels[(clamp(srcY, 0, srcHeight-1) * srcWidth) + clamp(srcX, 0, srcWidth-1)];
+                        break;
+                    }
+                    outPixels[x] = p;
                 } else {
-                        int i = srcWidth*srcY + srcX;
-                        rgb[0] = inPixels[i];
-                        outPixels[x] = inPixels[i];
+                    int i = srcWidth*srcY + srcX;
+                    rgb[0] = inPixels[i];
+                    outPixels[x] = inPixels[i];
                 }
             }
             setRGB( dst, 0, y, transformedSpace.width, 1, outPixels );
@@ -1691,8 +2450,8 @@ private class Skew {
 
 
     protected void transformInverse(int x, int y, float[] out) {
-            out[0] = originalSpace.width * (A*x+B*y+C)/(G*x+H*y+I);
-            out[1] = originalSpace.height * (D*x+E*y+F)/(G*x+H*y+I);
+        out[0] = originalSpace.width * (A*x+B*y+C)/(G*x+H*y+I);
+        out[1] = originalSpace.height * (D*x+E*y+F)/(G*x+H*y+I);
     }
 
 /*
@@ -1713,10 +2472,10 @@ private class Skew {
      * penalty of BufferedImage.getRGB unmanaging the image.
      */
     public int[] getRGB( BufferedImage image, int x, int y, int width, int height, int[] pixels ) {
-            int type = image.getType();
-            if ( type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB )
-                    return (int [])image.getRaster().getDataElements( x, y, width, height, pixels );
-            return image.getRGB( x, y, width, height, pixels, 0, width );
+        int type = image.getType();
+        if ( type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB )
+            return (int [])image.getRaster().getDataElements( x, y, width, height, pixels );
+        return image.getRGB( x, y, width, height, pixels, 0, width );
     }
 
     /**
@@ -1724,11 +2483,11 @@ private class Skew {
      * penalty of BufferedImage.setRGB unmanaging the image.
      */
     public void setRGB( BufferedImage image, int x, int y, int width, int height, int[] pixels ) {
-            int type = image.getType();
-            if (type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB)
-                image.getRaster().setDataElements( x, y, width, height, pixels );
-            else
-                image.setRGB( x, y, width, height, pixels, 0, width );
+        int type = image.getType();
+        if (type == BufferedImage.TYPE_INT_ARGB || type == BufferedImage.TYPE_INT_RGB)
+            image.getRaster().setDataElements( x, y, width, height, pixels );
+        else
+            image.setRGB( x, y, width, height, pixels, 0, width );
     }
 
 
@@ -1741,7 +2500,7 @@ private class Skew {
      * @return the clamped value
      */
     private float clamp(float x, float a, float b) {
-            return (x < a) ? a : (x > b) ? b : x;
+        return (x < a) ? a : (x > b) ? b : x;
     }
 
     /**
@@ -1752,7 +2511,7 @@ private class Skew {
      * @return the clamped value
      */
     private int clamp(int x, int a, int b) {
-            return (x < a) ? a : (x > b) ? b : x;
+        return (x < a) ? a : (x > b) ? b : x;
     }
 
     /**
@@ -1762,12 +2521,12 @@ private class Skew {
      * @return a mod b
      */
     private double mod(double a, double b) {
-            int n = (int)(a/b);
+        int n = (int)(a/b);
 
-            a -= n*b;
-            if (a < 0)
-                    return a + b;
-            return a;
+        a -= n*b;
+        if (a < 0)
+                return a + b;
+        return a;
     }
 
     /**
@@ -1777,12 +2536,12 @@ private class Skew {
      * @return a mod b
      */
     private float mod(float a, float b) {
-            int n = (int)(a/b);
+        int n = (int)(a/b);
 
-            a -= n*b;
-            if (a < 0)
-                    return a + b;
-            return a;
+        a -= n*b;
+        if (a < 0)
+                return a + b;
+        return a;
     }
 
     /**
@@ -1792,12 +2551,12 @@ private class Skew {
      * @return a mod b
      */
     private int mod(int a, int b) {
-            int n = a/b;
+        int n = a/b;
 
-            a -= n*b;
-            if (a < 0)
-                    return a + b;
-            return a;
+        a -= n*b;
+        if (a < 0)
+                return a + b;
+        return a;
     }
 
 
@@ -1809,44 +2568,44 @@ private class Skew {
      * @return the interpolated value
      */
     private int bilinearInterpolate(float x, float y, int nw, int ne, int sw, int se) {
-            float m0, m1;
-            int a0 = (nw >> 24) & 0xff;
-            int r0 = (nw >> 16) & 0xff;
-            int g0 = (nw >> 8) & 0xff;
-            int b0 = nw & 0xff;
-            int a1 = (ne >> 24) & 0xff;
-            int r1 = (ne >> 16) & 0xff;
-            int g1 = (ne >> 8) & 0xff;
-            int b1 = ne & 0xff;
-            int a2 = (sw >> 24) & 0xff;
-            int r2 = (sw >> 16) & 0xff;
-            int g2 = (sw >> 8) & 0xff;
-            int b2 = sw & 0xff;
-            int a3 = (se >> 24) & 0xff;
-            int r3 = (se >> 16) & 0xff;
-            int g3 = (se >> 8) & 0xff;
-            int b3 = se & 0xff;
+        float m0, m1;
+        int a0 = (nw >> 24) & 0xff;
+        int r0 = (nw >> 16) & 0xff;
+        int g0 = (nw >> 8) & 0xff;
+        int b0 = nw & 0xff;
+        int a1 = (ne >> 24) & 0xff;
+        int r1 = (ne >> 16) & 0xff;
+        int g1 = (ne >> 8) & 0xff;
+        int b1 = ne & 0xff;
+        int a2 = (sw >> 24) & 0xff;
+        int r2 = (sw >> 16) & 0xff;
+        int g2 = (sw >> 8) & 0xff;
+        int b2 = sw & 0xff;
+        int a3 = (se >> 24) & 0xff;
+        int r3 = (se >> 16) & 0xff;
+        int g3 = (se >> 8) & 0xff;
+        int b3 = se & 0xff;
 
-            float cx = 1.0f-x;
-            float cy = 1.0f-y;
+        float cx = 1.0f-x;
+        float cy = 1.0f-y;
 
-            m0 = cx * a0 + x * a1;
-            m1 = cx * a2 + x * a3;
-            int a = (int)(cy * m0 + y * m1);
+        m0 = cx * a0 + x * a1;
+        m1 = cx * a2 + x * a3;
+        int a = (int)(cy * m0 + y * m1);
 
-            m0 = cx * r0 + x * r1;
-            m1 = cx * r2 + x * r3;
-            int r = (int)(cy * m0 + y * m1);
+        m0 = cx * r0 + x * r1;
+        m1 = cx * r2 + x * r3;
+        int r = (int)(cy * m0 + y * m1);
 
-            m0 = cx * g0 + x * g1;
-            m1 = cx * g2 + x * g3;
-            int g = (int)(cy * m0 + y * m1);
+        m0 = cx * g0 + x * g1;
+        m1 = cx * g2 + x * g3;
+        int g = (int)(cy * m0 + y * m1);
 
-            m0 = cx * b0 + x * b1;
-            m1 = cx * b2 + x * b3;
-            int b = (int)(cy * m0 + y * m1);
+        m0 = cx * b0 + x * b1;
+        m1 = cx * b2 + x * b3;
+        int b = (int)(cy * m0 + y * m1);
 
-            return (a << 24) | (r << 16) | (g << 8) | b;
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
 
