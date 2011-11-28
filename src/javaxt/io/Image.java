@@ -41,7 +41,10 @@ public class Image {
     public static String[] OutputFormats = getFormats(ImageIO.getWriterFormatNames());
 
 
-    private Metadata metadata = null;
+    private IIOMetadata metadata;
+    private HashMap<Integer, String> exif;
+    private HashMap<Integer, String> iptc;
+    private HashMap<Integer, String> gps;
 
 
   //**************************************************************************
@@ -271,7 +274,6 @@ public class Image {
             g2d = this.bufferedImage.createGraphics();
             
           //Enable anti-alias
-            RenderingHints rhints = g2d.getRenderingHints();
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                                  RenderingHints.VALUE_ANTIALIAS_ON);
         }
@@ -305,15 +307,26 @@ public class Image {
   /**  Simple drawing function used to set color of a specific pixel in the 
    *   image. 
    */
-    
     public void addPoint(int x, int y, int r, int g, int b){
+        setColor(x,y,new Color(r,g,b));
+    }
+
+
+  //**************************************************************************
+  //** setColor
+  //**************************************************************************
+  /**  Used to set the color (ARGB value) for a specific pixel in the image.
+   *   Note that input x,y values are relative to the upper left corner of the
+   *   image, starting at 0,0.
+   */
+    public void setColor(int x, int y, Color color){
         g2d = getGraphics();
         Color org = g2d.getColor();
-        g2d.setColor(new Color(r,g,b));
+        g2d.setColor(color);
         g2d.fillRect(x,y,1,1);
         g2d.setColor(org);
     }
-    
+
     
   //**************************************************************************
   //** getColor
@@ -321,8 +334,7 @@ public class Image {
   /**  Used to retrieve the color (ARGB) values for a specific pixel in the 
    *   image. Returns a java.awt.Color object. Note that input x,y values are
    *   relative to the upper left corner of the image, starting at 0,0. 
-   */
-    
+   */    
     public Color getColor(int x, int y){
         //return new Color(bufferedImage.getRGB(x, y)); //<--This will return an incorrect alpha value
         
@@ -333,24 +345,20 @@ public class Image {
         int blue = (pixel) & 0xff;
         return new java.awt.Color(red, green, blue, alpha);
     }
-    
-    
+
+
   //**************************************************************************
   //** addImage
   //**************************************************************************
   /**  Used to add an image "overlay" to the existing image at a given 
    *   position. This method can also be used to create image mosiacs.
    */
-    
-    public void addImage(BufferedImage in, int x, int y, boolean expand){ 
-        
+    public void addImage(BufferedImage in, int x, int y, boolean expand){         
         
         int x2 = 0;
-        int y2 = 0;
-        
+        int y2 = 0;        
         int w = bufferedImage.getWidth();
-        int h = bufferedImage.getHeight();
-        
+        int h = bufferedImage.getHeight();        
         
         if (expand){
 
@@ -438,7 +446,7 @@ public class Image {
             createBufferedImage(new FileInputStream(file));
         }
         catch(Exception e){
-            printError(e);
+            //printError(e);
         }
     }
 
@@ -465,7 +473,7 @@ public class Image {
 
             try {
                 bufferedImage = reader.read(0, param);
-                metadata = new Metadata(reader.getImageMetadata(0));
+                metadata = reader.getImageMetadata(0);
             }
             finally {
                 reader.dispose();
@@ -476,7 +484,7 @@ public class Image {
             input.close(); 
         }
         catch(Exception e){
-            printError(e);
+            //printError(e);
         }
     }
     
@@ -583,19 +591,21 @@ public class Image {
    *   (EXIF Orientation tag).
    */
     public void rotate(){
-
-        Integer orientation = metadata.getOrientation();
-        if (orientation!=null){
+        try {
+            Integer orientation = Integer.parseInt(getExifTags().get(0x0112));
             switch (orientation) {
                 case 1: return; //"Top, left side (Horizontal / normal)"
-                case 2: flip(); //"Top, right side (Mirror horizontal)";
-                case 3: rotate(180); //"Bottom, right side (Rotate 180)";
-                //case 4: return "Bottom, left side (Mirror vertical)";
-                case 5: {flip(); rotate(270);} //"Left side, top (Mirror horizontal and rotate 270 CW)";
-                case 6: rotate(90); //"Right side, top (Rotate 90 CW)";
-                case 7: {flip(); rotate(90);} //"Right side, bottom (Mirror horizontal and rotate 90 CW)";
-                case 8: rotate(270); //"Left side, bottom (Rotate 270 CW)";
+                case 2: flip(); break; //"Top, right side (Mirror horizontal)";
+                case 3: rotate(180); break; //"Bottom, right side (Rotate 180)";
+                case 4: {flip(); rotate(180);} break; //"Bottom, left side (Mirror vertical)";
+                case 5: {flip(); rotate(270);} break; //"Left side, top (Mirror horizontal and rotate 270 CW)";
+                case 6: rotate(90); break; //"Right side, top (Rotate 90 CW)";
+                case 7: {flip(); rotate(90);} break; //"Right side, bottom (Mirror horizontal and rotate 90 CW)";
+                case 8: rotate(270); break; //"Left side, bottom (Rotate 270 CW)";
             }
+        }
+        catch(Exception e){
+            //Failed to parse exif orientation.
         }
     }
     
@@ -606,7 +616,6 @@ public class Image {
   /**  Resizes the image to a given width. The original aspect ratio is 
    *   maintained. 
    */
-    
     public void setWidth(int Width){
         double ratio = (double)Width/(double)this.getWidth();
         
@@ -626,7 +635,6 @@ public class Image {
   /**  Resizes the image to a given height. The original aspect ratio is 
    *   maintained. 
    */
-    
     public void setHeight(int Height){
         double ratio = (double)Height/(double)this.getHeight();
         
@@ -646,10 +654,10 @@ public class Image {
   /**  Used to resize an image. Does NOT automatically retain the original 
    *   aspect ratio. 
    */
-    
     public void resize(int Width, int Height){
         resize(Width,Height,false);
     }
+
     
   //**************************************************************************
   //** Resize
@@ -657,7 +665,6 @@ public class Image {
   /**  Used to resize an image. Provides the option to maintain the original 
    *   aspect ratio (relative to the output width).
    */
-    
     public void resize(int Width, int Height, boolean maintainRatio){
         
         //long startTime = getStartTime();
@@ -907,11 +914,27 @@ public class Image {
   //**************************************************************************
   //** trim
   //**************************************************************************
-  /** Used to remove excess pixels from an image by cropping the image to its
+  /** Used to remove excess pixels around an image by cropping the image to its
    *  "true" extents. Crop bounds are determined by finding the first non-null
-   *  or non-white pixel on each side of the image.
+   *  or non-black pixel on each side of the image.
    */
     public void trim(){
+        trim(0,0,0);
+    }
+
+
+  //**************************************************************************
+  //** trim
+  //**************************************************************************
+  /** Used to remove excess pixels around an image by cropping the image to its
+   *  "true" extents. Crop bounds are determined by finding pixels that *don't*
+   *  match the input color. For example, you can trim off excess black pixels 
+   *  around an image by specifying an rgb value of 0,0,0. Similarly, you can
+   *  trim off pure white pixels around an image by specifying an rgb value of
+   *  255,255,255. Note that transparent pixels are considered as null values
+   *  and will be automatically trimmed from the edges.
+   */
+    public void trim(int r, int g, int b){
         int top = 0;
         int bottom = 0;
         int left = 0;
@@ -919,7 +942,7 @@ public class Image {
 
         for (int y=0; y<bufferedImage.getHeight(); y++){
             for (int x=0; x<bufferedImage.getWidth(); x++){
-                if (hasColor(bufferedImage.getRGB(x, y))){
+                if (hasColor(bufferedImage.getRGB(x, y), r, g, b)){
                     bottom = y;
                     break;
                 }
@@ -928,7 +951,7 @@ public class Image {
 
         for (int y=bufferedImage.getHeight()-1; y>-1; y--){
             for (int x=0; x<bufferedImage.getWidth(); x++){
-                if (hasColor(bufferedImage.getRGB(x, y))){
+                if (hasColor(bufferedImage.getRGB(x, y), r, g, b)){
                     top = y;
                     break;
                 }
@@ -937,7 +960,7 @@ public class Image {
 
         for (int x=0; x<bufferedImage.getWidth(); x++){
             for (int y=0; y<bufferedImage.getHeight(); y++){
-                if (hasColor(bufferedImage.getRGB(x, y))){
+                if (hasColor(bufferedImage.getRGB(x, y), r, g, b)){
                     right = x;
                     break;
                 }
@@ -946,7 +969,7 @@ public class Image {
 
         for (int x=bufferedImage.getWidth()-1; x>-1; x--){
             for (int y=0; y<bufferedImage.getHeight(); y++){
-                if (hasColor(bufferedImage.getRGB(x, y))){
+                if (hasColor(bufferedImage.getRGB(x, y), r, g, b)){
                     left = x;
                     break;
                 }
@@ -959,16 +982,6 @@ public class Image {
         else{
             bufferedImage = bufferedImage.getSubimage(left,top,right-left,bottom-top);
         }
-    }
-
-
-  //**************************************************************************
-  //** getMetadata
-  //**************************************************************************
-  /** Returns metadata associated with this image.
-   */
-    public Metadata getMetadata(){
-        return metadata;
     }
 
 
@@ -1128,7 +1141,7 @@ public class Image {
             //System.out.println("Output image is " + width + "x" + height + "...");
         }
         catch(Exception e){
-            printError(e);
+            //printError(e);
         }
     }
     
@@ -1277,14 +1290,14 @@ public class Image {
   /** Used to determine whether a given pixel has a color value. Returns false
    *  if the pixel is white or transparent.
    */
-    private boolean hasColor(int pixel){
+    private boolean hasColor(int pixel, int red, int green, int blue){
 
         int a = (pixel >> 24) & 0xff;
         int r = (pixel >> 16) & 0xff;
         int g = (pixel >> 8) & 0xff;
         int b = (pixel) & 0xff;
 
-        if ((r==255 && g==255 && b==255) || a==0 ){
+        if ((r==red && g==green && b==blue) || a==0 ){
             return false;
         }
         return true;
@@ -1327,53 +1340,8 @@ public class Image {
     }
     
     
-    
-    
-    
-  //**************************************************************************
-  //** printError
-  //**************************************************************************
-    
-    private void printError(Exception e){
-        System.out.println(e.toString());
-        StackTraceElement[] arr = e.getStackTrace();
-        for (int i=0; i<arr.length; i++){
-             System.out.println(arr[i].toString());
-        }
-    }
-    
-    
-    private long getStartTime(){
-        return java.util.Calendar.getInstance().getTimeInMillis();
-    }
-    
-    private long getEllapsedTime(long StartTime){
-       long endTime = java.util.Calendar.getInstance().getTimeInMillis();
-       return endTime-StartTime;  
-    }
-    
-    
-    
 
 
-
-//***************************************************************************
-//**  Metadata Class
-//***************************************************************************
-/**
- *   Provides methods to read/write image metadata.
- *
- ***************************************************************************/
-
-public class Metadata{
-
-    private IIOMetadata metadata;
-    private HashMap<Integer, String> exif;
-    private HashMap<Integer, String> iptc;
-    
-    public Metadata(IIOMetadata metadata){
-        this.metadata = metadata;
-    }
 
   //**************************************************************************
   //** getIIOMetadata
@@ -1393,6 +1361,21 @@ public class Metadata{
         return metadata;
     }
 
+
+  //**************************************************************************
+  //** setIIOMetadata
+  //**************************************************************************
+  /** Used to set/update the raw javax.imageio.metadata.IIOMetadata associated
+   *  with this image.
+   */
+    public void setIIOMetadata(IIOMetadata metadata){
+        this.metadata = metadata;
+        iptc = null;
+        exif = null;
+        gps = null;
+    }
+
+
   //**************************************************************************
   //** getIptcData
   //**************************************************************************
@@ -1406,8 +1389,16 @@ public class Metadata{
   //**************************************************************************
   //** getIptcTags
   //**************************************************************************
-  /** Used to parse EXIF metadata and return a list of key/value pairs found
-   *  in the metadata. Does *not* return the MakerNote (tag 37500, hex 0x927C).
+  /** Used to parse IPTC metadata and return a list of key/value pairs found
+   *  in the metadata. You can retrieve specific IPTC metadata values like 
+   *  this:
+   <pre>
+    javaxt.io.Image image = new javaxt.io.Image("/temp/image.jpg");
+    java.util.HashMap<Integer, String> iptc = image.getIptcTags();
+    System.out.println("Date: " + iptc.get(0x0237));
+    System.out.println("Caption: " + iptc.get(0x0278));
+    System.out.println("Copyright: " + iptc.get(0x0274));
+   </pre>
    */
     public HashMap<Integer, String> getIptcTags(){
 
@@ -1415,7 +1406,7 @@ public class Metadata{
             iptc = new HashMap<Integer, String>();
             for (IIOMetadataNode marker : getUnknownTags(0xED)){
                 byte[] iptcData = (byte[]) marker.getUserObject();
-                HashMap<Integer, String> tags = new MetadataParser(iptcData, 0xED).getTags();
+                HashMap<Integer, String> tags = new MetadataParser(iptcData, 0xED).getTags("IPTC");
                 iptc.putAll(tags);
             }
         }
@@ -1437,107 +1428,55 @@ public class Metadata{
   //** getExifTags
   //**************************************************************************
   /** Used to parse EXIF metadata and return a list of key/value pairs found
-   *  in the metadata. Does *not* return the MakerNote (tag 37500, hex 0x927C).
+   *  in the metadata. Any unknown or unparsed fields are returned in Base64
+   *  encoding (including the EXIF MakerNote). You can retrieve specific EXIF
+   *  metadata values like this:
+   <pre>
+    javaxt.io.Image image = new javaxt.io.Image("/temp/image.jpg");
+    java.util.HashMap<Integer, String> exif = image.getExifTags();
+    System.out.println("Date: " + exif.get(0x0132));
+    System.out.println("Camera: " + exif.get(0x0110));
+    System.out.println("Focal Length: " + exif.get(0x920A));
+    System.out.println("F-Stop: " + exif.get(0x829D));
+    System.out.println("Shutter Speed: " + exif.get(0x829A));
+   </pre>
    */
     public HashMap<Integer, String> getExifTags(){
-
-        if (exif==null){
-            exif = new HashMap<Integer, String>();
-            for (IIOMetadataNode marker : getUnknownTags(0xE1)){
-                byte[] exifData = (byte[]) marker.getUserObject();
-                HashMap<Integer, String> tags = new MetadataParser(exifData, 0xE1).getTags();
-                exif.putAll(tags);
-            }
-        }
+        if (exif==null) parseExif();
         return exif;
     }
 
-  //**************************************************************************
-  //** getModel
-  //**************************************************************************
-  /**  Returns the model of the camera used to capture the image. Value is
-   *   derived from an EXIF tag (0x0110).
-   */
-    public String getModel(){
-        return getExifTags().get(0x0110);
-    }
 
   //**************************************************************************
-  //** getFocalLength
+  //** getGpsTags
   //**************************************************************************
-  /**  Returns the focal length of the camera used to capture the image. Value
-   *   is derived from an EXIF tag (0x920A).
+  /** Used to parse EXIF metadata and return a list of key/value pairs 
+   *  associated with GPS metadata. Any unknown or undefined fields are 
+   *  returned in Base64 encoding. 
    */
-    public String getFocalLength(){
-        return getExifTags().get(0x920A);
-    }
-
-  //**************************************************************************
-  //** getAperture
-  //**************************************************************************
-  /**  Returns the aperture (f-stop) used to capture the image. Value
-   *   is derived from an EXIF tag (0x829D).
-   */
-    public String getAperture(){
-        return getExifTags().get(0x829D);
+    public HashMap<Integer, String> getGpsTags(){
+        if (gps==null) parseExif();
+        return gps;
     }
 
 
-  //**************************************************************************
-  //** getShutterSpeed
-  //**************************************************************************
-  /**  Returns the shutter speed (exposure time) used to capture the image. */
+  /** Private method used to initialize the exif and gps hashmaps */
+    private void parseExif(){
 
-    public String getShutterSpeed(){
-        return getExifTags().get(0x9201); //0x829A?
-    }
+        exif = new HashMap<Integer, String>();
+        gps = new HashMap<Integer, String>();
+        for (IIOMetadataNode marker : getUnknownTags(0xE1)){
+            byte[] exifData = (byte[]) marker.getUserObject();
 
+            MetadataParser metadataParser = new MetadataParser(exifData, 0xE1);
+            HashMap<Integer, String> exif = metadataParser.getTags("EXIF");
+            HashMap<Integer, String> gps = metadataParser.getTags("GPS");
 
-  //**************************************************************************
-  //** getAcquisitionDate
-  //**************************************************************************
-  /**  Returns the date/time of the image. Value is derived from an EXIF tag
-   *   (0x0132).
-   */
-    public java.util.Date getAcquisitionDate(){
-        String d = getExifTags().get(0x0132); //use 0x9003 instead?
-        try{
-            return new java.text.SimpleDateFormat
-               ("yyyy:MM:dd HH:mm:ss", java.util.Locale.US).parse(d);
+            if (exif!=null) this.exif.putAll(exif);
+            if (gps!=null) this.gps.putAll(gps);
+
+            metadataParser = null;
         }
-        catch(Exception e){
-            return null;
-        }
-    }
-
-
-  //**************************************************************************
-  //** getOrientation
-  //**************************************************************************
-  /**  Returns an integer value representing the orientation of the image.
-   *   The value is derived from an EXIF tag (0x0112). You can get a
-   *   description of the orientation like this:
-   <pre>
-    String desc = "";
-    switch (metadata.getOrientation()) {
-        case 1: desc = "Top, left side (Horizontal / normal)";
-        case 2: desc = "Top, right side (Mirror horizontal)";
-        case 3: desc = "Bottom, right side (Rotate 180)";
-        case 4: desc = "Bottom, left side (Mirror vertical)";
-        case 5: desc = "Left side, top (Mirror horizontal and rotate 270 CW)";
-        case 6: desc = "Right side, top (Rotate 90 CW)";
-        case 7: desc = "Right side, bottom (Mirror horizontal and rotate 90 CW)";
-        case 8: desc = "Left side, bottom (Rotate 270 CW)";
-    }
-   </pre>
-   */
-    public Integer getOrientation(){
-        try{
-            return Integer.parseInt(getExifTags().get(0x0112));
-        }
-        catch(Exception e){
-            return null;
-        }        
     }
 
 
@@ -1545,18 +1484,18 @@ public class Metadata{
   //** getGPSCoordinate
   //**************************************************************************
   /** Returns the x/y (lon/lat) coordinate tuple for the image. Value is
-   *  derived from an EXIF tag (0x0001, 0x0002, 0x0003, 0x0004).
+   *  derived from EXIF GPS metadata (tags 0x0001, 0x0002, 0x0003, 0x0004).
    */
     public double[] getGPSCoordinate(){
         getExifTags();
         try{
-            Double lat = Double.parseDouble(exif.get(0x0002));
-            Double lon = Double.parseDouble(exif.get(0x0004));
-            String latRef = exif.get(0x0001); //N
-            String lonRef = exif.get(0x0003); //W
+            Double lat = Double.parseDouble(gps.get(0x0002));
+            Double lon = Double.parseDouble(gps.get(0x0004));
+            String latRef = gps.get(0x0001); //N
+            String lonRef = gps.get(0x0003); //W
 
             if (!latRef.equalsIgnoreCase("N")) lat = -lat;
-            if (!lonRef.equalsIgnoreCase("N")) lon = -lon;
+            if (!lonRef.equalsIgnoreCase("E")) lon = -lon;
 
             return new double[]{lon, lat};
         }
@@ -1570,10 +1509,11 @@ public class Metadata{
   //** getGPSDatum
   //**************************************************************************
   /** Returns the datum associated with the GPS coordinate. Value is 
-   *  derived from an EXIF tag (0x0012). 
+   *  derived from EXIF GPS metadata (tag 0x0012).
    */
     public String getGPSDatum(){
-        return getExifTags().get(0x0012);
+        getExifTags();
+        return gps.get(0x0012);
     }
     
 
@@ -1590,6 +1530,7 @@ public class Metadata{
    */
     public IIOMetadataNode[] getUnknownTags(int MarkerTag){
         java.util.ArrayList<IIOMetadataNode> markers = new java.util.ArrayList<IIOMetadataNode>();
+        if (metadata!=null)
         for (String name : metadata.getMetadataFormatNames()) {
             IIOMetadataNode node=(IIOMetadataNode) metadata.getAsTree(name);
             org.w3c.dom.Node[] unknownNodes = javaxt.xml.DOM.getElementsByTagName("unknown", node);
@@ -1609,9 +1550,10 @@ public class Metadata{
   //**************************************************************************
   //** getMetadataByTagName
   //**************************************************************************
-  /** Returns a list of IIOMetadataNodes for a tag name (e.g. "Chroma",
+  /** Returns a list of IIOMetadataNodes for a given tag name (e.g. "Chroma",
    *  "Compression", "Data", "Dimension", "Transparency", etc).
    <pre>
+  //Print unknown tags
     for (IIOMetadataNode unknownNode : metadata.getMetadataByTagName("unknown")){
         int marker = Integer.parseInt(javaxt.xml.DOM.getAttributeValue(unknownNode, "MarkerTag"));
         System.out.println(marker + "\t" + "0x" + Integer.toHexString(marker));
@@ -1620,6 +1562,7 @@ public class Metadata{
    */
     public IIOMetadataNode[] getMetadataByTagName(String tagName){
         java.util.ArrayList<IIOMetadataNode> tags = new java.util.ArrayList<IIOMetadataNode>();
+        if (metadata!=null)
         for (String name : metadata.getMetadataFormatNames()) {
             IIOMetadataNode node=(IIOMetadataNode) metadata.getAsTree(name);
             org.w3c.dom.Node[] unknownNodes = javaxt.xml.DOM.getElementsByTagName(tagName, node);
@@ -1629,86 +1572,20 @@ public class Metadata{
         }  
         return tags.toArray(new IIOMetadataNode[tags.size()]);
     }
-} //end metadata class
-    
 
 
 //******************************************************************************
 //**  MetadataParser Class
 //******************************************************************************
 /**
- *   Class used to decode EXIF and IPTC metadata. The EXIF parser is based on 2
- *   classes developed by Norman Walsh and released under the W3C open source
- *   license. The original classes can be found in the W3C Jigsaw project
- *   ("Exif.java" and "ExifData.java" in the "org.w3c.tools.jpeg" package.
+ *   Class used to decode EXIF and IPTC metadata. The MetadataParser is based
+ *   on two classes developed by Norman Walsh and released under the W3C open
+ *   source license. The original classes can be found in the W3C Jigsaw
+ *   project ("Exif.java" and "ExifData.java" in the "org.w3c.tools.jpeg"
+ *   package).
  *   <br/>
  *   You may use this code in any open source or commercial project provided
- *   that you publish the standard W3C Software Notice and License Agreement:
- *
- <pre>
-  ------------------------------------------------------------------------------
-  Copyright © 1994-2001 World Wide Web Consortium, (Massachusetts Institute of
-  Technology, Institut National de Recherche en Informatique et en Automatique,
-  Keio University). All Rights Reserved. http://www.w3.org/Consortium/Legal/
-
-  This W3C work (including software, documents, or other related items) is 
-  being provided by the copyright holders under the following license. By
-  obtaining, using and/or copying this work, you (the licensee) agree that you
-  have read, understood, and will comply with the following terms and
-  conditions:
-
-  Permission to use, copy, modify, and distribute this software and its
-  documentation, with or without modification, for any purpose and without fee
-  or royalty is hereby granted, provided that you include the following on ALL
-  copies of the software and documentation or portions thereof, including
-  modifications, that you make:
-
-      1. The full text of this NOTICE in a location viewable to users of the
-         redistributed or derivative work.
-
-      2. Any pre-existing intellectual property disclaimers, notices, or terms
-         and conditions. If none exist, a short notice of the following form
-         (hypertext is preferred, text is permitted) should be used within the
-         body of any redistributed or derivative code:
-         "Copyright © [$date-of-software] World Wide Web Consortium,
-         (Massachusetts Institute of Technology, Institut National de Recherche
-         en Informatique et en Automatique, Keio University). All Rights
-         Reserved. http://www.w3.org/Consortium/Legal/"
-
-      3. Notice of any changes or modifications to the W3C files, including the
-         date changes were made. (We recommend you provide URIs to the location
-         from which the code is derived.)
-
-  THIS SOFTWARE AND DOCUMENTATION IS PROVIDED "AS IS," AND COPYRIGHT HOLDERS
-  MAKE NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-  LIMITED TO, WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR
-  PURPOSE OR THAT THE USE OF THE SOFTWARE OR DOCUMENTATION WILL NOT INFRINGE
-  ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS.
-
-  COPYRIGHT HOLDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL OR
-  CONSEQUENTIAL DAMAGES ARISING OUT OF ANY USE OF THE SOFTWARE OR DOCUMENTATION.
-
-  The name and trademarks of copyright holders may NOT be used in advertising 
-  or publicity pertaining to the software without specific, written prior
-  permission. Title to copyright in this software and any associated
-  documentation will at all times remain with copyright holders.
-  ------------------------------------------------------------------------------
- </pre>
- *
- * Implementation notes:
- * <ul>
- * <li>String values are %-encoded to protect the caller from values that might
- * not be legitimate UTF-8 strings.</li>
- * <li>The EXIF format includes unsigned integers which aren't directly
- * available in Java. They probably have to be turned into longs but for the
- * moment, they're all treated as signed. This shouldn't be a problem b/c we've
- * never seen an EXIF unsigned value too large to represent in a Java int.</li>
- * <li>In merging the Exif and ExifData classes I removed the MakerNote parser
- * (tag 37500, hex 0x927C). It was extremely expensive to parse and the tag
- * value was completely incomprehensible to me.</li>
- * <li>Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
- * hex 0x8825).</li>
- * </ul>
+ *   that you publish the standard W3C Software Notice and License Agreement.
  *
  * @version $Revision: 1.1 $
  * @author  Norman Walsh
@@ -1716,6 +1593,20 @@ public class Metadata{
  ******************************************************************************/
 
 private class MetadataParser {
+
+// Implementation notes:
+// (1) Unknown/Undefined values are Base64 encoded.
+// (2) The EXIF format includes unsigned integers which aren't directly
+//     available in Java. They probably have to be turned into longs but for
+//     the moment, they're all treated as signed. This shouldn't be a problem
+//     b/c we've never seen an EXIF unsigned value too large to represent in a
+//     Java int.
+// (3) Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
+//     hex 0x8825).
+// (4) Improved performance in the parseExif() method by serializing only the
+//     first 8 characters into a string (vs the entire EXIF byte array).
+// (5) Need to come up with a scheme to parse MakerNotes.
+    
 
     private final int bytesPerFormat[] = { 0, 1, 1, 2, 4, 8, 1,
             1, 2, 4, 8, 4, 8 };
@@ -1738,9 +1629,11 @@ private class MetadataParser {
 
     private final int TAG_EXIF_OFFSET = 0x8769;
     private final int TAG_INTEROP_OFFSET = 0xa005;
+    private final int TAG_GPS_OFFSET = 0x8825;
+    private final int TAG_USERCOMMENT = 0x9286;
 
-
-    private HashMap<Integer, String> tags = new HashMap<Integer, String>();
+    private HashMap<String, HashMap<Integer, String>> tags =
+        new HashMap<String, HashMap<Integer, String>>();
 
 
     public MetadataParser(byte[] data, int marker) {
@@ -1752,67 +1645,18 @@ private class MetadataParser {
 
 
   //**************************************************************************
-  //** parseExif
-  //**************************************************************************
-  /** Used to parse EXIF metadata
-   */
-    public void parseExif(byte[] exifData) {
-
-
-        String dataStr = new String(exifData);
-        if (exifData.length <= 4 || !"Exif".equals(dataStr.substring(0, 4))) {
-            //System.err.println("Not really EXIF data");
-            return;
-        }
-
-        String byteOrderMarker = dataStr.substring(6, 8);
-        if ("II".equals(byteOrderMarker)) {
-            intelOrder = true;
-        } else if ("MM".equals(byteOrderMarker)) {
-            intelOrder = false;
-        } else {
-            // bogus!
-            //System.err.println("Bogus byte order in EXIF data.");
-            return;
-        }
-
-        data = exifData;
-
-        int checkValue = get16u(8);
-        if (checkValue != 0x2a) {
-            data = null;
-            //System.err.println("Check value fails: 0x"+ Integer.toHexString(checkValue));
-            return;
-        }
-
-
-        if (data==null) return;
-        
-
-        int firstOffset = get32u(10);
-        processExifDir(6 + firstOffset, 6);
-
-
-      //Process GPS Directory -- NEW!!
-        try{
-            Integer gpsOffset = Integer.parseInt(tags.get(0x8825));
-            if (gpsOffset>0) processExifDir(6 + gpsOffset, 6);
-        }
-        catch(Exception e){
-        }
-    }
-
-
-  //**************************************************************************
   //** parseIptc
   //**************************************************************************
   /** Used to parse IPTC metadata
    */
     private void parseIptc(byte[] iptcData) {
 
+        HashMap<Integer, String> tags = new HashMap<Integer, String>();
+        this.tags.put("IPTC", tags);
+
         data = iptcData;
 
-        int offset = 0;       
+        int offset = 0;
         while (offset < data.length) {
             if (data[offset] == 0x1c) {
 
@@ -1824,7 +1668,7 @@ private class MetadataParser {
                 try {
                     directoryType = data[offset++];
                     tagType = data[offset++];
-                    tagByteCount = get16u(offset); 
+                    tagByteCount = get16u(offset);
                     offset += 2;
                 }
                 catch (Exception e) {
@@ -1855,16 +1699,70 @@ private class MetadataParser {
 
 
   //**************************************************************************
-  //** getTags
+  //** parseExif
   //**************************************************************************
-  /** Returns key/value pairs representing the EXIF or IPTC data. Note that
-   *  EXIF Maker Notes are ignored.
+  /** Used to parse EXIF metadata
    */
-    public java.util.HashMap<Integer, String> getTags() {
-        return tags;
+    public void parseExif(byte[] exifData) {
+
+        HashMap<Integer, String> tags = new HashMap<Integer, String>();
+        this.tags.put("EXIF", tags);
+
+
+        try{
+            String dataStr = new String(exifData, 0, 8, "UTF-8"); //new String(exifData);
+            if (exifData.length <= 4 || !"Exif".equals(dataStr.substring(0, 4))) {
+                //System.err.println("Not really EXIF data");
+                return;
+            }
+
+            String byteOrderMarker = dataStr.substring(6, 8);
+            if ("II".equals(byteOrderMarker)) {
+                intelOrder = true;
+            } else if ("MM".equals(byteOrderMarker)) {
+                intelOrder = false;
+            } else {
+                //System.err.println("Incorrect byte order in EXIF data.");
+                return;
+            }
+        }
+        catch(Exception e){
+            return;
+        }
+
+
+        data = exifData;
+
+        int checkValue = get16u(8);
+        if (checkValue != 0x2a) {
+            data = null;
+            //System.err.println("Check value fails: 0x"+ Integer.toHexString(checkValue));
+            return;
+        }
+
+
+        if (data==null) return;
+        
+
+        int firstOffset = get32u(10);
+        processExifDir(6 + firstOffset, 6, tags);
     }
 
-    private void processExifDir(int dirStart, int offsetBase) {
+
+
+  //**************************************************************************
+  //** getTags
+  //**************************************************************************
+  /** Returns key/value pairs representing the EXIF or IPTC data. 
+   */
+    public HashMap<Integer, String> getTags(String dir) {
+        return tags.get(dir);
+    }
+
+
+    private void processExifDir(int dirStart, int offsetBase, HashMap<Integer, String> tags) {
+        if (dirStart>=data.length) return;
+
 
         int numEntries = get16u(dirStart);
         //System.err.println("EXIF: numEntries: " + numEntries);
@@ -1893,110 +1791,131 @@ private class MetadataParser {
                 valueOffset = offsetBase + offsetVal;
             }
 
-            //System.err.println("valueOffset: " + valueOffset +
-            //                                     " byteCount: " + byteCount);
+            if (tag == TAG_EXIF_OFFSET || tag == TAG_INTEROP_OFFSET || tag == TAG_GPS_OFFSET) {
 
-            Integer iTag = new Integer(tag);
+                String dirName = "";
+                switch (tag) {
+                case TAG_EXIF_OFFSET:
+                    dirName = "EXIF";
+                    break;
+                case TAG_INTEROP_OFFSET:
+                    dirName = "EXIF";
+                    break;
+                case TAG_GPS_OFFSET:
+                    dirName = "GPS";
+                    break;
+                }
 
-            if (tag == TAG_EXIF_OFFSET || tag == TAG_INTEROP_OFFSET) {
+                tags = this.tags.get(dirName);
+                if (tags==null){
+                    tags = new HashMap<Integer, String>();
+                    this.tags.put(dirName, tags);
+                }
+
                 int subdirOffset = get32u(valueOffset);
-
-                //System.err.println("offset: " + subdirOffset+
-                //                                ":"+offsetBase+subdirOffset);
-
-                processExifDir(offsetBase + subdirOffset, offsetBase);
+                processExifDir(offsetBase + subdirOffset, offsetBase, tags);
+                
             }
+            
+            //else if (tag==0x927c){ //Maker Note
+
+                //TODO: Come up with a clever way to process the Maker Note
+                //data = java.util.Arrays.copyOfRange(data, valueOffset, byteCount);
+                //tags = new HashMap<Integer, String>();
+                //processExifDir(0, 6);
+
+            //}
+            
+            
             else {
 
-                int tagName = iTag;
-
-                if (iTag!=0x927c){
-                    switch (format) {
-                    case FMT_UNDEFINED:
-                        assignUndefined(tagName, valueOffset, byteCount);
-                        break;
-                    case FMT_STRING:
-                        assignString(tagName, valueOffset, byteCount);
-                        break;
-                    case FMT_SBYTE:
-                        assignSByte(tagName, valueOffset);
-                        break;
-                    case FMT_BYTE:
-                        assignByte(tagName, valueOffset);
-                        break;
-                    case FMT_USHORT:
-                        assignUShort(tagName, valueOffset);
-                        break;
-                    case FMT_SSHORT:
-                        assignSShort(tagName, valueOffset);
-                        break;
-                    case FMT_ULONG:
-                        assignULong(tagName, valueOffset);
-                        break;
-                    case FMT_SLONG:
-                        assignSLong(tagName, valueOffset);
-                        break;
-                    case FMT_URATIONAL:
-                    case FMT_SRATIONAL:
-                        assignRational(tagName, valueOffset);
-                        break;
-                    default:
-                        //System.err.println("Unknown format " + format +
-                        //                   " for " + tagName);
-                    }
+                switch (format) {
+                case FMT_UNDEFINED:
+                    assignUndefined(tag, tags, valueOffset, byteCount);
+                    break;
+                case FMT_STRING:
+                    assignString(tag, tags, valueOffset, byteCount);
+                    break;
+                case FMT_SBYTE:
+                    assignSByte(tag, tags, valueOffset);
+                    break;
+                case FMT_BYTE:
+                    assignByte(tag, tags, valueOffset);
+                    break;
+                case FMT_USHORT:
+                    assignUShort(tag, tags, valueOffset);
+                    break;
+                case FMT_SSHORT:
+                    assignSShort(tag, tags, valueOffset);
+                    break;
+                case FMT_ULONG:
+                    assignULong(tag, tags, valueOffset);
+                    break;
+                case FMT_SLONG:
+                    assignSLong(tag, tags, valueOffset);
+                    break;
+                case FMT_URATIONAL:
+                case FMT_SRATIONAL:
+                    assignRational(tag, tags, valueOffset);
+                    break;
+                default:
+                    //System.err.println("Unknown format " + format +
+                    //                   " for " + tagName);
                 }
+                
             }
         }
     }
 
 
 
-    private void assignUndefined(int tagName, int offset,
-            int length) {
+    private void assignUndefined(int tag, HashMap<Integer, String> tags, int offset, int length) {
+        //System.out.println("0x" + Integer.toHexString(tagName));
+
         String result = getUndefined(offset, length);
         if (!"".equals(result)) {
-            tags.put(tagName, result);
+            tags.put(tag, result);
         }
     }
 
-    private void assignString(int tagName, int offset, int length) {
+    private void assignString(int tag, HashMap<Integer, String> tags, int offset, int length) {
         String result = getString(offset, length);
         if (!"".equals(result)) {
-            tags.put(tagName, result);
+            tags.put(tag, result);
         }
     }
 
-    private void assignSByte(int tagName, int offset) {
+    private void assignSByte(int tag, HashMap<Integer, String> tags, int offset) {
         int result = (int) convertAnyValue(FMT_SBYTE, offset);
-        tags.put(tagName, "" + result);
+        tags.put(tag, "" + result);
     }
 
-    private void assignByte(int tagName, int offset) {
+    private void assignByte(int tag, HashMap<Integer, String> tags, int offset) {
         int result = (int) convertAnyValue(FMT_BYTE, offset);
-        tags.put(tagName, "" + result);
+        tags.put(tag, "" + result);
     }
 
-    private void assignUShort(int tagName, int offset) {
+    private void assignUShort(int tag, HashMap<Integer, String> tags, int offset) {
         int result = (int) convertAnyValue(FMT_USHORT, offset);
-        tags.put(tagName, "" + result);
+        tags.put(tag, "" + result);
     }
 
-    private void assignSShort(int tagName, int offset) {
+    private void assignSShort(int tag, HashMap<Integer, String> tags, int offset) {
         int result = (int) convertAnyValue(FMT_SSHORT, offset);
-        tags.put(tagName, "" + result);
+        tags.put(tag, "" + result);
     }
 
-    private void assignULong(int tagName, int offset) {
+    private void assignULong(int tag, HashMap<Integer, String> tags, int offset) {
         int result = (int) convertAnyValue(FMT_ULONG, offset);
-        tags.put(tagName, "" + result);
+        tags.put(tag, "" + result);
     }
 
-    private void assignSLong(int tagName, int offset) {
+    private void assignSLong(int tag, HashMap<Integer, String> tags, int offset) {
         int result = (int) convertAnyValue(FMT_SLONG, offset);
-        tags.put(tagName, "" + result);
+        tags.put(tag, "" + result);
     }
 
-    private void assignRational(int tagName, int offset) {
+    private void assignRational(int tag, HashMap<Integer, String> tags, int offset) {
         int num = get32s(offset);
         int den = get32s(offset + 4);
         String result = "";
@@ -2031,7 +1950,7 @@ private class MetadataParser {
         }
 
 
-        tags.put(tagName, "" + result);
+        tags.put(tag, "" + result);
     }
 
     private int get16s(int offset) {
@@ -2113,38 +2032,23 @@ private class MetadataParser {
     }
     */
 
-    private String getString(int offset, int length) {
-        return getString(offset, length, true);
-    }
 
     private String getUndefined(int offset, int length) {
-        return getString(offset, length, false);
+        //return getString(offset, length, false);
+        return javaxt.utils.Base64.encodeBytes(data, offset, length);
     }
 
-    private String getString(int offset, int length, boolean nullTerminated) {
+    private String getString(int offset, int length) {
         if (data == null) {
             return "";
         }
 
-        String result = "";
-
-        for (int count = offset; (length > 0)
-                && (!nullTerminated || data[count] != 0); count++, length--) {
-            short ub = data[count];
-            ub = (short) (ub & 0xFF);
-
-            String ch = "" + (char) ub;
-            if ((ub == '%') || (ub < ' ') || (ub > '~')) {
-                ch = Integer.toHexString((char) ub);
-                if (ch.length() < 2) {
-                    ch = "0" + ch;
-                }
-                ch = "%" + ch;
-            }
-            result += ch;
+        try{
+            return new String(data, offset, length, "UTF-8").trim();
         }
-
-        return result;
+        catch(Exception e){
+            return "";
+        }
     }
 
     private double convertAnyValue(int format, int offset) {
