@@ -1640,34 +1640,29 @@ public class Image {
 //**  MetadataParser Class
 //******************************************************************************
 /**
- *   Class used to decode EXIF and IPTC metadata. The MetadataParser is based
- *   on two classes developed by Norman Walsh and released under the W3C open
- *   source license. The original classes can be found in the W3C Jigsaw
- *   project ("Exif.java" and "ExifData.java" in the "org.w3c.tools.jpeg"
- *   package).
- *   <br/>
- *   You may use this code in any open source or commercial project provided
- *   that you publish the standard W3C Software Notice and License Agreement.
+ *   Used to decode EXIF and IPTC metadata. Adapted from 2 classes developed by
+ *   Norman Walsh and released under the W3C open source license. The original
+ *   exif classes can be found in the W3C Jigsaw project in the
+ *   org.w3c.tools.jpeg package.
  *
- * @version $Revision: 1.1 $
- * @author  Norman Walsh
- * @copyright Copyright (c) 2003 Norman Walsh
+ *  @author  Norman Walsh
+ *  @copyright Copyright (c) 2003 Norman Walsh
  ******************************************************************************/
 
 private class MetadataParser {
 
 // Implementation notes:
-// (1) Unknown/Undefined values are all Base64 encoded.
-// (2) Unsigned integers are treated as signed ints (should be longs). Note
-//     that its pretty rare to see a EXIF unsigned value too large to represent
-//     in a Java int.
-// (3) Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
+// (1) Merged Version 1.1 of the "Exif.java" and "ExifData.java" classes.
+// (2) Added new IPTC metadata parser.
+// (3) All Unknown/Undefined EXIF fields are Base64 encoded. Need to do the
+//     same for unknown IPTC fields.
+// (4) All unsigned integers are treated as signed ints (should be longs).
+// (5) Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
 //     hex 0x8825).
-// (4) Added logic to parse an array of rational numbers (e.g. GPS metadata).
-// (5) Improved performance in the parseExif() method by serializing only the
+// (6) Added logic to parse an array of rational numbers (e.g. GPS metadata).
+// (7) Improved performance in the parseExif() method by serializing only the
 //     first 8 characters into a string (vs the entire EXIF byte array).
-// (6) TODO: Need to come up with a clever scheme to parse MakerNotes.
-    
+// (8) TODO: Need to come up with a clever scheme to parse MakerNotes.
 
     private final int bytesPerFormat[] = { 0, 1, 1, 2, 4, 8, 1,
             1, 2, 4, 8, 4, 8 };
@@ -1699,8 +1694,8 @@ private class MetadataParser {
 
     public MetadataParser(byte[] data, int marker) {
         switch (marker) {
-            case 0xED: parseIptc(data);
-            case 0xE1: parseExif(data);
+            case 0xED: parseIptc(data); break;
+            case 0xE1: parseExif(data); break;
         }
         
         data = null;
@@ -1828,8 +1823,6 @@ private class MetadataParser {
 
 
         int numEntries = get16u(dirStart);
-        //System.err.println("EXIF: numEntries: " + numEntries);
-
         for (int de = 0; de < numEntries; de++) {
             int dirOffset = dirStart + 2 + (12 * de);
 
@@ -1888,34 +1881,21 @@ private class MetadataParser {
                 //processExifDir(0, 6);
 
             //}
-            
-            
+
             else {
 
                 switch (format) {
-                case FMT_UNDEFINED:
-                    assignUndefined(tag, tags, valueOffset, byteCount);
-                    break;
                 case FMT_STRING:
-                    assignString(tag, tags, valueOffset, byteCount);
+                    String value = getString(valueOffset, byteCount);
+                    if (value!=null) tags.put(tag, value);
                     break;
                 case FMT_SBYTE:
-                    assignSByte(tag, tags, valueOffset);
-                    break;
                 case FMT_BYTE:
-                    assignByte(tag, tags, valueOffset);
-                    break;
                 case FMT_USHORT:
-                    assignUShort(tag, tags, valueOffset);
-                    break;
                 case FMT_SSHORT:
-                    assignSShort(tag, tags, valueOffset);
-                    break;
                 case FMT_ULONG:
-                    assignULong(tag, tags, valueOffset);
-                    break;
                 case FMT_SLONG:
-                    assignSLong(tag, tags, valueOffset);
+                    tags.put(tag, "" + (int) getDouble(format, valueOffset));
                     break;
                 case FMT_URATIONAL:
                 case FMT_SRATIONAL:
@@ -1923,81 +1903,38 @@ private class MetadataParser {
                     if (components>1) {
 
                       //Create a string representing an array of rational numbers
-                        StringBuffer rationals = new StringBuffer();
-                        rationals.append("[");
-                        for (int i = 0; i < components; i++){
-                            assignRational(tag, tags, valueOffset + (8 * i));
-                            rationals.append(tags.get(tag));
-                            if (i < components-1) rationals.append(",");
+                        StringBuffer str = new StringBuffer();
+                        str.append("[");
+                        for (int i=0; i<components; i++){
+                            str.append( getRational(valueOffset + (8 * i)) );
+                            if (i<components-1) str.append(",");
                         }
-                        rationals.append("]");
-                        tags.put(tag, rationals.toString());
+                        str.append("]");
+                        tags.put(tag, str.toString());
                     }
                     else{
-                        assignRational(tag, tags, valueOffset);
+                        tags.put(tag, getRational(valueOffset));
                     }
                     break;
 
-
-
-                default:
-                    //System.err.println("Unknown format " + format +
-                    //                   " for " + tagName);
+                
+                default: //including FMT_UNDEFINED
+                    String result = javaxt.utils.Base64.encodeBytes(getUndefined(valueOffset, byteCount));
+                    if (result!=null && result.length()>0) tags.put(tag, result);
+                    break;
                 }
                 
             }
         }
     }
 
-
-
-    private void assignUndefined(int tag, HashMap<Integer, String> tags, int offset, int length) {
-        //System.out.println("0x" + Integer.toHexString(tagName));
-
-        String result = getUndefined(offset, length);
-        if (!"".equals(result)) {
-            tags.put(tag, result);
-        }
-    }
-
-    private void assignString(int tag, HashMap<Integer, String> tags, int offset, int length) {
-        String result = getString(offset, length);
-        if (!"".equals(result)) {
-            tags.put(tag, result);
-        }
-    }
-
-    private void assignSByte(int tag, HashMap<Integer, String> tags, int offset) {
-        int result = (int) convertAnyValue(FMT_SBYTE, offset);
-        tags.put(tag, "" + result);
-    }
-
-    private void assignByte(int tag, HashMap<Integer, String> tags, int offset) {
-        int result = (int) convertAnyValue(FMT_BYTE, offset);
-        tags.put(tag, "" + result);
-    }
-
-    private void assignUShort(int tag, HashMap<Integer, String> tags, int offset) {
-        int result = (int) convertAnyValue(FMT_USHORT, offset);
-        tags.put(tag, "" + result);
-    }
-
-    private void assignSShort(int tag, HashMap<Integer, String> tags, int offset) {
-        int result = (int) convertAnyValue(FMT_SSHORT, offset);
-        tags.put(tag, "" + result);
-    }
-
-    private void assignULong(int tag, HashMap<Integer, String> tags, int offset) {
-        int result = (int) convertAnyValue(FMT_ULONG, offset);
-        tags.put(tag, "" + result);
-    }
-
-    private void assignSLong(int tag, HashMap<Integer, String> tags, int offset) {
-        int result = (int) convertAnyValue(FMT_SLONG, offset);
-        tags.put(tag, "" + result);
-    }
-
-    private void assignRational(int tag, HashMap<Integer, String> tags, int offset) {
+  //**************************************************************************
+  //** getRational
+  //**************************************************************************
+  /** Returns a string representation of a rational number (numerator and
+   *  denominator separated with a "/" character).
+   */
+    private String getRational(int offset) {
         int num = get32s(offset);
         int den = get32s(offset + 4);
         String result = "";
@@ -2030,16 +1967,10 @@ private class MetadataParser {
         } else {
             result = "" + num + "/" + den;
         }
-
-
-        tags.put(tag, "" + result);
+        return result;
     }
 
     private int get16s(int offset) {
-        if (data == null) {
-            return 0;
-        }
-
         int hi, lo;
 
         if (intelOrder) {
@@ -2057,20 +1988,11 @@ private class MetadataParser {
     }
 
     private int get16u(int offset) {
-        if (data == null) {
-            return 0;
-        }
-
         int value = get16s(offset);
-        value = value & 0xFFFF;
-        return value;
+        return value & 0xFFFF;
     }
 
     private int get32s(int offset) {
-        if (data == null) {
-            return 0;
-        }
-
         int n1, n2, n3, n4;
 
         if (intelOrder) {
@@ -2085,98 +2007,56 @@ private class MetadataParser {
             n4 = data[offset + 3] & 0xFF;
         }
 
-        int value = (n1 << 24) + (n2 << 16) + (n3 << 8) + n4;
-
-        return value;
+        return (n1 << 24) + (n2 << 16) + (n3 << 8) + n4;
     }
 
     private int get32u(int offset) {
-        if (data == null) {
-            return 0;
-        }
-
-        // I don't know how to represent an unsigned in Java!
-        return get32s(offset);
+        return get32s(offset); //Should probably return a long instead...
     }
 
-    /*
-    private byte[] getBytes(int offset, int length) {
-        if (data == null || length == 0) {
-            return null;
-        }
-
-        byte[] raw = new byte[length];
-        for (int count = offset; length > 0; count++, length--) {
-            raw[count - offset] = data[count];
-        }
-
-        return raw;
-    }
-    */
-
-
-    private String getUndefined(int offset, int length) {
-        //return getString(offset, length, false);
-        return javaxt.utils.Base64.encodeBytes(data, offset, length);
+    private byte[] getUndefined(int offset, int length) {
+        return java.util.Arrays.copyOfRange(data, offset, offset+length);
     }
 
     private String getString(int offset, int length) {
-        if (data == null) {
-            return "";
-        }
-
         try{
             return new String(data, offset, length, "UTF-8").trim();
         }
         catch(Exception e){
-            return "";
+            return null;
         }
     }
 
-    private double convertAnyValue(int format, int offset) {
-        if (data == null) {
-            return 0.0;
-        }
-
-        double value = 0.0;
-
+  //**************************************************************************
+  //** getDouble
+  //**************************************************************************
+  /** Used convert a byte into a double. Note that this method used to be
+   *  called convertAnyValue().
+   */
+    private double getDouble(int format, int offset) {
         switch (format) {
-        case FMT_SBYTE:
-            value = data[offset];
-            break;
-        case FMT_BYTE:
-            int iValue = data[offset];
-            iValue = iValue & 0xFF;
-            value = iValue;
-            break;
-        case FMT_USHORT:
-            value = get16u(offset);
-            break;
-        case FMT_ULONG:
-            value = get32u(offset);
-            break;
-        case FMT_URATIONAL:
-        case FMT_SRATIONAL:
-            int num = get32s(offset);
-            int den = get32s(offset + 4);
-
-            if (den == 0) {
-                value = 0;
-            } else {
-                value = (double) num / (double) den;
-            }
-            break;
-        case FMT_SSHORT:
-            value = get16s(offset);
-            break;
-        case FMT_SLONG:
-            value = get32s(offset);
-            break;
-        default:
-            //System.err.println("Unexpected number format: " + format);
+            case FMT_SBYTE:
+                return data[offset];
+            case FMT_BYTE:
+                int iValue = data[offset];
+                return iValue & 0xFF;
+            case FMT_USHORT:
+                return get16u(offset);
+            case FMT_ULONG:
+                return get32u(offset);
+            case FMT_URATIONAL:
+            case FMT_SRATIONAL:
+                int num = get32s(offset);
+                int den = get32s(offset + 4);
+                if (den == 0) return 0;
+                else return (double) num / (double) den;
+            case FMT_SSHORT:
+                return get16s(offset);
+            case FMT_SLONG:
+                return get32s(offset);
+            default:
+                return 0.0;
         }
-
-        return value;
     }
 }
 
