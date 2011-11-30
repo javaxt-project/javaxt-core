@@ -283,18 +283,49 @@ public class Image {
   //**************************************************************************
   //** addText
   //**************************************************************************
-  /**  Used to add text to the image at a given position. */
-    
+  /**  Used to add text to the image at a given position. 
+   *  @param x Lower left coordinate of the text
+   *  @param y Lower left coordinate of the text
+   */
     public void addText(String text, int x, int y){
         addText(text, x, y, new Font ("SansSerif",Font.TRUETYPE_FONT,12), 0, 0, 0);
     }
 
+
+  //**************************************************************************
+  //** addText
+  //**************************************************************************
+  /**  Used to add text to the image at a given position.
+   *  @param x Lower left coordinate of the text
+   *  @param y Lower left coordinate of the text
+   *  @param fontName Name of the font face (e.g. "Tahoma", "Helvetica", etc.)
+   *  @param fontSize Size of the font
+   *  @param r Value for the red channel (0-255)
+   *  @param g Value for the green channel (0-255)
+   *  @param b Value for the blue channel (0-255)
+   */
     public void addText(String text, int x, int y, String fontName, int fontSize, int r, int g, int b){
         addText(text, x, y, new Font(fontName, Font.TRUETYPE_FONT, fontSize), r,g,b);
     }
 
+
+  //**************************************************************************
+  //** addText
+  //**************************************************************************
+  /**  Used to add text to the image at a given position.
+   *  @param x Lower left coordinate of the text
+   *  @param y Lower left coordinate of the text
+   *  @param font Font
+   *  @param r Value for the red channel (0-255)
+   *  @param g Value for the green channel (0-255)
+   *  @param b Value for the blue channel (0-255)
+   */
     public void addText(String text, int x, int y, Font font, int r, int g, int b){
         g2d = getGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                             RenderingHints.VALUE_ANTIALIAS_ON);
+              
+        
         g2d.setColor(new Color(r, g, b));
         g2d.setFont(font);
         g2d.drawString(text, x, y);
@@ -1489,8 +1520,8 @@ public class Image {
     public double[] getGPSCoordinate(){
         getExifTags();
         try{
-            Double lat = Double.parseDouble(gps.get(0x0002));
-            Double lon = Double.parseDouble(gps.get(0x0004));
+            Double lat = getCoordinate(gps.get(0x0002));
+            Double lon = getCoordinate(gps.get(0x0004));
             String latRef = gps.get(0x0001); //N
             String lonRef = gps.get(0x0003); //W
 
@@ -1502,6 +1533,37 @@ public class Image {
         catch(Exception e){
         }
         return null;
+    }
+
+    private double getCoordinate(String RationalArray) {
+
+        //num + "/" + den
+        String[] arr = RationalArray.substring(1, RationalArray.length()-1).split(",");
+        String[] deg = arr[0].trim().split("/");
+        String[] min = arr[1].trim().split("/");
+        String[] sec = arr[2].trim().split("/");
+
+        double degNumerator = Double.parseDouble(deg[0]);
+        double degDenominator = 1D; try{degDenominator = Double.parseDouble(deg[1]);} catch(Exception e){}
+        double minNumerator = Double.parseDouble(min[0]);
+        double minDenominator = 1D; try{minDenominator = Double.parseDouble(min[1]);} catch(Exception e){}
+        double secNumerator = Double.parseDouble(sec[0]);
+        double secDenominator = 1D; try{secDenominator = Double.parseDouble(sec[1]);} catch(Exception e){}
+
+        double m = 0;
+        if (degDenominator != 0 || degNumerator != 0){
+            m = (degNumerator / degDenominator);
+        }
+
+        if (minDenominator != 0 || minNumerator != 0){
+            m += (minNumerator / minDenominator) / 60D;
+        }
+
+        if (secDenominator != 0 || secNumerator != 0){
+            m += (secNumerator / secDenominator / 3600D);
+        }
+
+        return m;
     }
 
 
@@ -1595,17 +1657,16 @@ public class Image {
 private class MetadataParser {
 
 // Implementation notes:
-// (1) Unknown/Undefined values are Base64 encoded.
-// (2) The EXIF format includes unsigned integers which aren't directly
-//     available in Java. They probably have to be turned into longs but for
-//     the moment, they're all treated as signed. This shouldn't be a problem
-//     b/c we've never seen an EXIF unsigned value too large to represent in a
-//     Java int.
+// (1) Unknown/Undefined values are all Base64 encoded.
+// (2) Unsigned integers are treated as signed ints (should be longs). Note
+//     that its pretty rare to see a EXIF unsigned value too large to represent
+//     in a Java int.
 // (3) Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
 //     hex 0x8825).
-// (4) Improved performance in the parseExif() method by serializing only the
+// (4) Added logic to parse an array of rational numbers (e.g. GPS metadata).
+// (5) Improved performance in the parseExif() method by serializing only the
 //     first 8 characters into a string (vs the entire EXIF byte array).
-// (5) Need to come up with a scheme to parse MakerNotes.
+// (6) TODO: Need to come up with a clever scheme to parse MakerNotes.
     
 
     private final int bytesPerFormat[] = { 0, 1, 1, 2, 4, 8, 1,
@@ -1641,6 +1702,8 @@ private class MetadataParser {
             case 0xED: parseIptc(data);
             case 0xE1: parseExif(data);
         }
+        
+        data = null;
     }
 
 
@@ -1686,7 +1749,7 @@ private class MetadataParser {
                         str = new String(data, offset, tagByteCount, "UTF-8");
                         offset += tagByteCount;
                     }
-                    catch (Exception ex) {
+                    catch (Exception e) {
                     }
                 }
                 tags.put(tagIdentifier, str);
@@ -1856,8 +1919,27 @@ private class MetadataParser {
                     break;
                 case FMT_URATIONAL:
                 case FMT_SRATIONAL:
-                    assignRational(tag, tags, valueOffset);
+
+                    if (components>1) {
+
+                      //Create a string representing an array of rational numbers
+                        StringBuffer rationals = new StringBuffer();
+                        rationals.append("[");
+                        for (int i = 0; i < components; i++){
+                            assignRational(tag, tags, valueOffset + (8 * i));
+                            rationals.append(tags.get(tag));
+                            if (i < components-1) rationals.append(",");
+                        }
+                        rationals.append("]");
+                        tags.put(tag, rationals.toString());
+                    }
+                    else{
+                        assignRational(tag, tags, valueOffset);
+                    }
                     break;
+
+
+
                 default:
                     //System.err.println("Unknown format " + format +
                     //                   " for " + tagName);
