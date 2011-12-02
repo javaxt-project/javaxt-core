@@ -430,7 +430,7 @@ public class Database {
 
             className = ("org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource");
 
-            methods.put("setDatabaseName", name);
+            methods.put("setDatabaseName", host);
             methods.put("setCreateDatabase", "create");
 
         }
