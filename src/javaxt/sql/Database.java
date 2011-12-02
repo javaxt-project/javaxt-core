@@ -1,7 +1,7 @@
 package javaxt.sql;
 import java.sql.ResultSet;
 import java.sql.DatabaseMetaData;
-//import java.sql.DriverManager;
+import javax.sql.ConnectionPoolDataSource;
 
 //******************************************************************************
 //**  Database
@@ -20,96 +20,17 @@ public class Database {
     private String username;
     private String password;
     private Driver driver; 
-    //private String url;
-    //private String path;
     private String props;
-
-    private java.sql.Connection Connection = null;
-    private java.sql.Driver Driver = null;
-
-    
-    
-    /** Static list of drivers and corresponding metadata */
-    private static Driver[] drivers = new Driver[]{
-        new Driver("SQLServer","com.microsoft.sqlserver.jdbc.SQLServerDriver","jdbc:sqlserver"),
-        new Driver("DB2","com.ibm.db2.jcc.DB2Driver","jdbc:db2"), //"COM.ibm.db2.jdbc.net.DB2Driver"
-        new Driver("Sybase","com.sybase.jdbc3.jdbc.SybDriver","jdbc:sybase"),
-        new Driver("PostgreSQL","org.postgresql.Driver","jdbc:postgresql"),
-        new Driver("Derby","org.apache.derby.jdbc.EmbeddedDriver","jdbc:derby"),
-        new Driver("SQLite","org.sqlite.JDBC","jdbc:sqlite"),
-        new Driver("Microsoft Access","sun.jdbc.odbc.JdbcOdbcDriver","jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)}"),
-
-      //The rest of these drivers have not been tested
-        new Driver("FrontBase", "com.frontbase.jdbc.FBJDriver", "jdbc:FrontBase"),
-        new Driver("Informix", "com.informix.jdbc.IfxDriver", "jdbc:informix-sqli"),
-        new Driver("Cache", "com.intersys.jdbc.CacheDriver", "jdbc:Cache"),
-        new Driver("microsoft", "com.microsoft.jdbc.sqlserver.SQLServerDriver", "jdbc:microsoft"),
-        new Driver("Mimer", "com.mimer.jdbc.Driver", "jdbc:mimer"),
-        new Driver("MySQL", "com.mysql.jdbc.Driver", "jdbc:mysql"),
-        new Driver("Teradata", "com.ncr.teradata.TeraDriver", "jdbc:teradata"),
-        new Driver("Pervasive", "com.pervasive.jdbc.v2.Driver", "jdbc:pervasive"),
-        new Driver("Pointbase", "com.pointbase.jdbc.jdbcUniversalDriver", "jdbc:pointbase"),
-        new Driver("pointbase micro", "com.pointbase.me.jdbc.jdbcDriver", "jdbc:pointbase:micro"),
-        new Driver("Daffodil", "in.co.daffodil.db.jdbc.DaffodilDBDriver", "jdbc:daffodil"),
-        new Driver("daffodilDB", "in.co.daffodil.db.rmi.RmiDaffodilDBDriver", "jdbc:daffodilDB"),
-        new Driver("JTDS", "net.sourceforge.jtds.jdbc.Driver", "jdbc:jtds"), //Open source JDBC 3.0 type 4 driver for Microsoft SQL Server and Sybase ASE
-        new Driver("Oracle", "oracle.jdbc.driver.OracleDriver", "jdbc:oracle"),
-        new Driver("derby net", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby:net"),
-        //new Driver("derby //", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby://"),
-        new Driver("Firebird", "org.firebirdsql.jdbc.FBDriver", "jdbc:firebirdsql"),
-        new Driver("H2", "org.h2.Driver", "jdbc:h2"),
-        new Driver("HyperSQL", "org.hsqldb.jdbcDriver", "jdbc:hsqldb"),
-        new Driver("odbc", "sun.jdbc.odbc.JdbcOdbcDriver", "jdbc:odbc")
-
-    };
-    
-    /** Microsoft SQL Server database driver. */
-    public static Driver SQLServer = findDriver("SQLServer");
-
-    /** IBM DB2 database driver. */
-    public static Driver DB2 = findDriver("DB2");
-
-    /** Sybase ASE database driver. */
-    public static Driver Sybase = findDriver("Sybase");
-
-    /** PostgreSQL database driver. */
-    public static Driver PostgreSQL = findDriver("PostgreSQL");
-
-    /** Derby database driver. */
-    public static Driver Derby = findDriver("Derby");
-    
-    /** SQLite database driver. */
-    public static Driver SQLite = findDriver("SQLite");
-
-    /** Microsoft Access database driver. */
-    public static Driver Access = findDriver("Microsoft Access");
-    
-    public static Driver FrontBase = findDriver("FrontBase");
-    public static Driver Informix = findDriver("Informix");
-    public static Driver Cache = findDriver("Cache");
-    public static Driver Mimer = findDriver("Mimer");
-    public static Driver MySQL = findDriver("MySQL");
-    public static Driver Teradata = findDriver("Teradata");
-    public static Driver Pervasive = findDriver("Pervasive");
-    public static Driver Pointbase = findDriver("Pointbase");
-    //public static Driver pointbase micro = findDriver("pointbase micro");
-    public static Driver Daffodil = findDriver("Daffodil");
-    //public static Driver daffodilDB = findDriver("daffodilDB");
-    public static Driver JTDS = findDriver("JTDS");
-    public static Driver Oracle = findDriver("Oracle");
-    public static Driver Firebird = findDriver("Firebird");
-    public static Driver H2 = findDriver("H2");
-    public static Driver HyperSQL = findDriver("HyperSQL");
-    public static Driver ODBC = findDriver("odbc");
-
+    private static final Class<?>[] stringType = { String.class };
+    private static final Class<?>[] integerType = { Integer.TYPE };
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**  Creates a new instance of this class. Note that you will need to set the
-   *   name, host, port, username, password, and driver in order to create
-   *   a connection to the database.
+  /** Creates a new instance of this class. Note that you will need to set the
+   *  name, host, port, username, password, and driver in order to create a
+   *  connection to the database.
    */
     public Database(){
     }
@@ -143,7 +64,6 @@ public class Database {
     
     public Database(java.sql.Connection conn){
         try{
-            this.Connection = conn;
             DatabaseMetaData dbmd = conn.getMetaData();
             this.name = conn.getCatalog();
             this.username = dbmd.getUserName();
@@ -151,7 +71,7 @@ public class Database {
             //dbmd.getDriverName();
         }
         catch(Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
         }
     }
 
@@ -160,7 +80,7 @@ public class Database {
   //**************************************************************************
   //** Constructor 
   //**************************************************************************
-  /** Creates a new instance of Database using a jdbc connection string.
+  /** Creates a new instance of a Database using a jdbc connection string.
    *  Username and password may be appended to the end of the connection string
    *  in the property list.
    *  @param connStr A jdbc connection string/url. All connection URLs
@@ -178,9 +98,6 @@ public class Database {
     }
     
 
-
-
-    
   //**************************************************************************
   //** parseURL 
   //**************************************************************************
@@ -204,7 +121,7 @@ public class Database {
         javaxt.utils.URL url = new javaxt.utils.URL(jdbcURL);
         host = url.getHost();
         port = url.getPort();
-        driver = findDriver(url.getProtocol());        
+        driver = Driver.findDriver(url.getProtocol());
         if (name==null){
             name = url.getPath();
             if (this.name!=null && this.name.startsWith("/")){
@@ -244,7 +161,6 @@ public class Database {
     }
     
     
-    
   //**************************************************************************
   //** setName 
   //**************************************************************************
@@ -263,10 +179,7 @@ public class Database {
     public String getName(){
         return name;
     }
-   
-    
 
-    
     
   //**************************************************************************
   //** setHost
@@ -291,7 +204,7 @@ public class Database {
         if (host.contains(":")){
             try{
             this.host = host.substring(0, host.indexOf(":"));
-            this.port = cint(host.substring(host.indexOf(":")+1));
+            this.port = Integer.valueOf(host.substring(host.indexOf(":")+1));
             }
             catch(Exception e){
                 this.host = host;
@@ -300,10 +213,7 @@ public class Database {
         else{
             this.host = host;
         }
-    }
-    
-    private int cint(String str){return Integer.valueOf(str).intValue(); }
-    
+    }    
     
     
   //**************************************************************************
@@ -315,7 +225,6 @@ public class Database {
     public String getHost(){
         return host;
     }
-
 
     
   //**************************************************************************
@@ -338,16 +247,26 @@ public class Database {
     public void setDriver(Driver driver){
         this.driver = driver;
     }
-    
-    public void setDriver(String driver){
-        this.driver = findDriver(driver);
+
+
+  //**************************************************************************
+  //** setDriver
+  //**************************************************************************
+  /** Used to find a driver that corresponds to a given vendor name, class
+   *  name, or protocol.
+   */
+    public void setDriver(String driver){ //throw exception?
+        this.driver = Driver.findDriver(driver);
     }
+    
 
     public void setDriver(java.sql.Driver driver){
-        this.Driver = driver;
-        this.driver = findDriver(driver.getClass().getCanonicalName());
+        this.driver = new Driver(driver);
     }
 
+    public void setDriver(Class driver){
+        this.driver = Driver.findDriver(driver.getCanonicalName());
+    }
     
     
   //**************************************************************************
@@ -358,28 +277,6 @@ public class Database {
         return driver;
     }
 
-    
-  //**************************************************************************
-  //** findDriver
-  //**************************************************************************
-  /** Used to try to find a driver that corresponds to the vendor name, package 
-   *  name, or protocol.
-   */
-    private static Driver findDriver(String driverName){
-        for (int i=0; i<drivers.length; i++){
-             Driver driver = drivers[i];
-             if (driver.equals(driverName)){ 
-                 return driver;
-             }
-        }
-        return null;
-    }
-    
-    
-
-    
-    
-    
     
   //**************************************************************************
   //** setUserName
@@ -430,7 +327,7 @@ public class Database {
   //**************************************************************************
   /** Used to construct a JDBC connection string
    */
-    private String getURL(){
+    protected String getURL(){
 
       //Update Server Name
         String server = host;
@@ -438,8 +335,6 @@ public class Database {
         if (driver.getVendor().equals("Derby") || driver.getVendor().equals("SQLite")){
             server = ":" + server;
         }
-
-
 
 
       //Update Initial Catalog
@@ -461,12 +356,6 @@ public class Database {
             }
         }
 
-
-        if (driver.getVendor().equals("SQLite")){
-            //database = path;
-        }
-        
-        
 
       //Set Path
         String path = "";
@@ -496,10 +385,7 @@ public class Database {
 
     }
     
-    
 
-
-    
   //**************************************************************************
   //** getConnection
   //**************************************************************************
@@ -511,65 +397,151 @@ public class Database {
         connection.open(this);
         return connection;
     }
-
-
-
     
 
-    
-    
   //**************************************************************************
-  //** Connect
+  //** getConnectionPoolDataSource
   //**************************************************************************
-  /**  Used to open a java.sql.Connection to the database. This is a protected 
-   *   method called from the connection object in this package.
-   */     
-    protected java.sql.Connection connect() throws java.sql.SQLException {
-          
-        if (Driver==null){            
-            //System.out.print("Loading Driver...");
+  /**  Used to instantiate a ConnectionPoolDataSource for the database. The
+   *   ConnectionPoolDataSource is typically used to create a JDBC Connection
+   *   Pool.
+   */
+    public ConnectionPoolDataSource getConnectionPoolDataSource() throws java.sql.SQLException {
+
+        if (driver==null) throw new java.sql.SQLException(
+            "Failed to create a ConnectionPoolDataSource. Please specify a driver.");
+
+        String className = null;
+        java.util.HashMap<String, Object> methods = new java.util.HashMap<String, Object>();
+
+
+        if (driver.equals("sqlite")){
+
+            className = "org.sqlite.SQLiteConnectionPoolDataSource";
+            methods.put("setUrl", "jdbc:sqlite:" + host);
+
+            /*
+            javax.sql.DataSource sqliteDS = new DataSource();
+            sqliteDS.setURL ("jdbc:sqlite://" + name);
+            dataSource = sqliteDS;
+            */
+        }
+        else if (driver.equals("derby")){
+
+            className = ("org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource");
+
+            methods.put("setDatabaseName", name);
+            methods.put("setCreateDatabase", "create");
+
+        }
+        else if (driver.equals("h2")){
+
+            className = ("org.h2.jdbcx.JdbcDataSource");
+
+            methods.put("setURL", "jdbc:h2:file:" + host);
+            methods.put("setUser", username);
+            methods.put("setPassword", password);
+
+        }
+        else if (driver.equals("sqlserver")){ //mssql
+        
+            className = ("com.microsoft.sqlserver.jdbc.SQLServerXADataSource");
+
+            methods.put("setDatabaseName", name);
+            methods.put("setServerName", host);
+            methods.put("setUser", username);
+            methods.put("setPassword", password);
+
+        }
+        else if (driver.equals("postgresql")){ //pgsql
+
+            className = ("org.postgresql.ds.PGConnectionPoolDataSource");
+
+            methods.put("setDatabaseName", name);
+            methods.put("setServerName", host);
+            methods.put("setPortNumber", port);
+            methods.put("setUser", username);
+            methods.put("setPassword", password);
+
+        }
+        else if (driver.equals("mysql")){
+
+            className = ("com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource");
+
+            methods.put("setDatabaseName", name);
+            methods.put("setServerName", host);
+            methods.put("setPortNumber", port); //setPort?
+            methods.put("setUser", username);
+            methods.put("setPassword", password);
+
+        }
+        else if (driver.equals("oracle")){
+
+            String connDriver = "thin";
+            String connService = "";
+
+
+            className = ("oracle.jdbc.pool.OracleConnectionPoolDataSource");
+
+            methods.put("setDriverType", connDriver);
+            methods.put("setServerName", host);
+            methods.put("setPortNumber", port);
+            methods.put("setServiceName", connService);
+            methods.put("setUser", username);
+            methods.put("setPassword", password);
+        }
+        else if (driver.equals("jtds")){
+
+            className = ("net.sourceforge.jtds.jdbcx.JtdsDataSource");
+
+            methods.put("setDatabaseName", name);
+            methods.put("setServerName", host);
+            methods.put("setUser", username);
+            methods.put("setPassword", password);
+
+        }
+
+      //Instantiate the ConnectionPoolDataSource
+        if (className!=null){
             try{
-                Driver = (java.sql.Driver) Class.forName(driver.getPackageName()).newInstance();
+                Class classToLoad = Class.forName(className);
+                Object instance = classToLoad.newInstance();
+
+                java.util.Iterator<String> it = methods.keySet().iterator();
+                while (it.hasNext()){
+                    String methodName = it.next();
+                    Object parameter = methods.get(methodName);
+                    if (parameter!=null){
+                        java.lang.reflect.Method method = null;
+                        if (parameter instanceof String)
+                            method = classToLoad.getMethod(methodName, stringType);
+                        else if (parameter instanceof Integer)
+                            method = classToLoad.getMethod(methodName, integerType);
+
+                        if (method!=null) method.invoke(instance, new Object[] { parameter });
+                    }
+                }
+                return (ConnectionPoolDataSource) instance;
             }
             catch(Exception e){
-                throw new java.sql.SQLException("Failed to load driver " + driver.getPackageName(), e);
+                throw new java.sql.SQLException("Failed to instantiate the ConnectionPoolDataSource.", e);
             }
-            //DriverManager.registerDriver(Driver);
-            //System.out.println("Done");
-        }
-        
-        
-        if (Connection==null || Connection.isClosed()){
-            
-            //System.out.print("Attempting to connect...");
-            String url = getURL();
 
-            java.util.Properties properties = new java.util.Properties();
-            if (username!=null){
-                properties.put("user", username);
-                properties.put("password", password);
-            }
-            
-            Connection = Driver.connect(url, properties);
-            //Connection = DriverManager.getConnection(url, username, password);
-            //System.out.println("Done");
         }
 
-        return Connection;
+        throw new java.sql.SQLException("Failed to find a suitable ConnectionPoolDataSource.");
     }
-
 
 
   //**************************************************************************
   //** getTables
   //**************************************************************************
-  /** Used to retrieve an array of tables found in this database. This method 
-   *  should be called after a connection has been made to the target database.
+  /** Used to retrieve an array of tables found in this database. 
    */    
-    public Table[] getTables(){
+    public static Table[] getTables(Connection conn){
         try{
             java.util.TreeSet<Table> tables = new java.util.TreeSet<Table>();
-            DatabaseMetaData dbmd = Connection.getMetaData(); 
+            DatabaseMetaData dbmd = conn.getConnection().getMetaData();
             ResultSet rs  = dbmd.getTables(null,null,null,new String[]{"TABLE"});
             while (rs.next()) {
                 tables.add(new Table(rs, dbmd));  
@@ -583,43 +555,35 @@ public class Database {
     }
 
 
-
   //**************************************************************************
   //** getCatalogs
   //**************************************************************************
   /**  Used to retrieve a list of available databases found on this server.
    */
-    public String[] getCatalogs(){
+    public static String[] getCatalogs(Connection conn){
         try{
-
-            java.util.Vector catalogs = new java.util.Vector();
-            DatabaseMetaData dbmd = Connection.getMetaData();
+            java.util.TreeSet<String> catalogs = new java.util.TreeSet<String>();
+            DatabaseMetaData dbmd = conn.getConnection().getMetaData();
             ResultSet rs  = dbmd.getCatalogs();
             while (rs.next()) {
                 catalogs.add(rs.getString(1));
             }
             rs.close();
-
-            String[] array = new String[catalogs.size()];
-            for (int i=0; i<array.length; i++){
-                array[i] = (String) catalogs.get(i);
-            }
-            return array;
+            return catalogs.toArray(new String[catalogs.size()]);
         }
         catch(Exception e){
-            printError(e);
             return null;
         }
     }
 
 
-    public void displayDbProperties(){
+    public static void displayDbProperties(Connection conn){
 
         java.sql.DatabaseMetaData dm = null;
         java.sql.ResultSet rs = null;
         try{
-           if(Connection!=null){
-                dm = Connection.getMetaData();
+            if (conn!=null){
+                dm = conn.getConnection().getMetaData();
                 System.out.println("Driver Information");
                 System.out.println("\tDriver Name: "+ dm.getDriverName());
                 System.out.println("\tDriver Version: "+ dm.getDriverVersion ());
@@ -635,22 +599,13 @@ public class Database {
                 rs.close();
                 rs = null;
 
-           }else System.out.println("Error: No active Connection");
+            }
+            else
+               System.out.println("Error: No active Connection");
         }catch(Exception e){
            e.printStackTrace();
         }
         dm=null;
-    }
-
-    
-    
-    
-    private static void printError(Exception e){
-        System.out.println(e.toString());
-        StackTraceElement[] arr = e.getStackTrace();
-        for (int i=0; i<arr.length; i++){
-             System.out.println(arr[i].toString());
-        }
     }
 
 

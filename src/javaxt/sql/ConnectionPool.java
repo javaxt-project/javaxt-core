@@ -1,7 +1,7 @@
 package javaxt.sql;
 
 import java.io.PrintWriter;
-import java.sql.Connection;
+//import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -16,22 +16,10 @@ import javax.sql.PooledConnection;
 //**  ConnectionPool
 //******************************************************************************
 /**
- * A simple standalone JDBC connection pool manager.
- * <p>
- * The public methods of this class are thread-safe.
- * <p>
- * Home page: <a href="http://www.source-code.biz">www.source-code.biz</a><br>
- * Author: Christian d'Heureuse, Inventec Informatik AG, Zurich, Switzerland<br>
- * Multi-licensed: EPL/LGPL/MPL.
- * <p>
- * 2007-06-21: Constructor with a timeout parameter added.<br>
- * 2008-05-03: Additional licenses added (EPL/MPL).<br>
- * 2009-06-26: Variable recycledConnections changed from Stack to Queue, so that
- *   the unused connections are reused in a circular manner.
- *   Thanks to Daniel Jurado for the tip.<br>
- * 2009-08-21: ArrayDeque (which was introduced with change 2009-06-26) replaced
- *   by LinkedList, because ArrayDeque is only available since Java 1.6 and we want
- *   to keep MiniConnectionPoolManager compatible with Java 1.5.<br>
+ *   A lightweight standalone JDBC connection pool manager written by
+ *   Christian d'Heureuse, Inventec Informatik AG, Zurich, Switzerland. Added
+ *   2 new constructors to instantiate this class using a javaxt.sql.Database.
+ *   
  ******************************************************************************/
 
 public class ConnectionPool {
@@ -48,95 +36,143 @@ public class ConnectionPool {
 //
 // Please contact the author if you need another license.
 // This module is provided "as is", without warranties of any kind.
+//
+// Revision History:
+// 2007-06-21: Constructor with a timeout parameter added.
+// 2008-05-03: Additional licenses added (EPL/MPL).
+// 2009-06-26: Variable recycledConnections changed from Stack to Queue, so that
+//   the unused connections are reused in a circular manner.
+//   Thanks to Daniel Jurado for the tip.
+// 2009-08-21: ArrayDeque (which was introduced with change 2009-06-26) replaced
+//   by LinkedList, because ArrayDeque is only available since Java 1.6 and we want
+//   to keep MiniConnectionPoolManager compatible with Java 1.5.
+// 2011-12-02: Added 2 new constructors to take a Database object and renamed the
+//   dispose() method to close().
 
 
+    private ConnectionPoolDataSource       dataSource;
+    private int                            maxConnections;
+    private int                            timeout;
+    private PrintWriter                    logWriter;
+    private Semaphore                      semaphore;
+    private Queue<PooledConnection>        recycledConnections;
+    private int                            activeConnections;
+    private PoolConnectionEventListener    poolConnectionEventListener;
+    private boolean                        isDisposed;
 
 
-private ConnectionPoolDataSource       dataSource;
-private int                            maxConnections;
-private int                            timeout;
-private PrintWriter                    logWriter;
-private Semaphore                      semaphore;
-private Queue<PooledConnection>        recycledConnections;
-private int                            activeConnections;
-private PoolConnectionEventListener    poolConnectionEventListener;
-private boolean                        isDisposed;
+    /**
+    * Thrown in {@link #getConnection()} when no free connection becomes available within <code>timeout</code> seconds.
+    */
+    public static class TimeoutException extends RuntimeException {
+       private static final long serialVersionUID = 1;
+       public TimeoutException () {
+          super ("Timeout while waiting for a free database connection."); }
+    }
 
 
-/**
-* Thrown in {@link #getConnection()} when no free connection becomes available within <code>timeout</code> seconds.
-*/
-public static class TimeoutException extends RuntimeException {
-   private static final long serialVersionUID = 1;
-   public TimeoutException () {
-      super ("Timeout while waiting for a free database connection."); }}
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /**  Constructs a ConnectionPool with a timeout of 60 seconds.
+   */
+    public ConnectionPool(Database database, int maxConnections) throws SQLException {
+        this (database.getConnectionPoolDataSource(), maxConnections, 60);
+    }
 
-/**
-* Constructs a MiniConnectionPoolManager object with a timeout of 60 seconds.
-* @param dataSource      the data source for the connections.
-* @param maxConnections  the maximum number of connections.
-*/
-public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections) {
-   this (dataSource, maxConnections, 60); }
 
-/**
-* Constructs a MiniConnectionPoolManager object.
-* @param dataSource      the data source for the connections.
-* @param maxConnections  the maximum number of connections.
-* @param timeout         the maximum time in seconds to wait for a free connection.
-*/
-public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections, int timeout) {
-   this.dataSource = dataSource;
-   this.maxConnections = maxConnections;
-   this.timeout = timeout;
-   try {
-      logWriter = dataSource.getLogWriter(); }
-    catch (SQLException e) {}
-   if (maxConnections < 1) throw new IllegalArgumentException("Invalid maxConnections value.");
-   semaphore = new Semaphore(maxConnections,true);
-   recycledConnections = new LinkedList<PooledConnection>();
-   poolConnectionEventListener = new PoolConnectionEventListener(); }
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /**  Constructs a ConnectionPool.
+   */
+    public ConnectionPool(Database database, int maxConnections, int timeout) throws SQLException{
+        this (database.getConnectionPoolDataSource(), maxConnections, timeout);
+    }
 
-/**
-* Closes all unused pooled connections.
-*/
-public synchronized void dispose() throws SQLException {
-   if (isDisposed) return;
-   isDisposed = true;
-   SQLException e = null;
-   while (!recycledConnections.isEmpty()) {
-      PooledConnection pconn = recycledConnections.remove();
-      try {
-         pconn.close(); }
-       catch (SQLException e2) {
-          if (e == null) e = e2; }}
-   if (e != null) throw e; }
 
-/**
-* Retrieves a connection from the connection pool.
-* If <code>maxConnections</code> connections are already in use, the method
-* waits until a connection becomes available or <code>timeout</code> seconds elapsed.
-* When the application is finished using the connection, it must close it
-* in order to return it to the pool.
-* @return a new Connection object.
-* @throws TimeoutException when no connection becomes available within <code>timeout</code> seconds.
-*/
-public Connection getConnection() throws SQLException {
-   // This routine is unsynchronized, because semaphore.tryAcquire() may block.
-   synchronized (this) {
-      if (isDisposed) throw new IllegalStateException("Connection pool has been disposed."); }
-   try {
-      if (!semaphore.tryAcquire(timeout,TimeUnit.SECONDS))
-         throw new TimeoutException(); }
-    catch (InterruptedException e) {
-      throw new RuntimeException("Interrupted while waiting for a database connection.",e); }
-   boolean ok = false;
-   try {
-      Connection conn = getConnection2();
-      ok = true;
-      return conn; }
-    finally {
-      if (!ok) semaphore.release(); }}
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Constructs a ConnectionPool with a timeout of 60 seconds.
+   * @param dataSource      the data source for the connections.
+   * @param maxConnections  the maximum number of connections.
+   */
+    public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections) {
+        this (dataSource, maxConnections, 60);
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Constructs a ConnectionPool.
+   * @param dataSource      the data source for the connections.
+   * @param maxConnections  the maximum number of connections.
+   * @param timeout         the maximum time in seconds to wait for a free connection.
+   */
+    public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections, int timeout) {
+        this.dataSource = dataSource;
+        this.maxConnections = maxConnections;
+        this.timeout = timeout;
+        try {
+            logWriter = dataSource.getLogWriter(); }
+        catch (SQLException e) {}
+        if (maxConnections < 1) throw new IllegalArgumentException("Invalid maxConnections value.");
+        semaphore = new Semaphore(maxConnections,true);
+        recycledConnections = new LinkedList<PooledConnection>();
+        poolConnectionEventListener = new PoolConnectionEventListener();
+    }
+
+
+  //**************************************************************************
+  //** close
+  //**************************************************************************
+  /** Closes all unused pooled connections. */
+
+    public synchronized void close() throws SQLException {
+       if (isDisposed) return;
+       isDisposed = true;
+       SQLException e = null;
+       while (!recycledConnections.isEmpty()) {
+          PooledConnection pconn = recycledConnections.remove();
+          try {
+             pconn.close(); }
+           catch (SQLException e2) {
+              if (e == null) e = e2; }}
+       if (e != null) throw e;
+    }
+
+
+  //**************************************************************************
+  //** getConnection
+  //**************************************************************************
+  /** Retrieves a connection from the connection pool.
+   * If <code>maxConnections</code> connections are already in use, the method
+   * waits until a connection becomes available or <code>timeout</code> seconds elapsed.
+   * When the application is finished using the connection, it must close it
+   * in order to return it to the pool.
+   * @return a new Connection object.
+   * @throws TimeoutException when no connection becomes available within <code>timeout</code> seconds.
+   */
+    public Connection getConnection() throws SQLException {
+       // This routine is unsynchronized, because semaphore.tryAcquire() may block.
+       synchronized (this) {
+          if (isDisposed) throw new IllegalStateException("Connection pool has been disposed."); }
+       try {
+          if (!semaphore.tryAcquire(timeout,TimeUnit.SECONDS))
+             throw new TimeoutException(); }
+        catch (InterruptedException e) {
+          throw new RuntimeException("Interrupted while waiting for a database connection.",e); }
+       boolean ok = false;
+       try {
+          Connection conn = getConnection2();
+          ok = true;
+          return conn; }
+        finally {
+          if (!ok) semaphore.release();
+        }
+    }
 
 private synchronized Connection getConnection2() throws SQLException {
    if (isDisposed) throw new IllegalStateException("Connection pool has been disposed.");   // test again with lock
@@ -145,7 +181,7 @@ private synchronized Connection getConnection2() throws SQLException {
       pconn = recycledConnections.remove(); }
     else {
       pconn = dataSource.getPooledConnection(); }
-   Connection conn = pconn.getConnection();
+   Connection conn = new Connection(pconn.getConnection());
    activeConnections++;
    pconn.addConnectionEventListener (poolConnectionEventListener);
    assertInnerState();

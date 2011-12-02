@@ -1,5 +1,4 @@
 package javaxt.sql;
-import java.sql.*;
 
 //******************************************************************************
 //**  Connection Class
@@ -18,12 +17,15 @@ public class Connection {
 
 
   //**************************************************************************
-  //** Creates a new instance of ADODB Connection
+  //** Constructor
   //**************************************************************************
     
     public Connection(){
     }
-    
+
+    public Connection(java.sql.Connection conn){
+        open(conn);
+    }
 
         
   //**************************************************************************
@@ -69,7 +71,7 @@ public class Connection {
     public java.sql.Connection getConnection(){
         return Conn;
     }
-    
+
 
     
   //**************************************************************************
@@ -86,10 +88,9 @@ public class Connection {
    */
     
     public boolean open(String ConnectionString) throws java.sql.SQLException {
-        this.database = new Database(ConnectionString);
-        return open(database);
+        return open(new Database(ConnectionString));
     }
-                                      
+
     
     
   //**************************************************************************
@@ -103,8 +104,28 @@ public class Connection {
         this.database = database;
         boolean isClosed = true;
         
+
+      //Load JDBC Driver
+        java.sql.Driver Driver = (java.sql.Driver) database.getDriver().load();
+
+
+        //if (Conn!=null && Conn.isOpen()) Conn.close();
+
+
+        String url = database.getURL();
+        String username = database.getUserName();
+        String password = database.getPassword();
+
+        java.util.Properties properties = new java.util.Properties();
+        if (username!=null){
+            properties.put("user", username);
+            properties.put("password", password);
+        }
+
+        Conn = Driver.connect(url, properties);
+        //Conn = DriverManager.getConnection(url, username, password);
         
-        Conn = database.connect();
+
         isClosed = Conn.isClosed();
 
         
@@ -148,19 +169,18 @@ public class Connection {
     public void close(){
         try{Conn.close();}
         catch(Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
         }
-    } 
+    }
     
     
   //**************************************************************************
   //** Execute
   //**************************************************************************
   /** Used to execute a prepared sql statement (e.g. "delete from my_table").
-   *  Returns a boolean to indicate whether the command was successful.
    */
     public void execute(String sql) throws java.sql.SQLException {
-        PreparedStatement preparedStmt = Conn.prepareStatement(sql);
+        java.sql.PreparedStatement preparedStmt = Conn.prepareStatement(sql);
         preparedStmt.execute();
         preparedStmt.close();
         preparedStmt = null;

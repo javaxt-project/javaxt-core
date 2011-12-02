@@ -987,7 +987,7 @@ public class Recordset {
                  if (tables==null){
                      tables = new java.util.Vector<Table>();
                      String[] selectedTables = new Parser(this.sqlString).getTables();
-                     for (Table table : Connection.getDatabase().getTables()){
+                     for (Table table : Database.getTables(Connection)){
 
                          for (String selectedTable : selectedTables){
                              if (selectedTable.contains(".")) selectedTable = selectedTable.substring(selectedTable.indexOf("."));
@@ -1148,10 +1148,10 @@ public class Recordset {
         if (driver.equals("PostgreSQL")){
             return "ST_GeomFromText('" + FieldValue.toString() + "', 4326)";
         }
-        else if (driver.equals(Database.SQLServer)){
+        else if (driver.equals("SQLServer")){
             return "STGeomFromText('" + FieldValue.toString() + "', 4326)";
         }
-        else if (Connection.getDatabase().getDriver().equals("DB2")){
+        else if (driver.equals("DB2")){
             if (geometryType.equals("LINE")){
                 String line = FieldValue.toString().toUpperCase().replace("LINESTRING","LINE");
                 return "db2GSE.ST_LINE('" + line + "', 2000000000)";
