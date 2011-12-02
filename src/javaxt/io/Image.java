@@ -42,9 +42,9 @@ public class Image {
 
 
     private IIOMetadata metadata;
-    private HashMap<Integer, String> exif;
-    private HashMap<Integer, String> iptc;
-    private HashMap<Integer, String> gps;
+    private HashMap<Integer, Object> exif;
+    private HashMap<Integer, Object> iptc;
+    private HashMap<Integer, Object> gps;
 
 
   //**************************************************************************
@@ -623,7 +623,7 @@ public class Image {
    */
     public void rotate(){
         try {
-            Integer orientation = Integer.parseInt(getExifTags().get(0x0112));
+            Integer orientation = (Integer) getExifTags().get(0x0112);
             switch (orientation) {
                 case 1: return; //"Top, left side (Horizontal / normal)"
                 case 2: flip(); break; //"Top, right side (Mirror horizontal)";
@@ -1431,13 +1431,13 @@ public class Image {
     System.out.println("Copyright: " + iptc.get(0x0274));
    </pre>
    */
-    public HashMap<Integer, String> getIptcTags(){
+    public HashMap<Integer, Object> getIptcTags(){
 
         if (iptc==null){
-            iptc = new HashMap<Integer, String>();
+            iptc = new HashMap<Integer, Object>();
             for (IIOMetadataNode marker : getUnknownTags(0xED)){
                 byte[] iptcData = (byte[]) marker.getUserObject();
-                HashMap<Integer, String> tags = new MetadataParser(iptcData, 0xED).getTags("IPTC");
+                HashMap<Integer, Object> tags = new MetadataParser(iptcData, 0xED).getTags("IPTC");
                 iptc.putAll(tags);
             }
         }
@@ -1459,20 +1459,20 @@ public class Image {
   //** getExifTags
   //**************************************************************************
   /** Used to parse EXIF metadata and return a list of key/value pairs found
-   *  in the metadata. Any unknown or unparsed fields are returned in Base64
-   *  encoding (including the EXIF MakerNote). You can retrieve specific EXIF
-   *  metadata values like this:
+   *  in the metadata. Values can be Strings, Integers, or raw Byte Arrays.
+   *  You can retrieve specific EXIF metadata values like this:
    <pre>
     javaxt.io.Image image = new javaxt.io.Image("/temp/image.jpg");
-    java.util.HashMap<Integer, String> exif = image.getExifTags();
+    java.util.HashMap<Integer, Object> exif = image.getExifTags();
     System.out.println("Date: " + exif.get(0x0132));
     System.out.println("Camera: " + exif.get(0x0110));
     System.out.println("Focal Length: " + exif.get(0x920A));
     System.out.println("F-Stop: " + exif.get(0x829D));
     System.out.println("Shutter Speed: " + exif.get(0x829A));
    </pre>
+   * Note that the EXIF MakerNote is not parsed.
    */
-    public HashMap<Integer, String> getExifTags(){
+    public HashMap<Integer, Object> getExifTags(){
         if (exif==null) parseExif();
         return exif;
     }
@@ -1482,10 +1482,10 @@ public class Image {
   //** getGpsTags
   //**************************************************************************
   /** Used to parse EXIF metadata and return a list of key/value pairs 
-   *  associated with GPS metadata. Any unknown or undefined fields are 
-   *  returned in Base64 encoding. 
+   *  associated with GPS metadata. Values can be Strings, Integers, or raw
+   *  Byte Arrays.
    */
-    public HashMap<Integer, String> getGpsTags(){
+    public HashMap<Integer, Object> getGpsTags(){
         if (gps==null) parseExif();
         return gps;
     }
@@ -1494,14 +1494,14 @@ public class Image {
   /** Private method used to initialize the exif and gps hashmaps */
     private void parseExif(){
 
-        exif = new HashMap<Integer, String>();
-        gps = new HashMap<Integer, String>();
+        exif = new HashMap<Integer, Object>();
+        gps = new HashMap<Integer, Object>();
         for (IIOMetadataNode marker : getUnknownTags(0xE1)){
             byte[] exifData = (byte[]) marker.getUserObject();
 
             MetadataParser metadataParser = new MetadataParser(exifData, 0xE1);
-            HashMap<Integer, String> exif = metadataParser.getTags("EXIF");
-            HashMap<Integer, String> gps = metadataParser.getTags("GPS");
+            HashMap<Integer, Object> exif = metadataParser.getTags("EXIF");
+            HashMap<Integer, Object> gps = metadataParser.getTags("GPS");
 
             if (exif!=null) this.exif.putAll(exif);
             if (gps!=null) this.gps.putAll(gps);
@@ -1520,10 +1520,10 @@ public class Image {
     public double[] getGPSCoordinate(){
         getExifTags();
         try{
-            Double lat = getCoordinate(gps.get(0x0002));
-            Double lon = getCoordinate(gps.get(0x0004));
-            String latRef = gps.get(0x0001); //N
-            String lonRef = gps.get(0x0003); //W
+            Double lat = getCoordinate((String) gps.get(0x0002));
+            Double lon = getCoordinate((String) gps.get(0x0004));
+            String latRef = (String) gps.get(0x0001); //N
+            String lonRef = (String) gps.get(0x0003); //W
 
             if (!latRef.equalsIgnoreCase("N")) lat = -lat;
             if (!lonRef.equalsIgnoreCase("E")) lon = -lon;
@@ -1575,7 +1575,7 @@ public class Image {
    */
     public String getGPSDatum(){
         getExifTags();
-        return gps.get(0x0012);
+        return (String) gps.get(0x0012);
     }
     
 
@@ -1673,7 +1673,7 @@ private class MetadataParser {
     private final int FMT_ULONG = 4;
     private final int FMT_URATIONAL = 5;
     private final int FMT_SBYTE = 6;
-    private final int FMT_UNDEFINED = 7;
+    //private final int FMT_UNDEFINED = 7;
     private final int FMT_SSHORT = 8;
     private final int FMT_SLONG = 9;
     private final int FMT_SRATIONAL = 10;
@@ -1688,8 +1688,8 @@ private class MetadataParser {
     private final int TAG_GPS_OFFSET = 0x8825;
     private final int TAG_USERCOMMENT = 0x9286;
 
-    private HashMap<String, HashMap<Integer, String>> tags =
-        new HashMap<String, HashMap<Integer, String>>();
+    private HashMap<String, HashMap<Integer, Object>> tags =
+        new HashMap<String, HashMap<Integer, Object>>();
 
 
     public MetadataParser(byte[] data, int marker) {
@@ -1709,7 +1709,7 @@ private class MetadataParser {
    */
     private void parseIptc(byte[] iptcData) {
 
-        HashMap<Integer, String> tags = new HashMap<Integer, String>();
+        HashMap<Integer, Object> tags = new HashMap<Integer, Object>();
         this.tags.put("IPTC", tags);
 
         data = iptcData;
@@ -1763,7 +1763,7 @@ private class MetadataParser {
    */
     public void parseExif(byte[] exifData) {
 
-        HashMap<Integer, String> tags = new HashMap<Integer, String>();
+        HashMap<Integer, Object> tags = new HashMap<Integer, Object>();
         this.tags.put("EXIF", tags);
 
 
@@ -1813,12 +1813,12 @@ private class MetadataParser {
   //**************************************************************************
   /** Returns key/value pairs representing the EXIF or IPTC data. 
    */
-    public HashMap<Integer, String> getTags(String dir) {
+    public HashMap<Integer, Object> getTags(String dir) {
         return tags.get(dir);
     }
 
 
-    private void processExifDir(int dirStart, int offsetBase, HashMap<Integer, String> tags) {
+    private void processExifDir(int dirStart, int offsetBase, HashMap<Integer, Object> tags) {
         if (dirStart>=data.length) return;
 
 
@@ -1864,7 +1864,7 @@ private class MetadataParser {
 
                 tags = this.tags.get(dirName);
                 if (tags==null){
-                    tags = new HashMap<Integer, String>();
+                    tags = new HashMap<Integer, Object>();
                     this.tags.put(dirName, tags);
                 }
 
@@ -1895,7 +1895,7 @@ private class MetadataParser {
                 case FMT_SSHORT:
                 case FMT_ULONG:
                 case FMT_SLONG:
-                    tags.put(tag, "" + (int) getDouble(format, valueOffset));
+                    tags.put(tag, (int) getDouble(format, valueOffset));
                     break;
                 case FMT_URATIONAL:
                 case FMT_SRATIONAL:
@@ -1919,8 +1919,8 @@ private class MetadataParser {
 
                 
                 default: //including FMT_UNDEFINED
-                    String result = javaxt.utils.Base64.encodeBytes(getUndefined(valueOffset, byteCount));
-                    if (result!=null && result.length()>0) tags.put(tag, result);
+                    byte[] result = getUndefined(valueOffset, byteCount);
+                    if (result!=null) tags.put(tag, result);
                     break;
                 }
                 
