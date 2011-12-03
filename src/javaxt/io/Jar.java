@@ -78,6 +78,10 @@ public class Jar {
         }
         
     }
+
+    public Jar(java.io.File file){
+        this.file = file;
+    }
     
     
   //**************************************************************************
@@ -89,6 +93,98 @@ public class Jar {
     
     public java.io.File getFile(){
         return file;
+    }
+
+
+  //**************************************************************************
+  //** getManifest
+  //**************************************************************************
+  /**  Returns the Manifest file found in the "META-INF" directory. The
+   *   Manifest file contains metadata for the jar file including version
+   *   numbers, vendor name, etc. You can loop through properties in the
+   *   Manifest like this:
+   <pre>
+    java.io.File file = new java.io.File("/Drivers/h2/h2-1.3.162.jar");
+    java.util.jar.JarFile jar = new javaxt.io.Jar(file);
+    java.util.jar.Manifest manifest = jar.getManifest();
+
+    System.out.println("\r\nMain Attributes:\r\n--------------------------");
+    printAttributes(manifest.getMainAttributes());
+
+
+    System.out.println("\r\nOther Attributes:\r\n--------------------------");
+    java.util.Map&lt;String, java.util.jar.Attributes&gt; entries = manifest.getEntries();
+    java.util.Iterator&lt;String&gt; it = entries.keySet().iterator();
+    while (it.hasNext()){
+        String key = it.next();
+        printAttributes(entries.get(key));
+        System.out.println();
+    }
+
+    jar.close();
+
+    private static void printAttributes(java.util.jar.Attributes attributes){
+        java.util.Iterator it = attributes.keySet().iterator();
+        while (it.hasNext()){
+            java.util.jar.Attributes.Name key = (java.util.jar.Attributes.Name) it.next();
+            Object value = attributes.get(key);
+            System.out.println(key + ":  " + value);
+        }
+    }
+   </pre>
+   */
+    public java.util.jar.Manifest getManifest(){
+        try{
+            Entry entry = this.getEntry("META-INF", "MANIFEST.MF");
+            if (entry!=null) {
+                ByteArrayInputStream is = new ByteArrayInputStream(entry.getBytes());
+                java.util.jar.Manifest manifest = new java.util.jar.Manifest(is);
+                is.close();
+                return manifest;
+            }
+        }
+        catch(Exception e){
+        }
+        return null;
+    }
+
+    
+  //**************************************************************************
+  //** getVersion
+  //**************************************************************************
+  /** Returns the version number of the jar file, if available. Two different
+   *  strategies are used to find the version number. First strategy is to
+   *  parse the jar file manifest and return the value of the
+   *  "Implementation-Version" or "Bundle-Version", whichever is found first.
+   *  If no version information is found in the manifest, an attempt is made
+   *  to parse the file name. Returns a null is no version information is
+   *  available.
+   */
+    public String getVersion(){
+
+        java.util.jar.Attributes attributes = getManifest().getMainAttributes();
+        if (attributes!=null){
+            java.util.Iterator it = attributes.keySet().iterator();
+            while (it.hasNext()){
+                java.util.jar.Attributes.Name key = (java.util.jar.Attributes.Name) it.next();
+                String keyword = key.toString();
+                if (keyword.equals("Implementation-Version") || keyword.equals("Bundle-Version")){
+                    return (String) attributes.get(key);
+                }
+            }
+        }
+
+        String fileName = file.getName().substring(0, file.getName().lastIndexOf("."));
+        if (fileName.contains(".")){
+            String majorVersion = fileName.substring(0, fileName.indexOf("."));
+            int delimiter = majorVersion.lastIndexOf("-");
+            if (majorVersion.indexOf("_")>delimiter) delimiter = majorVersion.indexOf("_");
+            majorVersion = majorVersion.substring(delimiter+1, fileName.indexOf("."));
+            String minorVersion = fileName.substring(fileName.indexOf("."));
+            return majorVersion + minorVersion;
+        }
+
+        return null;
     }
     
     
@@ -234,8 +330,43 @@ public class Jar {
         public java.io.File getFile(){
             return fileEntry;
         }
-        
-        
+
+
+        public byte[] getBytes(){
+            try{
+                ZipFile zip = new ZipFile(file);
+                if (fileEntry==null){
+                    
+                    java.io.DataInputStream is = new java.io.DataInputStream(zip.getInputStream(zipEntry));
+
+                    int bufferSize = 1024;
+                    ByteArrayOutputStream bas = new ByteArrayOutputStream();
+                    byte[] b = new byte[bufferSize];
+                    int x=0;
+                    while((x=is.read(b,0,bufferSize))>-1) {
+                        bas.write(b,0,x);
+                    }
+                    bas.close();
+
+                    zip.close();
+                    return bas.toByteArray();
+                }
+                else{
+                    byte[] b = new byte[(int)fileEntry.length()];
+                    java.io.DataInputStream is = new java.io.DataInputStream(new FileInputStream(fileEntry));
+                    is.readFully(b, 0, b.length);
+                    is.close();
+                    zip.close();
+                    return b;
+                }
+            }
+            catch(Exception e){
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+
       /** Used to extract the zip entry to a file. */
         public void extractFile(java.io.File destination){
             try{
