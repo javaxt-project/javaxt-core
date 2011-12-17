@@ -27,8 +27,15 @@ public class Value {
         return value;
     }
 
-
+    
+  //**************************************************************************
+  //** toInteger
+  //**************************************************************************
+  /** Returns the value as an integer. Returns a null if there was a problem
+   *  converting the value to an integer or if the value is null.
+   */
     public Integer toInteger(){
+        if (value==null) return null;
         try{
             return Integer.valueOf(value+"");
         }
@@ -38,7 +45,14 @@ public class Value {
     }
 
 
+  //**************************************************************************
+  //** toShort
+  //**************************************************************************
+  /** Returns the value as a short. Returns a null if there was a problem
+   *  converting the value to a short or if the value is null.
+   */
     public Short toShort(){
+        if (value==null) return null;
         try{
             return Short.valueOf(value+"");
         }
@@ -48,7 +62,14 @@ public class Value {
     }
 
 
+  //**************************************************************************
+  //** toDouble
+  //**************************************************************************
+  /** Returns the value as a double. Returns a null if there was a problem
+   *  converting the value to a double or if the value is null.
+   */
     public Double toDouble(){
+        if (value==null) return null;
         try{
             return Double.valueOf(value+"");
         }
@@ -58,7 +79,14 @@ public class Value {
     }
 
 
+  //**************************************************************************
+  //** toLong
+  //**************************************************************************
+  /** Returns the value as a long. Returns a null if there was a problem
+   *  converting the value to a long or if the value is null.
+   */
     public Long toLong(){
+        if (value==null) return null;
         try{
             return Long.valueOf(value+"");
         }
@@ -68,7 +96,14 @@ public class Value {
     }
 
 
+  //**************************************************************************
+  //** toBigDecimal
+  //**************************************************************************
+  /** Returns the value as a BigDecimal. Returns a null if there was a problem
+   *  converting the value to a BigDecimal or if the value is null.
+   */
     public java.math.BigDecimal toBigDecimal(){
+        if (value==null) return null;
         try{
             return java.math.BigDecimal.valueOf(toDouble());
         }
@@ -78,7 +113,14 @@ public class Value {
     }
 
 
+  //**************************************************************************
+  //** toDate
+  //**************************************************************************
+  /** Returns the value as a Date. Returns a null if there was a problem
+   *  converting the value to a Date or if the value is null.
+   */
     public javaxt.utils.Date toDate(){
+        if (value==null) return null;
         try{
             return new javaxt.utils.Date(value.toString());
         }
@@ -87,10 +129,28 @@ public class Value {
         }
     }
 
+    
+  //**************************************************************************
+  //** toByteArray
+  //**************************************************************************
+  /** Returns the value as a byte array.
+   */
+    public byte[] toByteArray(){
+        if (value==null) return null;
+        if (value instanceof byte[]) return (byte[]) value;
 
-
-    public boolean isNull(){
-        return value==null;
+        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+        try {
+            java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(bos);
+            out.writeObject(value);
+            out.flush();
+            out.close();
+            bos.close();
+            return bos.toByteArray();
+        }
+        catch (java.io.IOException ex) {
+            return null;
+        }
     }
 
 
@@ -101,7 +161,7 @@ public class Value {
 
     public Boolean toBoolean(){
         if (value!=null){
-            value = value.toString().toLowerCase().trim();
+            String value = this.value.toString().toLowerCase().trim();
 
             if (value.equals("true")) return true;
             if (value.equals("false")) return false;
@@ -122,6 +182,7 @@ public class Value {
         return null;
     }
 
+
   //**************************************************************************
   //** isNumeric
   //**************************************************************************
@@ -130,6 +191,16 @@ public class Value {
     public boolean isNumeric(){
         if (toDouble()==null) return false;
         else return true;
+    }
+
+
+  //**************************************************************************
+  //** isNull
+  //**************************************************************************
+  /**  Used to determine whether the value is null. */
+
+    public boolean isNull(){
+        return value==null;
     }
 
 
@@ -145,6 +216,10 @@ public class Value {
     }
 
 
+  //**************************************************************************
+  //** equals
+  //**************************************************************************
+  /**  Used to compare values. Accepts any object. */
 
     public boolean equals(Object obj){
         if (obj instanceof Value) obj = ((Value) obj).toObject();

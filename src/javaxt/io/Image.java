@@ -515,7 +515,7 @@ public class Image {
             input.close(); 
         }
         catch(Exception e){
-            //printError(e);
+            //e.printStackTrace();
         }
     }
     
@@ -1061,40 +1061,31 @@ public class Image {
   //**************************************************************************
   //** getByteArray
   //**************************************************************************
-    
+  /** Returns the image as a jpeg byte array. Output quality is set using
+   *  the setOutputQuality method.
+   */
     public byte[] getByteArray(){
-        byte[] rgb = null;
-        try{
-            
-            
-            if (outputQuality>=0f && outputQuality<=1f)
-                rgb = getJPEGByteArray(outputQuality);
-            else
-                rgb = getJPEGByteArray(0.7f);
-            
-            
-            /*
-            //FileInputStream InputStream = new FileInputStream(File);
-            ImageInputStream InputStream = ImageIO.createImageInputStream(bufferedImage);
-            ByteArrayOutputStream bas = new ByteArrayOutputStream();
-            byte[] b = new byte[1024];
-            int x=0;
-            while((x=InputStream.read(b,0,1024))>-1) {
-                bas.write(b,0,x);
-            }
-            bas.close();
-            rgb = bas.toByteArray();
-            */  
-                    
+
+        /*
+        ImageInputStream InputStream = ImageIO.createImageInputStream(bufferedImage);
+        ByteArrayOutputStream bas = new ByteArrayOutputStream();
+        byte[] b = new byte[1024];
+        int x=0;
+        while((x=InputStream.read(b,0,1024))>-1) {
+            bas.write(b,0,x);
         }
-        catch(Exception e){e.printStackTrace();}
-        return rgb;
+        bas.close();
+        rgb = bas.toByteArray();
+        */
+
+        return getByteArray("jpeg");
     }
     
   //**************************************************************************
   //** getByteArray
   //**************************************************************************
-    
+  /** Returns the image as a byte array. */
+
     public byte[] getByteArray(String format){
         byte[] rgb = null;
         

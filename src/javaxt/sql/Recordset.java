@@ -345,10 +345,7 @@ public class Recordset {
                  if (Field.Class!=null){
                      if (Field.Class.trim().length()==0) Field.Class = null;
                  }
-                  
-                 //Field.Value = getVal(rs.getString(i));
-                 //System.out.println(Field.Schema + "." + Field.Table + "." + Field.Name);
-                 
+
                  Fields[i-1] = Field;                 
             }
             
@@ -359,7 +356,7 @@ public class Recordset {
                     
                     EOF = false;
                     for (int i=1; i<=cols; i++) {
-                         Fields[i-1].Value = new Value(rs.getString(i));
+                         Fields[i-1].Value = new Value(rs.getObject(i));
                     }
                     x+=1;
                 }
@@ -888,7 +885,7 @@ public class Recordset {
                 if (rs.next()){
                     for (int i=1; i<=Fields.length; i++) {
                         Field Field = Fields[i-1];
-                        Field.Value = new Value(rs.getString(i));
+                        Field.Value = new Value(rs.getObject(i));
                         Field.RequiresUpdate = false;
                     }
                     x+=1;
@@ -900,7 +897,7 @@ public class Recordset {
                 }
             }
             catch(Exception e){
-                System.out.println("ERROR MoveNext: " + e.toString());
+                //System.out.println("ERROR MoveNext: " + e.toString());
             }
         }        
         return false;
@@ -954,9 +951,9 @@ public class Recordset {
         try{
             for (int i=1; i<=Fields.length; i++) {
                  Field Field = Fields[i-1];
-                 Field.Value = new Value(rs.getString(i));
+                 Field.Value = new Value(rs.getObject(i));
                  Field.RequiresUpdate = false;
-            }   
+            }
         }
         catch(Exception e){}
         

@@ -1,4 +1,6 @@
 package javaxt.utils;
+import java.util.HashMap;
+import java.util.List;
 
 //******************************************************************************
 //**  URL Class - By Peter Borissow
@@ -13,7 +15,7 @@ package javaxt.utils;
 
 public class URL {
     
-    private java.util.HashMap<String, java.util.List<String>> parameters;
+    private HashMap<String, List<String>> parameters;
     private String protocol;
     private String host;
     private Integer port;
@@ -37,7 +39,7 @@ public class URL {
     
     public URL(String url){
 
-        parameters = new java.util.HashMap<String, java.util.List<String>>();
+        parameters = new HashMap<String, List<String>>();
 
 
         if (url.contains("://")){
@@ -60,7 +62,7 @@ public class URL {
         if (url.contains("?")){
             String query = url.substring(url.indexOf("?")+1);
             url = url.substring(0, url.indexOf("?"));
-            parseQueryString(query);
+            parameters = parseQueryString(query);
         }
 
         if (url.contains("/")){
@@ -105,18 +107,19 @@ public class URL {
   //**************************************************************************
   //** parseQueryString
   //************************************************************************** 
-  /** Used to parse the query string and create an array of query string
-   *  parameters.
+  /** Used to parse a url query string and create a list of name/value pairs.
+   *  Note that the keys are all lowercase.
    */      
-    private void parseQueryString(String query){
+    public static HashMap<String, List<String>> parseQueryString(String query){
 
-        parameters = new java.util.HashMap<String, java.util.List<String>>();
 
-      //Extract and Prep QueryString
-        if (query==null) return;
-        
+      //Create an empty hashmap
+        HashMap<String, List<String>> parameters = new HashMap<String, List<String>>();
+        if (query==null) return parameters;
+
+      //Decode the querystring
         try{
-            query = new java.net.URLDecoder().decode(query, "UTF-8");
+            query = java.net.URLDecoder.decode(query, "UTF-8");
             //query = new String(query.getBytes(), encoding);
         }
         catch(Exception e){
@@ -127,23 +130,25 @@ public class URL {
                  query = query.replace(find[i],replace[i]);
             }
         }
-        
-        
+
+
+      //Parse the querystring, one character at a time. Note that the tokenizer
+      //implemented here is very inefficient. Need something better/faster.
         if (query.startsWith("&")) query = query.substring(1);
         query += "&";
 
 
-        String word = "";
+        StringBuffer word = new StringBuffer();
         String c = "";
 
-         for (int i=0; i<query.length(); i++){
+        for (int i=0; i<query.length(); i++){
 
-              c = query.substring(i,i+1); 
+             c = query.substring(i,i+1); 
 
-              if (!c.equals("&")){     
-                 word = word + c;
-              }
-              else{     
+             if (!c.equals("&")){
+                 word.append(c); //word = word + c;
+             }
+             else{     
                  //System.out.println(word);
 
                  int x = word.indexOf("=");
@@ -151,19 +156,20 @@ public class URL {
                      String key = word.substring(0,x).toLowerCase();
                      String value = word.substring(x+1);
                      
-                     java.util.List<String> values = parameters.get(key);
+                     List<String> values = parameters.get(key);
                      if (values==null) values = new java.util.LinkedList<String>();
                      values.add(value);
                      parameters.put(key, values);
                  }
                  else{
-                     parameters.put(word, null);
+                     parameters.put(word.toString(), null);
                  }
 
-                 word = "";
-              }
-         }
+                 word = new StringBuffer(); //word = "";
+             }
+        }
 
+        return parameters;
     }
 
 
@@ -177,7 +183,7 @@ public class URL {
 
         key = key.toLowerCase();
         if (append){
-            java.util.List<String> values = parameters.get(key);
+            List<String> values = parameters.get(key);
             java.util.Iterator<String> it = values.iterator();
             while(it.hasNext()){
                 if (it.next().equalsIgnoreCase(value)){
@@ -193,7 +199,7 @@ public class URL {
         }
         else{
             if (value!=null){
-                java.util.List<String> values = new java.util.LinkedList<String>();
+                List<String> values = new java.util.LinkedList<String>();
                 values.add(value);
                 parameters.put(key, values);
             }
@@ -227,7 +233,7 @@ public class URL {
    */ 
     public String getParameter(String key){
         StringBuffer str = new StringBuffer();
-        java.util.List<String> values = parameters.get(key.toLowerCase());
+        List<String> values = parameters.get(key.toLowerCase());
         if (values!=null){
             for (int i=0; i<values.size(); i++){
                 str.append(values.get(i));
@@ -250,7 +256,7 @@ public class URL {
 
         StringBuffer str = new StringBuffer();
         for (String key : keys){
-            java.util.List<String> values = parameters.get(key.toLowerCase());
+            List<String> values = parameters.get(key.toLowerCase());
             if (values!=null){
                 for (int i=0; i<values.size(); i++){
                     str.append(values.get(i) + ",");
@@ -269,7 +275,7 @@ public class URL {
   //**************************************************************************
   /**  Used to retrieve the query string parameters
    */
-    public java.util.HashMap<String, java.util.List<String>> getParameters(){
+    public HashMap<String, List<String>> getParameters(){
         return parameters;
     }
 
@@ -281,7 +287,7 @@ public class URL {
    */
     public String removeParameter(String key){
         StringBuffer str = new StringBuffer();
-        java.util.List<String> values = parameters.remove(key.toLowerCase());
+        List<String> values = parameters.remove(key.toLowerCase());
         if (values!=null){
             for (int i=0; i<values.size(); i++){
                 str.append(values.get(i));
@@ -360,13 +366,13 @@ public class URL {
    */
     public void setQueryString(String query){
         if (query==null){
-            parameters = new java.util.HashMap<String, java.util.List<String>>();
+            parameters = new HashMap<String, List<String>>();
         }
         else{
             query = query.trim();
             if (query.startsWith("?")) query = query.substring(1).trim();
             if (query.length()>0){
-                this.parseQueryString(query);
+                parameters = parseQueryString(query);
             }
         }
     }
@@ -484,7 +490,7 @@ public class URL {
             
         }
         catch(Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         return url;
 
