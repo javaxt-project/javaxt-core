@@ -82,26 +82,26 @@ public class WSDL {
             NamedNodeMap attr = node.getAttributes();
 
 
-            Name = getAttributeValue(attr, "name");
-            Type = getAttributeValue(attr, "type");
-            IsNillable = isElementNillable(getAttributeValue(attr, "nillable"));
+            Name = DOM.getAttributeValue(attr, "name");
+            Type = DOM.getAttributeValue(attr, "type");
+            IsNillable = isElementNillable(DOM.getAttributeValue(attr, "nillable"));
             IsComplex = isElementComplex(Type);
-            minOccurs = getAttributeValue(attr, "minOccurs");
-            maxOccurs = getAttributeValue(attr, "maxOccurs");
+            minOccurs = DOM.getAttributeValue(attr, "minOccurs");
+            maxOccurs = DOM.getAttributeValue(attr, "maxOccurs");
 
             if (minOccurs.length()==0) minOccurs = "0";
             if (maxOccurs.length()==0) maxOccurs = "1";
 
             Type = stripNameSpace(Type);
 
-            String elementRef = getAttributeValue(attr, "ref");
+            String elementRef = DOM.getAttributeValue(attr, "ref");
             if (elementRef.length()>0){
                 Name = elementRef;
             }
             
             if (nodeName.equalsIgnoreCase("attribute")){
                 IsAttribute = true;
-                IsNillable = getAttributeValue(attr, "use").equalsIgnoreCase("optional");
+                IsNillable = DOM.getAttributeValue(attr, "use").equalsIgnoreCase("optional");
             }
         }
 
@@ -310,7 +310,7 @@ public class WSDL {
     
     private String getTargetNameSpace(){
         NamedNodeMap attr = getDefinitionAttributes();
-        return getAttributeValue(attr, "targetNamespace");
+        return DOM.getAttributeValue(attr, "targetNamespace");
     }
 
     
@@ -416,7 +416,7 @@ public class WSDL {
  
               //Get Service Name
                 attr = Definitions.item(i).getAttributes();
-                ServiceName = getAttributeValue(attr, "name");
+                ServiceName = DOM.getAttributeValue(attr, "name");
 
                 
               //Get Service Description
@@ -523,8 +523,8 @@ public class WSDL {
 
                 //Get Service Binding
                 NamedNodeMap attr = Ports.item(j).getAttributes(); 
-                PortName = getAttributeValue(attr, "name");
-                PortBinding = stripNameSpace(getAttributeValue(attr, "binding"));
+                PortName = DOM.getAttributeValue(attr, "name");
+                PortBinding = stripNameSpace(DOM.getAttributeValue(attr, "binding"));
                 
 
                 //Get Service Endpoint (url)
@@ -534,7 +534,7 @@ public class WSDL {
                     String Address = Addresses.item(k).getNodeName();
                     if (contains(Address, "address") && !contains(Address,"http:") ) { //soap:address
                         attr = Addresses.item(k).getAttributes();
-                        PortAddress = getAttributeValue(attr, "location"); 
+                        PortAddress = DOM.getAttributeValue(attr, "location");
                         foundSoapPort = true;
                     }
                 }
@@ -577,8 +577,8 @@ public class WSDL {
                 
                 //Get Binding Name
                 attr = Definitions.item(i).getAttributes();
-                BindingName = getAttributeValue(attr, "name");                
-                BindingType = getAttributeValue(attr, "type");
+                BindingName = DOM.getAttributeValue(attr, "name");
+                BindingType = DOM.getAttributeValue(attr, "type");
                 if (BindingName.equals(PortBinding)){
                     
                     
@@ -590,8 +590,8 @@ public class WSDL {
                     for (int j=0; j<ChildNodes.getLength(); j++ ) {
                         if (contains(ChildNodes.item(j).getNodeName(), "binding")) {
                             attr = ChildNodes.item(j).getAttributes();
-                            BindingStyle = getAttributeValue(attr, "style");
-                            BindingTransport = getAttributeValue(attr, "transport");
+                            BindingStyle = DOM.getAttributeValue(attr, "style");
+                            BindingTransport = DOM.getAttributeValue(attr, "transport");
                         }
                     }
 
@@ -604,14 +604,14 @@ public class WSDL {
                             BindingCount +=1;
                             
                             attr = ChildNodes.item(j).getAttributes();
-                            Binding.Operation = getAttributeValue(attr, "name");
+                            Binding.Operation = DOM.getAttributeValue(attr, "name");
                             
                             NodeList Operations = ChildNodes.item(j).getChildNodes();
                             for (int k=0; k<Operations.getLength(); k++ ) {
                                  if (contains(Operations.item(k).getNodeName(), "operation")) {
                                      attr = Operations.item(k).getAttributes();
-                                     Binding.SoapAction = getAttributeValue(attr, "soapaction");
-                                     Binding.Style = BindingStyle; //getAttributeValue(attr, "style");
+                                     Binding.SoapAction = DOM.getAttributeValue(attr, "soapaction");
+                                     Binding.Style = BindingStyle; //DOM.getAttributeValue(attr, "style");
                                      
                                      Binding.Name = BindingName;
                                      Binding.Type = stripNameSpace(BindingType);
@@ -661,9 +661,9 @@ public class WSDL {
                 
                 
                 attr = Definitions.item(i).getAttributes();
-                portTypeName = getAttributeValue(attr, "name"); 
+                portTypeName = DOM.getAttributeValue(attr, "name");
                 
-                //System.out.println(" vs " + getAttributeValue(attr, "name"));
+                //System.out.println(" vs " + DOM.getAttributeValue(attr, "name"));
 
                 if (portTypeName.equals(PortTypeName)){
                     
@@ -684,7 +684,7 @@ public class WSDL {
                         if (NodeName.endsWith("operation")) {
                             
                             attr = PortTypes.item(j).getAttributes();
-                            operationName = getAttributeValue(attr, "name"); 
+                            operationName = DOM.getAttributeValue(attr, "name");
                             if (operationName.equals(OperationName)){
                                 
                               //Instantiate Message Object
@@ -697,7 +697,7 @@ public class WSDL {
                                     if (Messages.item(k).getNodeType()==1){
                                     
                                         attr = Messages.item(k).getAttributes();
-                                        messageName = stripNameSpace(getAttributeValue(attr, "message"));
+                                        messageName = stripNameSpace(DOM.getAttributeValue(attr, "message"));
 
                                         if (contains(Messages.item(k).getNodeName(), "input")) {
                                             Message.Input = messageName;
@@ -751,7 +751,7 @@ public class WSDL {
             if (contains(Definitions.item(i).getNodeName(), "message")) {
                 
                 attr = Definitions.item(i).getAttributes();
-                messageName = getAttributeValue(attr, "name");
+                messageName = DOM.getAttributeValue(attr, "name");
                 if (messageName.equals(MessageName)){
 
                   
@@ -763,7 +763,7 @@ public class WSDL {
                             
 
                             attr = Messages.item(j).getAttributes();
-                            type = getAttributeValue(attr, "type");
+                            type = DOM.getAttributeValue(attr, "type");
                             
                             if (type!=""){ //This is rare!
                                 
@@ -774,7 +774,7 @@ public class WSDL {
                             }
                             else{      
                               
-                                String element = stripNameSpace(getAttributeValue(attr, "element"));
+                                String element = stripNameSpace(DOM.getAttributeValue(attr, "element"));
                                 elements = getElement(element);
                             }
                             
@@ -935,7 +935,7 @@ public class WSDL {
                         NamedNodeMap attr = node.getAttributes();
 
                         if (followImports){
-                            importSchemas(getAttributeValue(attr, "schemaLocation"), auxSchemas);
+                            importSchemas(DOM.getAttributeValue(attr, "schemaLocation"), auxSchemas);
                         }
 
                         Node iSchema = node.getParentNode();
@@ -988,7 +988,7 @@ public class WSDL {
                 Node node = getNode(Schema.item(i), "import");
                 if (node!=null){
                     NamedNodeMap attr = node.getAttributes();
-                    schemaLocation = getAttributeValue(attr, "schemaLocation");
+                    schemaLocation = DOM.getAttributeValue(attr, "schemaLocation");
 
                     importSchemas(schemaLocation, auxSchemas);
 
@@ -1500,9 +1500,9 @@ public class WSDL {
             NamedNodeMap attr = ServiceNode.getAttributes();
 
             Service = new Service();
-            Service.Name = getAttributeValue(attr, "name");
-            Service.NameSpace = getAttributeValue(attr, "namespace");
-            Service.URL = getAttributeValue(attr, "url");
+            Service.Name = DOM.getAttributeValue(attr, "name");
+            Service.NameSpace = DOM.getAttributeValue(attr, "namespace");
+            Service.URL = DOM.getAttributeValue(attr, "url");
 
             NodeList ChildNodes = ServiceNode.getChildNodes();
             for (int j=0; j<ChildNodes.getLength(); j++ ) {
@@ -1564,9 +1564,9 @@ public class WSDL {
             NamedNodeMap attr = MethodNode.getAttributes();
 
             Method = new Method();
-            Method.Name = getAttributeValue(attr, "name");  
-            Method.SoapAction = getAttributeValue(attr, "soapAction");
-            Method.ResultsNode = getAttributeValue(attr, "resultsNode");
+            Method.Name = DOM.getAttributeValue(attr, "name");
+            Method.SoapAction = DOM.getAttributeValue(attr, "soapAction");
+            Method.ResultsNode = DOM.getAttributeValue(attr, "resultsNode");
             //Method.URL = Service.URL;
             //Method.NameSpace = Service.NameSpace;
 
@@ -1629,11 +1629,11 @@ public class WSDL {
     private Parameter getParameter(Node ParameterNode){
         Parameter Parameter = new Parameter();
         NamedNodeMap attr = ParameterNode.getAttributes();
-        Parameter.Name = getAttributeValue(attr, "name");
-        Parameter.Type = getAttributeValue(attr, "type");
-        Parameter.IsAttribute = bool(getAttributeValue(attr, "isattribute"));
-        Parameter.IsNillable = bool(getAttributeValue(attr, "isnillable"));
-        Parameter.minOccurs = getAttributeValue(attr, "minOccurs");
+        Parameter.Name = DOM.getAttributeValue(attr, "name");
+        Parameter.Type = DOM.getAttributeValue(attr, "type");
+        Parameter.IsAttribute = bool(DOM.getAttributeValue(attr, "isattribute"));
+        Parameter.IsNillable = bool(DOM.getAttributeValue(attr, "isnillable"));
+        Parameter.minOccurs = DOM.getAttributeValue(attr, "minOccurs");
         Parameter.ChildNodes = ParameterNode.getChildNodes();
         Parameter.ParentNode = ParameterNode.getParentNode();
         Parameter.Options = getOptions(ParameterNode.getChildNodes());
@@ -1681,7 +1681,7 @@ public class WSDL {
     
     private Option getOption(Node node){
         NamedNodeMap attr = node.getAttributes();        
-        String value = getAttributeValue(attr, "value");
+        String value = DOM.getAttributeValue(attr, "value");
         String name = value;
         return new Option(name, value);
     }
@@ -1751,15 +1751,6 @@ public class WSDL {
        return null;
     }
 
-    
-  //**************************************************************************
-  //** getAttributeValue
-  //**************************************************************************
-    
-    private String getAttributeValue(NamedNodeMap attrCollection, String attrName){
-        return DOM.getAttributeValue(attrCollection,attrName);
-    }    
-    
     
   //**************************************************************************
   //** bool - convert String to boolean

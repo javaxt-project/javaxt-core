@@ -183,7 +183,9 @@ public class DOM {
                      ret.append(getNodeValue(node));
                  }
                  else{
-                     ret.append("<" + node.getNodeName() + getAttributes(node) + "/>");
+                     ret.append("<" + node.getNodeName() + getAttributes(node) + ">");
+                     ret.append(getNodeValue(node));
+                     ret.append("</" + node.getNodeName() + ">");
                  }
 
              }
