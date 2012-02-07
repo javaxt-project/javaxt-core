@@ -463,8 +463,17 @@ public class Directory implements Comparable {
    *   Wildcard filters are supported. Note that the filter is only applied to
    *   files, not directories.
    *
-   *   @param RecursiveSearch If true, will include files found in
-   *   subdirectories.
+   *   @param RecursiveSearch If true, will perform a multi-threaded, recursive
+   *   directory search to find all the files found in the current directory,
+   *   including any subdirectories. If false, the method will simply return
+   *   files found in the current directory. <br/>
+   *
+   *   Note that if the thread is interrupted for whatever reason during a
+   *   recursive search, the search will stop immediately. Consequently, the
+   *   returned array may be incomplete. You can check the interrupted status
+   *   with the Thread.isInterrupted() method. Alternatively, you can read and
+   *   clear the interrupted status in a single operation using the
+   *   Thread.interrupted() method.
    */    
     public File[] getFiles(Object filter, boolean RecursiveSearch){        
 
@@ -496,6 +505,7 @@ public class Directory implements Comparable {
                     }
                 }
                 catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
 
               //Sort the list
@@ -520,8 +530,17 @@ public class Directory implements Comparable {
   //**************************************************************************
   /**  Used to retrieve an array of files found in this directory. 
    *
-   *   @param RecursiveSearch If true, will include files found in
-   *   subdirectories.
+   *   @param RecursiveSearch If true, will perform a multi-threaded, recursive
+   *   directory search to find all the files found in the current directory,
+   *   including any subdirectories. If false, the method will simply return
+   *   files found in the current directory. <br/>
+   *
+   *   Note that if the thread is interrupted for whatever reason during a
+   *   recursive search, the search will stop immediately. Consequently, the
+   *   returned array may be incomplete. You can check the interrupted status
+   *   with the Thread.isInterrupted() method. Alternatively, you can read and
+   *   clear the interrupted status in a single operation using the
+   *   Thread.interrupted() method.
    */
     public File[] getFiles(boolean RecursiveSearch){
         return getFiles(null, RecursiveSearch);
@@ -529,7 +548,7 @@ public class Directory implements Comparable {
         
     
   //**************************************************************************
-  //** getDirectories
+  //** getSubDirectories
   //**************************************************************************
   /**  Used to retrieve an array of directories found in this directory.
    */
@@ -539,12 +558,21 @@ public class Directory implements Comparable {
     
     
   //**************************************************************************
-  //** getDirectories
+  //** getSubDirectories
   //**************************************************************************
   /**  Used to retrieve an array of directories found in this directory.
    *
-   *   @param RecursiveSearch If true, will include files found in the 
-   *   subdirectories.
+   *   @param RecursiveSearch If true, will perform a multi-threaded, recursive
+   *   directory search to find all the directories found in the current
+   *   directory, including any subdirectories. If false, the method will simply
+   *   return directories found in the current directory. <br/>
+   * 
+   *   Note that if the thread is interrupted for whatever reason during a
+   *   recursive search, the search will stop immediately. Consequently, the
+   *   returned array may be incomplete. You can check the interrupted status
+   *   with the Thread.isInterrupted() method. Alternatively, you can read and
+   *   clear the interrupted status in a single operation using the
+   *   Thread.interrupted() method.
    */    
     public Directory[] getSubDirectories(boolean RecursiveSearch){
         if (this.exists()){
@@ -576,6 +604,7 @@ public class Directory implements Comparable {
                     }
                 }
                 catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
                 return directories.toArray(new Directory[directories.size()]);
                 
@@ -656,8 +685,17 @@ public class Directory implements Comparable {
   //**************************************************************************
   /**  Used to retrieve an list of files and folders found in this directory.
    *
-   *   @param RecursiveSearch If true, will include files found in the
-   *   subdirectories.
+   *   @param RecursiveSearch If true, will perform a multi-threaded, recursive
+   *   directory search to find all the files and folders found in the current
+   *   directory, including any subdirectories. If false, the method will simply
+   *   return items found in the current directory. <br/>
+   *
+   *   Note that if the thread is interrupted for whatever reason during a
+   *   recursive search, the search will stop immediately. Consequently, the
+   *   returned array may be incomplete. You can check the interrupted status
+   *   with the Thread.isInterrupted() method. Alternatively, you can read and
+   *   clear the interrupted status in a single operation using the
+   *   Thread.interrupted() method.
    *
    *   @param filter A file filter. You can pass in a java.io.FileFilter, a
    *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
@@ -692,7 +730,7 @@ public class Directory implements Comparable {
                   }
                 }
                 obj = files.remove(0);
-                items.notifyAll();
+                files.notifyAll();
             }
 
             if (obj==null){
@@ -745,6 +783,7 @@ public class Directory implements Comparable {
                               }
                               catch (InterruptedException e) {
                                   DirectorySearch.stop();
+                                  Thread.currentThread().interrupt();
                                   return items;
                               }
                             }
@@ -1034,6 +1073,7 @@ public class Directory implements Comparable {
         catch(java.io.IOException e){
         }
         catch(InterruptedException e){
+            Thread.currentThread().interrupt();
         }
 
 
@@ -1181,6 +1221,7 @@ public class Directory implements Comparable {
         catch(java.io.IOException e){
         }
         catch(InterruptedException e){
+            Thread.currentThread().interrupt();
         }
 
 
@@ -1820,6 +1861,7 @@ class DirectorySearch implements Runnable {
                     }
                     catch (InterruptedException e) {
                       //If interrupted, return immediately
+                        Thread.currentThread().interrupt();
                         return;
                     }
                 }
@@ -2146,6 +2188,7 @@ class DirectorySearch implements Runnable {
                     }
                     catch (InterruptedException e) {
                       //If interrupted, return immediately
+                        Thread.currentThread().interrupt();
                         return;
                     }
                 }

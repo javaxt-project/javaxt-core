@@ -10,7 +10,6 @@ import java.awt.*;
 
 import java.util.HashSet;
 import java.util.HashMap;
-import java.util.Vector;
 import java.util.Iterator;
 
 import com.sun.image.codec.jpeg.*;
@@ -31,7 +30,7 @@ import com.sun.image.codec.jpeg.*;
 public class Image {
     
     private BufferedImage bufferedImage = null; 
-    private Vector corners = null;
+    private java.util.ArrayList corners = null;
     
     private float outputQuality = 1f; //0.9f; //0.5f;
     
@@ -742,8 +741,6 @@ public class Image {
         outputImage = null;
         bi = null;
         g2d = null;
-        
-        //System.out.println("Resized image in " + getEllapsedTime(startTime) + " ms...");
     }
     
     
@@ -762,7 +759,7 @@ public class Image {
         Skew skew = new Skew(this.bufferedImage);
         this.bufferedImage = skew.setCorners(x0,y0,x1,y1,x2,y2,x3,y3);
         
-        if (corners==null) corners = new Vector();
+        if (corners==null) corners = new java.util.ArrayList();
         else corners.clear();        
         corners.add((Float)x0); corners.add((Float)y0);
         corners.add((Float)x1); corners.add((Float)y1);
@@ -776,7 +773,7 @@ public class Image {
   //**************************************************************************
   /**  Used to retrieve the corner coordinates of the image. Coordinates are 
    *   supplied in clockwise order starting from the upper left corner. This 
-   *   information is particularely useful for generating drop shadows, inner 
+   *   information is particularly useful for generating drop shadows, inner 
    *   and outer glow, and reflections.
    *   NOTE: Coordinates are not updated after resize(), rotate(), or addImage()
    */
@@ -785,7 +782,7 @@ public class Image {
         if (corners==null){
             float w = getWidth();
             float h = getHeight();
-            corners = new Vector();
+            corners = new java.util.ArrayList();
             corners.add((Float)0f); corners.add((Float)0f);
             corners.add((Float)w); corners.add((Float)0f);
             corners.add((Float)w); corners.add((Float)h);
@@ -1332,7 +1329,6 @@ public class Image {
   /**  Used to compare this image to another. If the ARGB values match, this 
    *   method will return true. 
    */
-    
     public boolean equals(Object obj){
         if (obj!=null){
             if (obj instanceof javaxt.io.Image){
@@ -1353,7 +1349,6 @@ public class Image {
                     }
                     
                     return true;
-                    
                 }
                 
             }
@@ -1645,18 +1640,15 @@ private class MetadataParser {
 // Implementation notes:
 // (1) Merged Version 1.1 of the "Exif.java" and "ExifData.java" classes.
 // (2) Added new IPTC metadata parser.
-// (3) All Unknown/Undefined EXIF fields are Base64 encoded. Need to do the
-//     same for unknown IPTC fields.
-// (4) All unsigned integers are treated as signed ints (should be longs).
-// (5) Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
+// (3) All unsigned integers are treated as signed ints (should be longs).
+// (4) Added logic to parse GPS Info using the GPS IFD offset value (tag 34853,
 //     hex 0x8825).
-// (6) Added logic to parse an array of rational numbers (e.g. GPS metadata).
-// (7) Improved performance in the parseExif() method by serializing only the
+// (5) Added logic to parse an array of rational numbers (e.g. GPS metadata).
+// (6) Improved performance in the parseExif() method by serializing only the
 //     first 8 characters into a string (vs the entire EXIF byte array).
-// (8) TODO: Need to come up with a clever scheme to parse MakerNotes.
+// (7) TODO: Need to come up with a clever scheme to parse MakerNotes.
 
-    private final int bytesPerFormat[] = { 0, 1, 1, 2, 4, 8, 1,
-            1, 2, 4, 8, 4, 8 };
+    private final int bytesPerFormat[] = {0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8};
     private final int NUM_FORMATS = 12;
     private final int FMT_BYTE = 1;
     private final int FMT_STRING = 2;

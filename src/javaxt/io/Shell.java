@@ -311,7 +311,7 @@ public class Shell {
                 }
 
                 list.add(null);
-                is.close ();
+                is.close();
 
             }
             catch (Exception ex) {
@@ -321,7 +321,7 @@ public class Shell {
         }
         
         public void join() throws InterruptedException {
-        	thread.join();
+            thread.join();
         }
 
     } //End StreamReader Class

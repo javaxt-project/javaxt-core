@@ -39,6 +39,7 @@ public class URL {
     
     public URL(String url){
 
+        url = url.trim();
         parameters = new HashMap<String, List<String>>();
 
 
@@ -120,7 +121,6 @@ public class URL {
       //Decode the querystring
         try{
             query = java.net.URLDecoder.decode(query, "UTF-8");
-            //query = new String(query.getBytes(), encoding);
         }
         catch(Exception e){
           //Try to decode the string manually
