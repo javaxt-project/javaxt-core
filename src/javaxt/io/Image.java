@@ -433,10 +433,7 @@ public class Image {
             
       //Create new image "collage"
         if (w>bufferedImage.getWidth() || h>bufferedImage.getHeight()){
-            int imageType = bufferedImage.getType();
-            if (imageType == 0) {
-              imageType = BufferedImage.TYPE_INT_ARGB;
-            }
+            int imageType = BufferedImage.TYPE_INT_ARGB;
             BufferedImage bi = new BufferedImage(w, h, imageType);
             Graphics2D g2d = bi.createGraphics();
             java.awt.Image img = bufferedImage;

@@ -206,15 +206,19 @@ public class File implements Comparable {
         if (File!=null) return new javaxt.utils.Date(File.lastModified()).getDate();
         else return null;
     }
-    
+
+
   //**************************************************************************
   //** Exists
   //**************************************************************************
-  /**  Used to determine whether a file exists. */
-    
+  /**  Used to determine whether a file exists. Returns false if the file
+   *   system can't find the file or if the object is a directory.
+   */
     public boolean exists(){ 
-        if (File!=null) return File.exists();
-        else return false;
+        if (File!=null){
+            if (File.isFile()) return File.exists();
+        }
+        return false;
     }
     
     
