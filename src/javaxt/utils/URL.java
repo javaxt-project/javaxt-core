@@ -55,15 +55,16 @@ public class URL {
         }
 
 
-        if (url.contains(";")){
-            url = url.substring(0, url.indexOf(";"));
-        }
-
 
         if (url.contains("?")){
             String query = url.substring(url.indexOf("?")+1);
             url = url.substring(0, url.indexOf("?"));
             parameters = parseQueryString(query);
+        }
+        else{
+            if (url.contains(";")){ //found jdbc delimiter
+                url = url.substring(0, url.indexOf(";"));
+            }
         }
 
         if (url.contains("/")){
@@ -118,12 +119,13 @@ public class URL {
         HashMap<String, List<String>> parameters = new HashMap<String, List<String>>();
         if (query==null) return parameters;
 
-      //Decode the querystring
+
+      //Decode the querystring. Note that the urlDecoder doesn't decode everything (e.g. "&amp;")
         try{
             query = java.net.URLDecoder.decode(query, "UTF-8");
         }
         catch(Exception e){
-          //Try to decode the string manually
+          //This should never happen. Try to decode the string manually?
             String find[] = new String[]{"%2C","%2F","%3A"};
             String replace[] = new String[]{",","/",":"};
             for (int i=0; i<find.length; i++){
@@ -131,7 +133,11 @@ public class URL {
             }
         }
 
+      //Special case for query strings with "&amp;" instead of "&" delimiters
+        boolean amp = query.contains("&amp;");
+        if (amp) query = query.replace("&amp;", "&");
 
+        
       //Parse the querystring, one character at a time. Note that the tokenizer
       //implemented here is very inefficient. Need something better/faster.
         if (query.startsWith("&")) query = query.substring(1);
@@ -155,6 +161,9 @@ public class URL {
                  if (x>=0){
                      String key = word.substring(0,x).toLowerCase();
                      String value = word.substring(x+1);
+
+                   //Special case for JDBC connection strings that contain extra params after the query
+                     if (amp && value.contains(";")) value = value.substring(0, value.indexOf(";"));
                      
                      List<String> values = parameters.get(key);
                      if (values==null) values = new java.util.LinkedList<String>();
