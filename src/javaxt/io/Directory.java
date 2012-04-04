@@ -253,13 +253,25 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** getDate
   //**************************************************************************
-  /**  Returns the date when the directory was last modified. */
-    
+  /** Returns a timestamp of when the directory was last modified. This is
+   *  identical to the getLastModifiedTime() method.
+   */
     public java.util.Date getDate(){
         return new javaxt.utils.Date(Directory.lastModified()).getDate();
     }
 
-    
+
+  //**************************************************************************
+  //** setDate
+  //**************************************************************************
+  /**  Used to set the timestamp of when the directory was last modified.
+   */
+    public void setDate(java.util.Date lastModified){
+        long t = lastModified.getTime();
+        if (Directory.lastModified()!=t) Directory.setLastModified(t);
+    }
+
+
   //**************************************************************************
   //** getSize
   //**************************************************************************
@@ -297,6 +309,17 @@ public class Directory implements Comparable {
    */
     public java.io.File getLink(){
         return new File(this).getLink();
+    }
+
+
+  //**************************************************************************
+  //** getLastModifiedTime
+  //**************************************************************************
+  /** Returns a timestamp of when the directory was last modified. This is
+   *  identical to the getDate() method.
+   */
+    public java.util.Date getLastModifiedTime(){
+        return this.getDate();
     }
 
 
@@ -851,9 +874,9 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** listFiles
   //**************************************************************************
-  /**  Used to return an array of java.io.Files found in this directory. */
+  /**  Used to return a list of files found in this directory. */
 
-    protected Object[] listFiles(){
+    public Object[] listFiles(){
         return listFiles(null);
     }
 
@@ -862,13 +885,22 @@ public class Directory implements Comparable {
   //** listFiles
   //**************************************************************************
   /**  Used to return a list of files found in this directory.
-   * 
-   *   @return An array of java.io.File or an array of String representing 
+   *
+   *   @param filter A file filter. You can pass in a java.io.FileFilter, a
+   *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
+   *   Wildcard filters are supported. Note that the filter is only applied to
+   *   files, not directories.
+   *
+   *   @return An array of java.io.File or an array of Strings representing
    *   paths to files. If the input FileFilter is generated using a 
    *   java.io.FileFilter, the method will return an array of java.io.File. 
    *   Otherwise, this method will return an array of Strings for most cases.
    */
-    protected Object[] listFiles(FileFilter fileFilter){
+    public Object[] listFiles(Object filter){
+
+        FileFilter fileFilter;
+        if (filter instanceof FileFilter) fileFilter = (FileFilter) filter;
+        else fileFilter = new FileFilter(filter);
 
 
         String path = Directory.toString();
@@ -1006,20 +1038,9 @@ public class Directory implements Comparable {
         
 
 
-
-      //Sort the list
+      //Sort the list and return an array
         Collections.sort(files, new FileComparer(null));
-
-      //Convert the list to an array
-        Object[] arr = new Object[files.size()];
-        for (int i=0; i<arr.length; i++){
-             arr[i] = files.get(i);
-        }
-        return arr;
-
-
-        //return Directory.listFiles(fileFilter);
-        
+        return files.toArray(new Object[files.size()]);
     }
 
 

@@ -21,6 +21,7 @@ public class File implements Comparable {
     public final String PathSeparator = System.getProperty("file.separator");
     public final String LineSeperator = System.getProperty("line.separator");
     private static final boolean isWindows = Directory.isWindows;
+    private int bufferSize = 1024*1024; //1MB
     
     
   //**************************************************************************
@@ -101,7 +102,6 @@ public class File implements Comparable {
    *   @param IncludeFileExtension If true, includes the file extension. 
    *   Otherwise, will return the file name without the extension.
    */
-    
     public String getName(boolean IncludeFileExtension){
         String FileName = getName();
         if (!IncludeFileExtension){
@@ -121,7 +121,6 @@ public class File implements Comparable {
   /**  Used to retrieve the path to the file, excluding the file name. Appends 
    *   a file separator to the end of the string. 
    */
-    
     public String getPath(){
         if (File!=null) {
             String path = ""; //File.getParentFile().toString();
@@ -196,15 +195,29 @@ public class File implements Comparable {
         if (File!=null) return File.length();
         else return 0;
     }
-    
+
   //**************************************************************************
-  //** Get File Date
+  //** getDate
   //**************************************************************************
-  /**  Returns the date of the file (when it was last modified). */
-    
+  /** Returns a timestamp of when the file was last modified. This is
+   *  identical to the getLastModifiedTime() method.
+   */
     public java.util.Date getDate(){
         if (File!=null) return new javaxt.utils.Date(File.lastModified()).getDate();
         else return null;
+    }
+
+
+  //**************************************************************************
+  //** setDate
+  //**************************************************************************
+  /**  Used to set/update the last modified date. */
+
+    public void setDate(java.util.Date lastModified){
+        if (File!=null){
+            long t = lastModified.getTime();
+            if (File.lastModified()!=t) File.setLastModified(t);
+        }
     }
 
 
@@ -225,23 +238,25 @@ public class File implements Comparable {
   //**************************************************************************
   //** isHidden
   //**************************************************************************
-  /** Used to check whether the file is hidden. */
-    
+  /** Used to check whether the file is hidden.
+   */
     public boolean isHidden(){
         if (File!=null) return File.isHidden();
         else return false;
     }
-    
+
+
   //**************************************************************************
   //** isReadOnly
   //**************************************************************************
-  /** Used to check whether the file has read permissions. */
-
+  /** Used to check whether the file has read permissions.
+   */
     public boolean isReadOnly(){
         if (File!=null) return !File.canWrite();
         else return true;
     }
-    
+
+
   //**************************************************************************
   //** isExecutable
   //**************************************************************************
@@ -343,8 +358,6 @@ public class File implements Comparable {
         return null;
     }
 
-
-
     
   //**************************************************************************
   //** Delete File
@@ -357,7 +370,6 @@ public class File implements Comparable {
     }
 
 
-
   //**************************************************************************
   //** setBufferSize
   //**************************************************************************
@@ -368,7 +380,6 @@ public class File implements Comparable {
         bufferSize = numBytes;
     }
     
-    private int bufferSize = 1024*1024; //1MB
     
   //**************************************************************************
   //** Move File
@@ -388,8 +399,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Copy File
   //**************************************************************************
-  /**  Used to create a copy of this file. */
-    
+  /**  Used to create a copy of this file.
+   */
     public boolean copyTo(Directory Destination, boolean Overwrite){
         File Output = new File(Destination, File.getName());
         return copyTo(Output,Overwrite);
@@ -399,8 +410,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Copy File
   //**************************************************************************
-  /**  Used to create a copy of this file. */
-    
+  /**  Used to create a copy of this file.
+   */
     public boolean copyTo(javaxt.io.File Destination, boolean Overwrite){
         
       //Validate Input/Output
@@ -444,8 +455,6 @@ public class File implements Comparable {
             return false;
         }
     }
-    
-
 
     
   //**************************************************************************
@@ -470,7 +479,6 @@ public class File implements Comparable {
         }
         return this;
     }
-
 
 
   //**************************************************************************
@@ -558,20 +566,13 @@ public class File implements Comparable {
     }
     
     
-    
   //**************************************************************************
   //** getBufferedImage
   //**************************************************************************
     
     public java.awt.image.BufferedImage getBufferedImage(){
-        
-        if (File.exists()){
-            try{
-                return javax.imageio.ImageIO.read(File);
-            }
-            catch(Exception e){}
-        }
-        
+        Image img = getImage();
+        if (img!=null) return img.getBufferedImage();
         return null;
     }
     
@@ -592,7 +593,7 @@ public class File implements Comparable {
   //**************************************************************************
   //** getText
   //**************************************************************************
-  /** Used to open the file and read the contents into a string.
+  /**  Used to open the file and read the contents into a string.
    */
     public String getText(){
         try{
@@ -730,7 +731,6 @@ public class File implements Comparable {
    *   @param charsetName Name of the character encoding used to read the file.
    *   Examples include UTF-8 and ISO-8859-1
    */
-    
     public void write(String Text, String charsetName){
         if (File!=null){                
             Writer output = null;
@@ -982,7 +982,6 @@ public class File implements Comparable {
    *   only covers the most common/popular mime types. The returned mime type
    *   is NOT authoritative.
    */
-    
     public String getContentType(){
         
       //TEXT 
@@ -1057,7 +1056,6 @@ public class File implements Comparable {
   /**  Used by the getContentType to compare file extensions.
    *   @param FileExtension Comma Separated List Of File Extensions
    */
-    
     private boolean extensionEquals(String FileExtension){
         String ext = this.getExtension();
         String[] arr = FileExtension.split(",");
@@ -1066,6 +1064,17 @@ public class File implements Comparable {
              if (str.equalsIgnoreCase(ext)) return true;
         }
         return false;
+    }
+
+
+  //**************************************************************************
+  //** getLastModifiedTime
+  //**************************************************************************
+  /** Returns a timestamp of when the file was last modified. This is
+   *  identical to the getDate() method.
+   */
+    public java.util.Date getLastModifiedTime(){
+        return this.getDate();
     }
 
 
@@ -1084,6 +1093,7 @@ public class File implements Comparable {
             return null;
         }
     }
+
 
   //**************************************************************************
   //** getLastAccessTime
