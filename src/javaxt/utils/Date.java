@@ -462,12 +462,11 @@ public class Date {
   //**************************************************************************
   //** Add
   //**************************************************************************
-  /**  Used to add to (or subtract from) the current date. 
-   *   Returns a date to which a specified time interval has been added.
-   *  @param units Units of measure (e.g. hours, minutes, seconds, weeks,
+  /** Used to add to (or subtract from) the current date. Returns a date to
+   *  which a specified time interval has been added.
+   *  @param units Unit of measure (e.g. hours, minutes, seconds, days, weeks,
    *  months, years, etc.)
-   */
-    
+   */    
     public java.util.Date add(int amount, String units){
 
         Calendar cal = Calendar.getInstance();

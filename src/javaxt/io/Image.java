@@ -109,7 +109,15 @@ public class Image {
   //**************************************************************************
   //** Image
   //**************************************************************************
-  /**  Used to create a new image from text. */
+  /** Used to create a new image from text. 
+   *  @param fontName Name of the font you with to use. Note that you can get
+   *  a list of available fonts like this:
+   <pre>
+    for (String fontName : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()){
+        System.out.println(fontName);
+    }   
+   </pre>
+   */
 
     public Image(String text, String fontName, int fontSize, int r, int g, int b){
         this(text, new Font(fontName, Font.TRUETYPE_FONT, fontSize), r,g,b);
@@ -232,16 +240,8 @@ public class Image {
              }
         }
         
-      //Convert the HashSet into an Array
-        int x = 0;
-        inputFormats = new String[formats.size()];
-        Iterator<String> format = formats.iterator();
-        while(format.hasNext()){
-            inputFormats[x] = format.next();
-            x++;
-        }
-
-      //Sort and return the array
+      //Sort and return the hashset as an array
+        inputFormats = formats.toArray(new String[formats.size()]);
         java.util.Collections.sort(java.util.Arrays.asList(inputFormats));
         return inputFormats;
     }
@@ -433,7 +433,10 @@ public class Image {
             
       //Create new image "collage"
         if (w>bufferedImage.getWidth() || h>bufferedImage.getHeight()){
-            int imageType = BufferedImage.TYPE_INT_ARGB;
+            int imageType = bufferedImage.getType();
+            if (imageType == 0 || imageType == 12) {
+                imageType = BufferedImage.TYPE_INT_ARGB;
+            }
             BufferedImage bi = new BufferedImage(w, h, imageType);
             Graphics2D g2d = bi.createGraphics();
             java.awt.Image img = bufferedImage;
