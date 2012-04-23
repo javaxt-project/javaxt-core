@@ -16,7 +16,9 @@ public class Shell {
     private String[] inputs;
     private java.util.List<String> output = new java.util.LinkedList<String>();
     private java.util.List<String> errors = new java.util.LinkedList<String>();
+    private long startTime;
     private long ellapsedTime;
+    private Process process;
 
   //**************************************************************************
   //** Constructor
@@ -110,7 +112,7 @@ public class Shell {
         String[] options = new String[]{"-W", "UTF-8", "-s", "4326", "C:\country.shp", "t_country"};
 
         javaxt.io.Shell cmd = new javaxt.io.Shell(exe, options);
-        java.util.List<String> output = cmd.getOutput();
+        java.util.List&lt;String&gt; output = cmd.getOutput();
         cmd.run();
 
         String line;
@@ -174,6 +176,7 @@ public class Shell {
         }
     }
 
+
   //**************************************************************************
   //** run
   //**************************************************************************
@@ -186,13 +189,12 @@ public class Shell {
     public void run(boolean throwExceptions) throws IOException, InterruptedException {
 
         ellapsedTime = -1;
-        long startTime = new java.util.Date().getTime();
+        startTime = new java.util.Date().getTime();
 
         try{
 
           //Run executable via Command Line and pick up the output stream
-            Runtime runtime = Runtime.getRuntime();
-            Process process;
+            Runtime runtime = Runtime.getRuntime();            
             if (executable!=null){
                 process = runtime.exec(inputs, null, executable.getParentFile());
             }
@@ -210,13 +212,8 @@ public class Shell {
             s2.join();
 
 
-          //Explicitly clean up every instance of Process by calling close on each stream
-            try{process.getInputStream().close();} catch(Exception ex){}
-            try{process.getErrorStream().close();} catch(Exception ex){}
-            try{process.getOutputStream().close();} catch(Exception ex){}
-
-          //Explicitly destroy the process even if the process is already terminated
-            try{process.destroy();} catch(Exception ex){}
+          //Clean up!
+            cleanUp();
 
         }
         catch(IOException e){
@@ -228,8 +225,45 @@ public class Shell {
             return;
         }
         ellapsedTime = new java.util.Date().getTime()-startTime;
-
     }
+
+
+  //**************************************************************************
+  //** stop
+  //**************************************************************************
+  /** Used to stop the current process. Note that this method does not stop
+   *  or kill process grandchildren. This is a limitation of Java, not this
+   *  class per se. See Sun bug 4770092 for more details.
+   */
+    public void stop(){
+        if (process!=null){
+            process.destroy();
+            cleanUp();
+            ellapsedTime = new java.util.Date().getTime()-startTime;
+        }
+    }
+
+
+  //**************************************************************************
+  //** cleanUp
+  //**************************************************************************
+  /** Used to clean up system resources after a process has been terminated.
+   *  Based on recommendations found in "Five Common java.lang.Process Pitfalls"
+   *  by Kyle Cartmell (http://kylecartmell.com/?p=9).
+   */
+    private void cleanUp(){
+
+      //Explicitly clean up every instance of Process by calling close on each stream
+        try{process.getInputStream().close();} catch(Exception ex){}
+        try{process.getErrorStream().close();} catch(Exception ex){}
+        try{process.getOutputStream().close();} catch(Exception ex){}
+
+      //Explicitly destroy the process even if the process is already terminated
+        try{process.destroy();} catch(Exception ex){}
+
+        process = null;
+    }
+
 
   //**************************************************************************
   //** getEllapsedTime

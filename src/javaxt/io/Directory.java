@@ -895,6 +895,8 @@ public class Directory implements Comparable {
    *   paths to files. If the input FileFilter is generated using a 
    *   java.io.FileFilter, the method will return an array of java.io.File. 
    *   Otherwise, this method will return an array of Strings for most cases.
+   *   Note that any subdirectories that are found in this directory are ALWAYS
+   *   included in the result, regardless of file filter.
    */
     public Object[] listFiles(Object filter){
 
