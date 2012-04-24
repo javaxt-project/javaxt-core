@@ -22,7 +22,7 @@ import javax.net.ssl.*;
  <pre>
     javaxt.http.Request request = new javaxt.http.Request(url);
     request.setHeader("User-Agent", "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.10)");
-    request.setHeader("Accept-Encoding", "gzip,deflate");
+    request.setHeader("Accept-Encoding", "deflate"); //no gzip encoding
     java.io.InputStream inputStream = request.getResponse().getInputStream();
     new javaxt.io.File("/temp/image.jpg").write(inputStream);
     inputStream.close();
@@ -248,7 +248,6 @@ public class Request {
     }
 
 
-
   //**************************************************************************
   //** write
   //**************************************************************************
@@ -338,10 +337,28 @@ public class Request {
    */
     private URLConnection connect(boolean doOutput){
         try {
+            
+          //Set flag used to indicate whether this is an SSL request
+            boolean ssl = url.getProtocol().equalsIgnoreCase("https");
 
 
-          //Disable Certificate Validation for HTTPS Connections
-            if (url.getProtocol().equalsIgnoreCase("https") && validateCertificates==false){
+          //By default, Java 1.6 and earlier use the SSLv2 protocol to initiate
+          //an SSL handshake. For security reasons, some modern webservers will
+          //actively refuse to accept SSLv2 messages. As a workaround, we need
+          //to explicitly set the client to use SSLv3.
+            if (ssl){
+                String[] arr = System.getProperty("java.version").split("\\.");
+                if (Double.valueOf(arr[0] + "." + arr[1])<1.7){
+                    String sslProtocols = System.getProperty("https.protocols");
+                    if (sslProtocols==null || !sslProtocols.toUpperCase().startsWith("SSLV3")){
+                        System.setProperty("https.protocols", "SSLv3");
+                    }
+                }
+            }
+
+
+          //Disable SSL certificate validation as needed (Part 1)
+            if (ssl && validateCertificates==false){
                 try {
                     //SSLContext sc = SSLContext.getInstance("SSL");
                     SSLContext sc = SSLContext.getInstance("TLS");
@@ -352,7 +369,7 @@ public class Request {
             }
 
 
-          //Encode whitespaces and other illegal chars
+          //Encode whitespaces and other illegal chars using the javaxt URL class
             url = new javaxt.utils.URL(url).toURL();
             
 
@@ -365,19 +382,20 @@ public class Request {
                 conn = url.openConnection(HttpProxy);
             }
 
-            if (url.getProtocol().equalsIgnoreCase("https") && validateCertificates==false){
+
+          //Disable SSL certificate validation as needed (Part 2)
+            if (ssl && validateCertificates==false){
             	HttpsURLConnection con = (HttpsURLConnection)conn;
         	con.setHostnameVerifier(DO_NOT_VERIFY);
             }
 
 
-
+          //Set request headers
             conn.setUseCaches(useCache);
             if (doOutput) conn.setDoOutput(true);
 
             String credentials = getCredentials();
             if (credentials!=null) conn.setRequestProperty ("Authorization", "Basic " + credentials);
-
 
             java.util.Iterator<String> it = RequestProperties.keySet().iterator();
             while (it.hasNext()){
@@ -401,14 +419,9 @@ public class Request {
 
         }
         catch (Exception e) {
-            e.printStackTrace();
+            return null;
         }
-
-        return null;
     }
-
-
-
 
 
   //**************************************************************************
@@ -447,7 +460,6 @@ public class Request {
 
         return conn;
     }
-
 
 
   //**************************************************************************

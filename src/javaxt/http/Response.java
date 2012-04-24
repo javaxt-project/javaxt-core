@@ -1,7 +1,7 @@
 package javaxt.http;
 import java.net.URLConnection;
 import java.net.HttpURLConnection;
-import java.util.zip.*;
+import java.util.zip.GZIPInputStream;
 import java.io.*;
 
 //******************************************************************************
@@ -21,7 +21,6 @@ public class Response {
     protected Response(Request request){
         this.request = request;
         this.conn = request.conn;
-        //this.RequestProperties = conn.getRequestProperties();
     }
 
 
@@ -74,7 +73,8 @@ public class Response {
   //** getStatus
   //**************************************************************************
   /** Returns the HTTP status code extracted from the first line in the
-   *  response header.
+   *  response header. If the client fails to connect to the server, a value
+   *  of -1 is returned.
    */
     public int getStatus(){
         return request.getResponseCode();
@@ -84,7 +84,8 @@ public class Response {
   //**************************************************************************
   //** getMessage
   //**************************************************************************
-  /** Returns the message extracted from the first line in the response header.
+  /** Returns the status message found in the first line in the response
+   *  header.
    */
     public String getMessage(){
         return request.getResponseMessage();
@@ -94,9 +95,25 @@ public class Response {
   //**************************************************************************
   //** getInputStream
   //**************************************************************************
-  /**  Returns the raw InputStream from the server.
+  /** Returns the body of the http response as an input stream. No distinction
+   *  is made between "normal" responses (e.g. status code 200) and error
+   *  responses (e.g. 404). <p/>
+   *  Sample Usage:
+   <pre>
+        java.io.InputStream inputStream = response.getInputStream();
+        byte[] b = new byte[1024];
+        int x=0;
+        while ( (x = inputStream.read(b)) != -1) {
+            //Do something! Example: outputStream.write(b,0,x);
+        }
+        inputStream.close();
+   </pre>
    */
     public InputStream getInputStream(){
+
+        InputStream errorStream = ((HttpURLConnection)conn).getErrorStream();
+        if (errorStream!=null) return errorStream;
+
         try{
             return conn.getInputStream();
         }
@@ -109,8 +126,8 @@ public class Response {
   //**************************************************************************
   //** getText
   //**************************************************************************
-  /**  Used read through the entire response stream and cast it to a string.
-   *   The string is encoded using UTF-8 character encoding.
+  /** Used read through the entire response stream and cast it to a string.
+   *  The string is encoded using UTF-8 character encoding.
    */
     public String getText(){
         return getText("UTF-8");
@@ -136,6 +153,7 @@ public class Response {
         return null;
     }
 
+
   //**************************************************************************
   //** getXML
   //**************************************************************************
@@ -145,6 +163,7 @@ public class Response {
     public org.w3c.dom.Document getXML(){
         return javaxt.xml.DOM.createDocument(new ByteArrayInputStream(getBytes(true).toByteArray()));
     }
+
 
   //**************************************************************************
   //** getImage
@@ -159,8 +178,11 @@ public class Response {
   //**************************************************************************
   //** getBytes
   //**************************************************************************
-  /**  Used read through the entire response stream and returns a byte array
-   *   (ByteArrayOutputStream).
+  /** Used read through the entire response stream and returns a raw byte
+   *  array (ByteArrayOutputStream). Note that this method does not
+   *  automatically decompress the response if the data is compressed. Use
+   *  the Response.getBytes(true) method to automatically decompress the
+   *  response.
    */
     public ByteArrayOutputStream getBytes(){                
         return getBytes(false);
@@ -171,16 +193,12 @@ public class Response {
   //** getBytes
   //**************************************************************************
   /** Used read through the entire response stream and returns a byte array
-   *  (ByteArrayOutputStream).
-   *  @param deflate Option to decompress a gzip encoded response
+   *  ByteArrayOutputStream.
+   *  @param deflate Option to decompress a gzip encoded response.
    */
     public ByteArrayOutputStream getBytes(boolean deflate){
-        return getBytes(this.getInputStream(), deflate);
-    }
 
-
-
-    private ByteArrayOutputStream getBytes(InputStream inputStream, boolean deflate){
+        InputStream inputStream = this.getInputStream();
         ByteArrayOutputStream bas = new ByteArrayOutputStream();
         String encoding = this.getHeader("Content-Encoding");
         if (deflate && encoding!=null){
@@ -235,88 +253,15 @@ public class Response {
 
 
         }
-
-
         return null;
     }
-
-
-  //**************************************************************************
-  //** getErrorStream
-  //**************************************************************************
-  /** Returns the error output stream returned from the server (if available).
-   *  Example:
-   <pre>
-    int status = response.getStatus();
-    if (status>=400 && status<500){
-        try{
-            java.io.InputStream errorStream = response.getErrorStream();
-            java.io.BufferedReader buf = new java.io.BufferedReader (
-                                new java.io.InputStreamReader(errorStream));
-
-            try {
-                String line;
-                while  ((line = buf.readLine())!= null) {
-                    System.out.println(line);
-                }
-            }
-            catch (java.io.IOException e) {}
-
-            errorStream.close();
-            buf.close();
-        }
-        catch(Exception e){
-            e.printStackTrace();
-        }
-    }
-   </pre>
-   */
-    public InputStream getErrorStream(){
-        try{
-            return ((HttpURLConnection)conn).getErrorStream();
-        }
-        catch(Exception e){
-            return null;
-        }        
-    }
-
-  //**************************************************************************
-  //** getErrorMessage
-  //**************************************************************************
-  /**  Used read through the entire error stream and cast it to a string.
-   *   The string is encoded using UTF-8 character encoding.
-   */
-    public String getErrorMessage(){
-        return getErrorMessage("UTF-8");
-    }
-
-
-  //**************************************************************************
-  //** getErrorMessage
-  //**************************************************************************
-  /**  Used read through the entire error stream and cast it to a string.
-   *
-   *   @param charsetName Name of the character encoding used to read the file.
-   *   Examples include UTF-8 and ISO-8859-1
-   */
-    public String getErrorMessage(String charsetName){
-        try{
-            return getBytes(getErrorStream(), true).toString(charsetName);
-        }
-        catch(Exception e){
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-
 
 
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /**  Returns the response headers returned from the server. Use the getText()
-   *   method to get response body as a String.
+  /** Returns the raw response headers returned from the server. Use the
+   *  getText() method to get response body as a String.
    */
     public String toString(){
 
@@ -340,6 +285,4 @@ public class Response {
         out.append("\r\n");
         return out.toString();
     }
- 
-
 }

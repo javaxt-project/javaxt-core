@@ -73,7 +73,7 @@ public class SoapResponse {
             }
         }
         else{
-            throw new SoapException(response.getMessage() + " (" + status + ")", response.getErrorMessage());
+            throw new SoapException(response.getMessage() + " (" + status + ")", response.getText());
         }
     }
 

@@ -432,9 +432,8 @@ public class Directory implements Comparable {
                 return new File[0];
             }
             else{
-
-              //Create Vector to Store Files
-                java.util.List<javaxt.io.File> vec = new java.util.ArrayList<javaxt.io.File>();
+              
+                java.util.ArrayList<javaxt.io.File> list = new java.util.ArrayList<javaxt.io.File>();
                 for (int i=0; i<files.length; i++){
                     java.io.File file = null;
                     if (files[i] instanceof java.io.File){
@@ -444,24 +443,15 @@ public class Directory implements Comparable {
                         file = new java.io.File(files[i].toString());
                     }
                     if (file.exists() && file.isFile()){
-                        vec.add(new javaxt.io.File(file));
+                        list.add(new javaxt.io.File(file));
                     }
                 }
-
-              //Sort the Vector
-                Collections.sort(vec, new FileComparer(this));
-
-              //Convert the Vector to an Array
-                javaxt.io.File[] arr = new javaxt.io.File[vec.size()];
-                for (int i=0; i<vec.size(); i++){
-                     arr[i] = (javaxt.io.File) vec.get(i);
-                }
-                return arr;
-                
+                Collections.sort(list, new FileComparer(this));
+                return list.toArray(new javaxt.io.File[list.size()]);
             }
         }
         else{
-          return new File[0];
+            return new File[0];
         }
     }
     
@@ -876,7 +866,7 @@ public class Directory implements Comparable {
   //**************************************************************************
   /**  Used to return a list of files found in this directory. */
 
-    public Object[] listFiles(){
+    protected Object[] listFiles(){
         return listFiles(null);
     }
 
@@ -898,7 +888,7 @@ public class Directory implements Comparable {
    *   Note that any subdirectories that are found in this directory are ALWAYS
    *   included in the result, regardless of file filter.
    */
-    public Object[] listFiles(Object filter){
+    private Object[] listFiles(Object filter){
 
         FileFilter fileFilter;
         if (filter instanceof FileFilter) fileFilter = (FileFilter) filter;
