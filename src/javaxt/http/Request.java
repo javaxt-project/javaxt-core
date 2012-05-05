@@ -255,11 +255,22 @@ public class Request {
    *   @param payload String containing the body of the HTTP request.
    */
     public void write(String payload) {
+        write(payload.getBytes());
+    }
+
+
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /**  Used to open an HTTP connection to the URL and POST data to the server.
+   *   @param payload Byte array containing the body of the HTTP request.
+   */
+    public void write(byte[] payload) {
         if (conn==null) conn = getConnection(false);
         conn = connect(true);
 
         try{
-            conn.getOutputStream().write(payload.getBytes());            
+            conn.getOutputStream().write(payload);
         }
         catch(Exception e){
             //e.printStackTrace();
@@ -267,7 +278,6 @@ public class Request {
 
         parseResponse(conn);
     }
-
 
 
   //**************************************************************************

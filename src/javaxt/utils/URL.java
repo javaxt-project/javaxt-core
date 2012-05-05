@@ -319,6 +319,21 @@ public class URL {
         return host;
     }
 
+
+  //**************************************************************************
+  //** setHost
+  //**************************************************************************
+  /**  Used to update the hostname found in the URL
+   */
+    public void setHost(String host){
+        if (host.contains(":")){
+            port = Integer.valueOf(host.substring(host.indexOf(":")+1));
+            host = host.substring(0, host.indexOf(":"));
+        }
+        this.host = host;
+    }
+
+
   //**************************************************************************
   //** getPort
   //**************************************************************************
@@ -326,6 +341,16 @@ public class URL {
    */
     public Integer getPort(){
         return port;
+    }
+
+
+  //**************************************************************************
+  //** setPort
+  //**************************************************************************
+  /**  Used to update the port found in the URL
+   */
+    public void setPort(int port){
+        this.port = port;
     }
 
 

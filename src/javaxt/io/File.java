@@ -716,20 +716,23 @@ public class File implements Comparable {
   //**************************************************************************
   //** Write Text
   //**************************************************************************
-    
+  /** Used to write text to a file. Uses UTF-8 character encoding. Use the
+   *  other write method to specify a different character encoding (e.g.
+   *  ISO-8859-1).
+   */
     public void write(String Text){
-        write(Text, null);
+        write(Text, "UTF-8");
     }
 
     
   //**************************************************************************
   //** Write Text
   //**************************************************************************
-  /**  Used to write text to a file.
-   *   WARNING: This method will never throw an error.
+  /** Used to write text to a file. Allows users to specify character encoding.
    *
-   *   @param charsetName Name of the character encoding used to read the file.
-   *   Examples include UTF-8 and ISO-8859-1
+   *  @param charsetName Name of the character encoding used to read the file.
+   *  Examples include UTF-8 and ISO-8859-1. If null, the writer will use the
+   *  default character encoding defined on the host machine.
    */
     public void write(String Text, String charsetName){
         if (File!=null){                
@@ -746,7 +749,7 @@ public class File implements Comparable {
                 
                 output.write( Text );
             }
-            catch (Exception e){e.printStackTrace();}
+            catch (Exception e){}
             finally {
                 try { if (output != null) output.close(); }
                 catch (Exception e){}
