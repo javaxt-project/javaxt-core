@@ -3,6 +3,7 @@ import java.text.ParseException;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+import java.util.HashMap;
 
 //******************************************************************************
 //**  Date Utils - By Peter Borissow
@@ -17,8 +18,8 @@ public class Date {
     private Locale currentLocale = Locale.getDefault();
     private java.util.TimeZone timeZone;
     private java.util.Date currDate;
- 
     
+ 
     public static final String INTERVAL_MILLISECONDS = "S";
     public static final String INTERVAL_SECONDS = "s";
     public static final String INTERVAL_MINUTES = "m";
@@ -28,8 +29,9 @@ public class Date {
     public static final String INTERVAL_MONTHS = "m";
     public static final String INTERVAL_YEARS = "y";
     
+    private static final HashMap<String, String> timezones = new HashMap<String, String>();
 
-    private static String[] SupportedFormats = new String[] {
+    private static final String[] SupportedFormats = new String[] {
 
          "EEE, d MMM yyyy HH:mm:ss z",  // Mon, 7 Jun 1976 13:02:09 EST
          "EEE, dd MMM yyyy HH:mm:ss z", // Mon, 07 Jun 1976 13:02:09 EST
@@ -265,8 +267,9 @@ public class Date {
    *  the timestamp so that the timestamp remains fixed at 4PM.
    */
     public void setTimeZone(String timeZone, boolean preserveTimeStamp){
-        if (timeZone==null) return;
-        java.util.TimeZone timezone = java.util.TimeZone.getTimeZone(timeZone);
+        
+        java.util.TimeZone timezone = getTimeZone(timeZone);
+        if (timezone==null) return;
 
         if (preserveTimeStamp){
             
@@ -462,8 +465,14 @@ public class Date {
   //**************************************************************************
   //** Add
   //**************************************************************************
-  /** Used to add to (or subtract from) the current date. Returns a date to
-   *  which a specified time interval has been added.
+  /** Used to update the current date by adding to (or subtracting from) the
+   *  current date. Example:
+   <pre>
+    javaxt.utils.Date date = new javaxt.utils.Date();
+    System.out.println("Today is: " + date);
+    date.add(-1, "day");
+    System.out.println("Yesterday was: " + date);
+   </pre>
    *  @param units Unit of measure (e.g. hours, minutes, seconds, days, weeks,
    *  months, years, etc.)
    */    
@@ -760,4 +769,218 @@ public class Date {
         return dates;
     }
 
+
+  //**************************************************************************
+  //** getTimeZone
+  //**************************************************************************
+  /** Static method used to return a timezone for a given ID. Unlike the 
+   *  java.util.TimeZone.getTimeZone() method, this method will return a null
+   *  if a given ID cannot be understood.
+   *
+   *  @param timezone The name or ID of a TimeZone. Supports common
+   *  abbreviations such as "EST" or "EDT", full names such as "Eastern
+   *  Standard Time" or "America/New York", and raw GMT offsets such as
+   *  "GMT-8:00".
+   */
+    public static java.util.TimeZone getTimeZone(String timezone){
+
+      //Validate timezone name/id
+        if (timezone==null) return null;
+        timezone = timezone.trim();
+        if (timezone.length()==0) return null;
+        
+
+      //Update the string
+        timezone = timezone.toUpperCase();
+        if (timezone.startsWith("UTC+") || timezone.startsWith("UTC-")){
+            timezone = "GMT" + timezone.substring(3);
+        }
+        else if (( 
+            timezone.startsWith("AMERICA/") || timezone.startsWith("AFRICA/") ||
+            timezone.startsWith("EUROPE/") || timezone.startsWith("ASIA/") ||
+            timezone.startsWith("AUSTRALIA/") || timezone.startsWith("PACIFIC/") ||
+            timezone.startsWith("ATLANTIC/") || timezone.startsWith("INDIAN/")
+            ) && timezone.contains(" ")){
+            timezone = timezone.replace(" ", "_");
+        }
+
+        if (timezones.containsKey(timezone)){
+            return java.util.TimeZone.getTimeZone(timezones.get(timezone));
+        }
+
+        return null;
+    }
+
+
+  //**************************************************************************
+  //** TimeZones
+  //**************************************************************************
+  /** Returns a hashmap of all known time zones. Includes time zones packaged
+   *  with Java, Microsoft, and a few others. 
+   */
+    public static HashMap<String, String> getTimeZones(){
+        return timezones;
+    }
+    
+
+  //**************************************************************************
+  //** Java TimeZones
+  //**************************************************************************
+  /** Updates the hashmap of all known time zones with ones found in Java.
+   */
+    static {
+
+        timezones.put("EDT","EST5EDT");
+        timezones.put("CDT","CST6CDT");
+        timezones.put("MDT","MST7MDT");
+        timezones.put("PDT","PST8PDT");
+
+        for (String id : java.util.TimeZone.getAvailableIDs()){
+            java.util.TimeZone timezone = java.util.TimeZone.getTimeZone(id);
+
+          //Add standard timezone name/ID
+            timezones.put(id.toUpperCase(), id);
+
+          //Add short name
+            String shortName = timezone.getDisplayName(true, java.util.TimeZone.SHORT);
+            if (!timezones.containsKey(shortName)) timezones.put(shortName.toUpperCase(), id);
+
+          //Add GMT offset
+            double offset = timezone.getRawOffset();
+            String str = (offset/(60*60*1000.0))+"";
+            int h = Integer.parseInt(str.substring(0, str.indexOf(".")));
+            double m = Double.parseDouble("0." + str.substring(str.indexOf(".")+1))*60;
+            String gmt =
+                    "GMT" + (h>-1 ? "+" : "-") +
+                    String.format("%02d", (h<0 ? -h : h)) + ":" +
+                    String.format("%02d", (int) javaxt.utils.string.round(m, 0));
+            if (!timezones.containsKey(gmt)) timezones.put(gmt, gmt);
+        }
+    }
+
+
+  //**************************************************************************
+  //** Microsoft TimeZones
+  //**************************************************************************
+  /** Updates the hashmap of all known time zones with a list of time of time
+   *  zones included in the Windows 7 and Windows Server 2008 R2 products.
+   *  These time zone values were available as of October 22, 2009, and may
+   *  have changed since then. For a current list of time zones, on a computer
+   *  running an updated version of Windows 7 or Windows Server 2008 R2, use
+   *  the tzutil /l command. Source:
+   *  http://technet.microsoft.com/en-us/library/ff715394%28v=ws.10%29.aspx
+   *  <p/>
+   *  Time zone mappings were taken from this source:
+   *  http://code.google.com/p/java-time-zone-list/source/browse/TimeZones/src/TimeZoneList.java
+   */
+    static {
+        String[][] kvp = {
+            { "(UTC+13:00) Nuku'alofa", "Tonga Standard Time", "Pacific/Tongatapu" },
+            { "(UTC+12:00) Petropavlovsk-Kamchatsky", "Kamchatka Standard Time", "Asia/Kamchatka" },
+            { "(UTC+12:00) Fiji, Marshall Is.", "Fiji Standard Time", "Pacific/Fiji" },
+            { "(UTC+12:00) Auckland, Wellington", "New Zealand Standard Time", "Pacific/Auckland" },
+            { "(UTC+11:00) Magadan, Solomon Is., New Caledonia", "Central Pacific Standard Time", "Pacific/Guadalcanal" },
+            { "(UTC+10:00) Vladivostok", "Vladivostok Standard Time", "Asia/Vladivostok" },
+            { "(UTC+10:00) Hobart", "Tasmania Standard Time", "Australia/Hobart" },
+            { "(UTC+10:00) Guam, Port Moresby", "West Pacific Standard Time", "Pacific/Port_Moresby" },
+            { "(UTC+10:00) Canberra, Melbourne, Sydney", "AUS Eastern Standard Time", "Australia/Sydney" },
+            { "(UTC+10:00) Brisbane", "E. Australia Standard Time", "Australia/Brisbane" },
+            { "(UTC+09:30) Darwin", "AUS Central Standard Time", "Australia/Darwin" },
+            { "(UTC+09:30) Adelaide", "Cen. Australia Standard Time", "Australia/Adelaide" },
+            { "(UTC+09:00) Yakutsk", "Yakutsk Standard Time", "Asia/Yakutsk" },
+            { "(UTC+09:00) Seoul", "Korea Standard Time", "Asia/Seoul" },
+            { "(UTC+09:00) Osaka, Sapporo, Tokyo", "Tokyo Standard Time", "Asia/Tokyo" },
+            { "(UTC+08:00) Taipei", "Taipei Standard Time", "Asia/Taipei" },
+            { "(UTC+08:00) Perth", "W. Australia Standard Time", "Australia/Perth" },
+            { "(UTC+08:00) Kuala Lumpur, Singapore", "Singapore Standard Time", "Asia/Singapore" },
+            { "(UTC+08:00) Irkutsk, Ulaan Bataar", "North Asia East Standard Time", "Asia/Irkutsk" },
+            { "(UTC+08:00) Beijing, Chongqing, Hong Kong, Urumqi", "China Standard Time", "Asia/Shanghai" },
+            { "(UTC+07:00) Krasnoyarsk", "North Asia Standard Time", "Asia/Krasnoyarsk" },
+            { "(UTC+07:00) Bangkok, Hanoi, Jakarta", "SE Asia Standard Time", "Asia/Bangkok" },
+            { "(UTC+06:30) Yangon (Rangoon)", "Myanmar Standard Time", "Asia/Rangoon" },
+            { "(UTC+06:00) Astana, Dhaka", "Central Asia Standard Time", "Asia/Almaty" },
+            { "(UTC+06:00) Almaty, Novosibirsk", "N. Central Asia Standard Time", "Asia/Novosibirsk" },
+            { "(UTC+05:45) Kathmandu", "Nepal Standard Time", "Asia/Katmandu" },
+            { "(UTC+05:30) Sri Jayawardenepura", "Sri Lanka Standard Time", "Asia/Colombo" },
+            { "(UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi", "India Standard Time", "Asia/Calcutta" },
+            { "(UTC+05:00) Tashkent", "West Asia Standard Time", "Asia/Tashkent" },
+            { "(UTC+05:00) Islamabad, Karachi", "Pakistan Standard Time", "Asia/Karachi" },
+            { "(UTC+05:00) Ekaterinburg", "Ekaterinburg Standard Time", "Asia/Yekaterinburg" },
+            { "(UTC+04:30) Kabul", "Afghanistan Standard Time", "Asia/Kabul" },
+            { "(UTC+04:00) Yerevan", "Caucasus Standard Time", "Asia/Yerevan" },
+            { "(UTC+04:00) Port Louis", "Mauritius Standard Time", "Indian/Mauritius" },
+            { "(UTC+04:00) Baku", "Azerbaijan Standard Time", "Asia/Baku" },
+            { "(UTC+04:00) Abu Dhabi, Muscat", "Arabian Standard Time", "Asia/Dubai" },
+            { "(UTC+03:30) Tehran", "Iran Standard Time", "Asia/Tehran" },
+            { "(UTC+03:00) Tbilisi", "Georgian Standard Time", "Asia/Tbilisi" },
+            { "(UTC+03:00) Nairobi", "E. Africa Standard Time", "Africa/Nairobi" },
+            { "(UTC+03:00) Moscow, St. Petersburg, Volgograd", "Russian Standard Time", "Europe/Moscow" },
+            { "(UTC+03:00) Kuwait, Riyadh", "Arab Standard Time", "Asia/Riyadh" },
+            { "(UTC+03:00) Baghdad", "Arabic Standard Time", "Asia/Baghdad" },
+            { "(UTC+02:00) Windhoek", "Namibia Standard Time", "Africa/Windhoek" },
+            { "(UTC+02:00) Minsk", "E. Europe Standard Time", "Europe/Minsk" },
+            { "(UTC+02:00) Jerusalem", "Israel Standard Time", "Asia/Jerusalem" },
+            { "(UTC+02:00) Helsinki, Kyiv, Riga, Sofia, Tallinn, Vilnius", "FLE Standard Time", "Europe/Kiev" },
+            { "(UTC+02:00) Harare, Pretoria", "South Africa Standard Time", "Africa/Johannesburg" },
+            { "(UTC+02:00) Cairo", "Egypt Standard Time", "Africa/Cairo" },
+            { "(UTC+02:00) Beirut", "Middle East Standard Time", "Asia/Beirut" },
+            { "(UTC+02:00) Athens, Bucharest, Istanbul", "GTB Standard Time", "Europe/Istanbul" },
+            { "(UTC+02:00) Amman", "Jordan Standard Time", "Asia/Amman" },
+            { "(UTC+01:00) West Central Africa", "W. Central Africa Standard Time", "Africa/Lagos" },
+            { "(UTC+01:00) Sarajevo, Skopje, Warsaw, Zagreb", "Central European Standard Time", "Europe/Warsaw" },
+            { "(UTC+01:00) Brussels, Copenhagen, Madrid, Paris", "Romance Standard Time", "Europe/Paris" },
+            { "(UTC+01:00) Belgrade, Bratislava, Budapest, Ljubljana, Prague", "Central Europe Standard Time", "Europe/Budapest" },
+            { "(UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna", "W. Europe Standard Time", "Europe/Berlin" },
+            { "(UTC) Monrovia, Reykjavik", "Greenwich Standard Time", "Atlantic/Reykjavik" },
+            { "(UTC) Dublin, Edinburgh, Lisbon, London", "GMT Standard Time", "Europe/London" },
+            { "(UTC) Coordinated Universal Time", "UTC", "UTC" },
+            { "(UTC) Casablanca", "Morocco Standard Time", "Africa/Casablanca" },
+            { "(UTC-12:00) International Date Line West", "Dateline Standard Time", "Etc/GMT+12" },
+            { "(UTC-11:00) Midway Island, Samoa", "Samoa Standard Time", "Pacific/Apia" },
+            { "(UTC-10:00) Hawaii", "Hawaiian Standard Time", "Pacific/Honolulu" },
+            { "(UTC-09:00) Alaska", "Alaskan Standard Time", "America/Anchorage" },
+            { "(UTC-08:00) Tijuana, Baja California", "Pacific Standard Time (Mexico)", "America/Tijuana" },
+            { "(UTC-08:00) Pacific Time (US & Canada)", "Pacific Standard Time", "America/Los_Angeles" }, //vs "PST8PDT"
+            { "(UTC-07:00) Mountain Time (US & Canada)", "Mountain Standard Time", "America/Denver" }, //vs "MST7MDT"
+            { "(UTC-07:00) Chihuahua, La Paz, Mazatlan", "Mountain Standard Time (Mexico)", "America/Chihuahua" },
+            { "(UTC-07:00) Arizona", "US Mountain Standard Time", "America/Phoenix" },
+            { "(UTC-06:00) Saskatchewan", "Canada Central Standard Time", "America/Regina" },
+            { "(UTC-06:00) Guadalajara, Mexico City, Monterrey", "Central Standard Time (Mexico)", "America/Mexico_City" },
+            { "(UTC-06:00) Central Time (US & Canada)", "Central Standard Time", "America/Chicago" }, //vs "CST6CDT"
+            { "(UTC-06:00) Central America", "Central America Standard Time", "America/Guatemala" },
+            { "(UTC-05:00) Indiana (East)", "US Eastern Standard Time", "America/Indianapolis" },
+            { "(UTC-05:00) Eastern Time (US & Canada)", "Eastern Standard Time", "America/New_York" }, //vs "EST5EDT"
+            { "(UTC-05:00) Bogota, Lima, Quito", "SA Pacific Standard Time", "America/Bogota" },
+            { "(UTC-04:30) Caracas", "Venezuela Standard Time", "America/Caracas" },
+            { "(UTC-04:00) Santiago", "Pacific SA Standard Time", "America/Santiago" },
+            { "(UTC-04:00) Manaus", "Central Brazilian Standard Time", "America/Cuiaba" },
+            { "(UTC-04:00) Georgetown, La Paz, San Juan", "SA Western Standard Time", "America/La_Paz" },
+            { "(UTC-04:00) Atlantic Time (Canada)", "Atlantic Standard Time", "America/Halifax" },
+            { "(UTC-04:00) Asuncion", "Paraguay Standard Time", "America/Asuncion" },
+            { "(UTC-03:30) Newfoundland", "Newfoundland Standard Time", "America/St_Johns" },
+            { "(UTC-03:00) Montevideo", "Montevideo Standard Time", "America/Montevideo" },
+            { "(UTC-03:00) Greenland", "Greenland Standard Time", "America/Godthab" },
+            { "(UTC-03:00) Cayenne", "SA Eastern Standard Time", "America/Cayenne" },
+            { "(UTC-03:00) Buenos Aires", "Argentina Standard Time", "America/Buenos_Aires" },
+            { "(UTC-03:00) Brasilia", "E. South America Standard Time", "America/Sao_Paulo" },
+            { "(UTC-02:00) Mid-Atlantic", "Mid-Atlantic Standard Time", "Etc/GMT+2" },
+            { "(UTC-01:00) Cape Verde Is.", "Cape Verde Standard Time", "Atlantic/Cape_Verde" },
+            { "(UTC-01:00) Azores", "Azores Standard Time", "Atlantic/Azores" }
+            /*
+            ----------------------
+            Asia/Ulaanbaatar", "Ulaanbaatar Standard Time
+            Asia/Damascus", "Syria Standard Time
+            Etc/GMT", "GMT
+            Asia/Dhaka", "Bangladesh Standard Time
+            Etc/GMT-12", "GMT +12
+            Asia/Magadan", "Magadan Standard Time
+            Etc/GMT+11", "GMT -11
+            Etc/GMT+2", "GMT -02
+            */
+        };
+        for (String[] pair : kvp) {
+            timezones.put(pair[0].toUpperCase(), pair[2]);
+            timezones.put(pair[1].toUpperCase(), pair[2]);
+        }
+    }
 }

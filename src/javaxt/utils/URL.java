@@ -355,6 +355,16 @@ public class URL {
 
 
   //**************************************************************************
+  //** setProtocol
+  //**************************************************************************
+  /**  Used to update the protocol found in the URL
+   */
+    public void setProtocol(String protocol){
+        this.protocol = protocol;
+    }
+
+
+  //**************************************************************************
   //** getProtocol
   //**************************************************************************
   /**  Used to return the protocol found in the URL
