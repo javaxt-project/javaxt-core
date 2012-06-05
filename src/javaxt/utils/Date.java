@@ -310,7 +310,11 @@ public class Date {
     public java.util.TimeZone getTimeZone(){
         return this.timeZone;
     }
-    
+
+    public int hashCode(){
+        return this.currDate.hashCode();
+    }
+
   //**************************************************************************
   //** toString
   //**************************************************************************
@@ -451,15 +455,25 @@ public class Date {
         
         return i2;
     }
-    
+
+
+    public boolean isBefore(String date) throws ParseException {
+        return isBefore(new javaxt.utils.Date(date));
+    }
     
     public boolean isBefore(javaxt.utils.Date Date){
         return currDate.before(Date.getDate());
+    }
+
+    public boolean isAfter(String date) throws ParseException {
+        return isAfter(new javaxt.utils.Date(date));
     }
     
     public boolean isAfter(javaxt.utils.Date Date){
         return currDate.after(Date.getDate());
     }
+
+
     
     
   //**************************************************************************
