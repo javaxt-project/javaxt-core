@@ -72,8 +72,6 @@ public class Request {
         }
     };
 
-
-
     private boolean validateCertificates = false;
 
 
@@ -276,6 +274,109 @@ public class Request {
             //e.printStackTrace();
         }
 
+        parseResponse(conn);
+    }
+   
+    
+    
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /** Used to post an array of form inputs to a server. Form inputs can 
+   *  include text or binary data, including files. Payload is normally
+   *  "multipart/form-data" encoded.
+   */
+    public void write(javaxt.html.Input[] inputs){        
+        
+      //Generate boundary
+        String boundary = "---------------------------";
+        for (int i=0; i<14; i++) boundary += new java.util.Random().nextInt(10);
+        int boundarySize = boundary.length();
+        
+      
+        try{
+            
+          //Compute payload size and generate content metadata for each input
+            long size = 0;
+            java.util.ArrayList<byte[]> metadata = new java.util.ArrayList<byte[]>();
+            for (int i=0; i<inputs.length; i++){
+                
+                javaxt.html.Input input = inputs[i];
+                String contentType = "";
+                String fileName = "";
+                long inputLength = 0;
+                
+                if (input.isFile()){
+                    javaxt.io.File file = (javaxt.io.File) input.getValue();
+                    fileName = "; filename=\"" + file.getName() + "\"";
+                    contentType = "Content-Type: " + file.getContentType() + "\r\n";
+                    inputLength = file.getSize();
+                }
+                else{
+                    inputLength = input.getSize();
+                }
+                
+                String contentDisposition = "Content-Disposition: form-data; name=\"" + input.getName() + "\"" + fileName;
+                byte[] md = (contentDisposition + "\r\n" + contentType + "\r\n").getBytes("UTF-8");
+                metadata.add(md);
+                size += ((i>0?2:0) + 2 + boundarySize + 2); //CRLF + 2 hyphens + boundary + CRLF
+                size += md.length + inputLength;
+            }
+            size+=(boundarySize+8); //CRLF + 2 hyphens + boundary + 2 hyphens + CRLF
+
+            
+          //Set request headers
+            setHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+            setHeader("Content-Length", size+"");
+
+
+          //Open socket
+            if (conn==null) conn = getConnection(false);
+            conn = connect(true);  
+
+            
+          //Write content
+            java.io.OutputStream outputStream = null;
+            try{
+                outputStream = conn.getOutputStream();
+                for (int i=0; i<inputs.length; i++){                    
+
+                  //Write boundary and input metadata
+                    byte[] bd = ((i>0?"\r\n":"") + "--" + boundary + "\r\n").getBytes("UTF-8");
+                    byte[] md = metadata.get(i);
+                    outputStream.write(bd);
+                    outputStream.write(md);
+                    
+                  //Write input value
+                    if (inputs[i].isFile()){
+                        javaxt.io.File file = (javaxt.io.File) inputs[i].getValue();
+                        System.out.println(file);
+                        java.io.InputStream inputStream = file.getInputStream();
+                        byte[] b = new byte[1024];
+                        int x=0;
+                        while ( (x = inputStream.read(b)) != -1) {
+                            outputStream.write(b,0,x);
+                        }            
+                        inputStream.close();
+                    }
+                    else{
+                        outputStream.write(inputs[i].toByteArray());
+                    }
+                }
+                
+              //Write footer and close outputstream
+                byte[] bd = ("\r\n--" + boundary + "--\r\n").getBytes("UTF-8");
+                outputStream.write(bd);
+                outputStream.close();                
+            }
+            catch(IOException e){
+                if (outputStream!=null){
+                    try{outputStream.close();} 
+                    catch(Exception ex){}
+                }
+            }
+        }
+        catch(java.io.UnsupportedEncodingException e){} //should never happen!
         parseResponse(conn);
     }
 
