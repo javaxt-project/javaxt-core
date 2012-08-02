@@ -151,15 +151,15 @@ public class Date {
 
 
           //Loop through all known date formats and try to convert the string to a date
-            for (int i=0; i<SupportedFormats.length; i++){
+            for (String format : SupportedFormats){
 
               //Special Case: Java fails to parse the "Z" in "1976-06-07 00:00:00Z"
-                if (date.endsWith("Z") && SupportedFormats[i].endsWith("Z")){
+                if (date.endsWith("Z") && format.endsWith("Z")){
                     date = date.substring(0, date.length()-1) + "UTC";
                 }
 
                 try{
-                    currDate = parseDate(date, SupportedFormats[i]);
+                    currDate = parseDate(date, format);
                     return;
                 }
                 catch(ParseException e){
@@ -346,11 +346,27 @@ public class Date {
   //** toLong
   //**************************************************************************
   /** Returns a long integer used to represent the Date in the following
-   *  format: "yyyyMMddHHmmssSSS". Please use the getTime() method to get the
-   *  the number of milliseconds since January 1, 1970, 00:00:00 UTC.
+   *  format: "yyyyMMddHHmmssSSS". The time zone is automatically set to UTC.
+   *  Note that this method is different from the getTime() method which
+   *  returns the number of milliseconds since January 1, 1970, 00:00:00 UTC.
    */
     public long toLong(){
-        return Long.parseLong(this.toString("yyyyMMddHHmmssSSS"));
+        Date d = this.clone();
+        d.setTimeZone("UTC");
+        return Long.parseLong(d.toString("yyyyMMddHHmmssSSS"));
+    }
+
+
+  //**************************************************************************
+  //** clone
+  //**************************************************************************
+  /** Creates a copy of this object. Any modifications to the clone, will not
+   *  affect the original.
+   */
+    public Date clone(){
+        Date d = new Date(currDate.getTime());
+        d.setTimeZone(this.getTimeZone());
+        return d;
     }
 
 
