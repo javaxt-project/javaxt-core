@@ -12,6 +12,9 @@ import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Iterator;
 
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.NamedNodeMap;
 import com.sun.image.codec.jpeg.*;
 
 //Imports for JP2
@@ -58,11 +61,7 @@ public class Image {
     public Image(java.io.File File){
         createBufferedImage(File);
     }
-    
-    public Image(javaxt.io.File File){
-        this(File.toFile());
-    }
-    
+
     public Image(java.io.InputStream InputStream){
         createBufferedImage(InputStream);
     }
@@ -118,10 +117,10 @@ public class Image {
     }   
    </pre>
    */
-
     public Image(String text, String fontName, int fontSize, int r, int g, int b){
         this(text, new Font(fontName, Font.TRUETYPE_FONT, fontSize), r,g,b);
     }
+
 
     public Image(String text, Font font, int r, int g, int b){
 
@@ -149,9 +148,7 @@ public class Image {
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         g2d.setColor(new Color(r, g, b));
         g2d.setFont(font);
-
         g2d.drawString(text, 0, height-descent);
-
     }
 
 
@@ -189,13 +186,9 @@ public class Image {
         this.bufferedImage = bi;
 
         g2d.dispose();
-
-
-
     }
-    
-    
-    
+
+
   //**************************************************************************
   //** getInputFormats
   //**************************************************************************
@@ -204,10 +197,8 @@ public class Image {
     public String[] getInputFormats(){
         return getFormats(ImageIO.getReaderFormatNames());
     }
-    
-    
 
-    
+
   //**************************************************************************
   //** getOutputFormats
   //**************************************************************************
@@ -245,25 +236,28 @@ public class Image {
         java.util.Collections.sort(java.util.Arrays.asList(inputFormats));
         return inputFormats;
     }
-    
 
-    
+
   //**************************************************************************
   //** getWidth
   //**************************************************************************
   /**  Returns the width of the image, in pixels. */
     
-    public int getWidth(){ return bufferedImage.getWidth(); }
-    
-    
+    public int getWidth(){ 
+        return bufferedImage.getWidth(); 
+    }
+
+
   //**************************************************************************
   //** getHeight
   //**************************************************************************
   /**  Returns the height of the image, in pixels. */
     
-    public int getHeight(){ return bufferedImage.getHeight(); }
-    
-    
+    public int getHeight(){ 
+        return bufferedImage.getHeight(); 
+    }
+
+
   //**************************************************************************
   //** getGraphics
   //**************************************************************************
@@ -278,7 +272,8 @@ public class Image {
         }
         return g2d;
     }
-    
+
+
   //**************************************************************************
   //** addText
   //**************************************************************************
@@ -329,8 +324,8 @@ public class Image {
         g2d.setFont(font);
         g2d.drawString(text, x, y);
     }
-    
-    
+
+
   //**************************************************************************
   //** addPoint
   //**************************************************************************
@@ -357,7 +352,7 @@ public class Image {
         g2d.setColor(org);
     }
 
-    
+
   //**************************************************************************
   //** getColor
   //**************************************************************************
@@ -453,7 +448,8 @@ public class Image {
         }
             
     }
-    
+
+
   //**************************************************************************
   //** addImage
   //**************************************************************************
@@ -465,7 +461,6 @@ public class Image {
     }
 
 
-    
   //**************************************************************************
   //** createBufferedImage
   //**************************************************************************
@@ -517,9 +512,8 @@ public class Image {
             //e.printStackTrace();
         }
     }
-    
-    
-    
+
+
   //**************************************************************************
   //** Rotate
   //**************************************************************************
@@ -545,18 +539,21 @@ public class Image {
         for (int i=0; i<corners.length; i+=2){
             
            //Rotates the given point theta radians around (cx,cy)
-             int x = javaxt.utils.string.toInt(
-                             (Math.cos(theta)*(corners[i]-cx) -
-                              Math.sin(theta)*(corners[i+1]-cy)+cx) );
-             int y = javaxt.utils.string.toInt(
-                             (Math.sin(theta)*(corners[i]-cx) +
-                              Math.cos(theta)*(corners[i+1]-cy)+cy) );
+            int x = (int) Math.round(
+                Math.cos(theta)*(corners[i]-cx) -
+                Math.sin(theta)*(corners[i+1]-cy)+cx 
+            );
+             
+            int y = (int) Math.round(
+                Math.sin(theta)*(corners[i]-cx) +
+                Math.cos(theta)*(corners[i+1]-cy)+cy 
+            );
 
            //Update our bounds
-             if(x>maxX) maxX = x;
-             if(x<minX) minX = x;
-             if(y>maxY) maxY = y;
-             if(y<minY) minY = y;
+            if(x>maxX) maxX = x;
+            if(x<minX) minX = x;
+            if(y>maxY) maxY = y;
+            if(y<minY) minY = y;
         }
 
         
@@ -1104,18 +1101,6 @@ public class Image {
         catch(Exception e){}
         return rgb;
     }
-    
-    
-    
-  //**************************************************************************
-  //** saveAs
-  //**************************************************************************
-  /**  Exports the image to a file. Output format is determined by the output 
-   *   file extension. 
-   */
-    public void saveAs(javaxt.io.File OutputFile){
-        saveAs(OutputFile.toFile());
-    }
 
 
   //**************************************************************************
@@ -1127,8 +1112,8 @@ public class Image {
     public void saveAs(String PathToImageFile){
         saveAs(new java.io.File(PathToImageFile));
     }
-    
-    
+
+
   //**************************************************************************
   //** saveAs
   //**************************************************************************
@@ -1199,10 +1184,8 @@ public class Image {
         if (q==1f) q = 1.2f;
         if (q>=0f && q<=1.2f) outputQuality = q;
     }
-    
-    
 
-    
+
   //**************************************************************************
   //** isJPEG
   //**************************************************************************
@@ -1269,10 +1252,8 @@ public class Image {
             return getByteArray();
         }
     }
-    
-    
-    
-    
+
+
   //**************************************************************************
   //** getImageType
   //**************************************************************************
@@ -1286,8 +1267,8 @@ public class Image {
         if (i<=0) i = BufferedImage.TYPE_INT_ARGB; //<- is this ok?
         return i;
     }
-    
-    
+
+
   //**************************************************************************
   //** getExtension
   //**************************************************************************
@@ -1517,9 +1498,10 @@ public class Image {
             return new double[]{lon, lat};
         }
         catch(Exception e){
+            return null;
         }
-        return null;
     }
+
 
     private double getCoordinate(String RationalArray) {
 
@@ -1581,10 +1563,10 @@ public class Image {
         if (metadata!=null)
         for (String name : metadata.getMetadataFormatNames()) {
             IIOMetadataNode node=(IIOMetadataNode) metadata.getAsTree(name);
-            org.w3c.dom.Node[] unknownNodes = javaxt.xml.DOM.getElementsByTagName("unknown", node);
-            for (org.w3c.dom.Node unknownNode : unknownNodes){
+            Node[] unknownNodes = getElementsByTagName("unknown", node);
+            for (Node unknownNode : unknownNodes){
                 try{
-                    int marker = Integer.parseInt(javaxt.xml.DOM.getAttributeValue(unknownNode, "MarkerTag"));
+                    int marker = Integer.parseInt(getAttributeValue(unknownNode.getAttributes(), "MarkerTag"));
                     if (marker==MarkerTag) markers.add((IIOMetadataNode) unknownNode);
                 }
                 catch(Exception e){
@@ -1613,12 +1595,67 @@ public class Image {
         if (metadata!=null)
         for (String name : metadata.getMetadataFormatNames()) {
             IIOMetadataNode node=(IIOMetadataNode) metadata.getAsTree(name);
-            org.w3c.dom.Node[] unknownNodes = javaxt.xml.DOM.getElementsByTagName(tagName, node);
-            for (org.w3c.dom.Node unknownNode : unknownNodes){
+            Node[] unknownNodes = getElementsByTagName(tagName, node);
+            for (Node unknownNode : unknownNodes){
                 tags.add((IIOMetadataNode) unknownNode);
             }
         }  
         return tags.toArray(new IIOMetadataNode[tags.size()]);
+    }
+
+
+  //**************************************************************************
+  //** getElementsByTagName (Copied from javaxt.xml.DOM)
+  //**************************************************************************
+  /** Returns an array of nodes that match a given tagName (node name). The
+   *  results will include all nodes that match, regardless of namespace. To
+   *  narrow the results to a specific namespace, simply include the namespace
+   *  prefix in the tag name (e.g. "t:Contact"). Returns an empty array if
+   *  no nodes are found.
+   */
+    private static Node[] getElementsByTagName(String tagName, Node node){
+        java.util.ArrayList<Node> nodes = new java.util.ArrayList<Node>();
+        getElementsByTagName(tagName, node, nodes);
+        return nodes.toArray(new Node[nodes.size()]);
+    }
+
+    private static void getElementsByTagName(String tagName, Node node, java.util.ArrayList<Node> nodes){
+        if (node!=null && node.getNodeType()==1){
+
+            String nodeName = node.getNodeName().trim();
+            if (nodeName.contains(":") && !tagName.contains(":")){
+                nodeName = nodeName.substring(nodeName.indexOf(":")+1);
+            }
+
+            if (nodeName.equalsIgnoreCase(tagName)){
+                nodes.add(node);
+            }
+
+            NodeList childNodes = node.getChildNodes();
+            for (int i=0; i<childNodes.getLength(); i++){
+                getElementsByTagName(tagName, childNodes.item(i), nodes);
+            }
+        }
+    }
+
+
+  //**************************************************************************
+  //** getAttributeValue (Copied from javaxt.xml.DOM)
+  //**************************************************************************
+  /**  Used to return the value of a given node attribute. The search is case
+   *   insensitive. If no match is found, returns an empty string.
+   */
+    public static String getAttributeValue(NamedNodeMap attrCollection, String attrName){
+        
+        if (attrCollection!=null){
+            for (int i=0; i < attrCollection.getLength(); i++ ) {
+                Node node = attrCollection.item(i);
+                if (node.getNodeName().equalsIgnoreCase(attrName)) {
+                    return node.getNodeValue();
+                }
+            }
+        }
+        return "";               
     }
 
 
