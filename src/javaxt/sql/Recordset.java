@@ -495,6 +495,7 @@ public class Recordset {
   /** Used to add or update a record in the recordset. */
 
     public void update() throws java.sql.SQLException {
+        if (isReadOnly) throw new java.sql.SQLException("Read only!");
         if (State==1){
             try{                
                 
