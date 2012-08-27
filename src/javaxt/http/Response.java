@@ -94,6 +94,30 @@ public class Response {
 
 
   //**************************************************************************
+  //** getCharacterEncoding
+  //**************************************************************************
+  /** Returns the name of the character encoding used in the body of this
+   *  response as specified in the "Content-Type" header. For example, the 
+   *  following "Content-Type" header specifies "UTF-8" character encoding: 
+   *  <pre>Content-Type: text/html; charset=utf-8</pre>
+   *  This method returns a null if the response does not specify a character 
+   *  encoding.
+   */
+    public String getCharacterEncoding(){
+        String contentType = getHeader("Content-Type");
+        if (contentType!=null){
+            for (String str : contentType.split(";")){
+                str = str.trim();
+                if (str.startsWith("charset=")){
+                    return str.substring(8).trim();
+                }
+            }
+        }
+        return null;
+    }
+
+
+  //**************************************************************************
   //** getInputStream
   //**************************************************************************
   /** Returns the body of the http response as an input stream. No distinction
@@ -128,13 +152,17 @@ public class Response {
   //** getText
   //**************************************************************************
   /** Used read through the entire response stream and cast it to a string.
-   *  The string is encoded using UTF-8 character encoding.
+   *  The string is encoded using the character set specified in the
+   *  "Content-Type" header as returned by the getCharacterEncoding() method.
+   *  Defaults to "UTF-8" if no character set is defined.
    */
     public String getText(){
-        return getText("UTF-8");
+        String charset = getCharacterEncoding();
+        if (charset==null) charset = "UTF-8";
+        return getText(charset);
     }
-    
-    
+
+
   //**************************************************************************
   //** getText
   //**************************************************************************
@@ -149,7 +177,7 @@ public class Response {
             return getBytes(true).toString(charsetName);
         }
         catch(Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         return null;
     }

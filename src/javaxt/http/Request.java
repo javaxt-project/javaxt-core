@@ -126,14 +126,16 @@ public class Request {
     }
 
 
+  //**************************************************************************
+  //** initHeaders
+  //**************************************************************************
+    
     private void initHeaders(){
         this.setUseCache(false);
         this.setHeader("Accept-Encoding", "gzip,deflate");
         this.setHeader("Accept-Charset", "ISO-8859-1,utf-8;q=0.7,*;q=0.7");
         this.setHeader("User-Agent", "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.10)");
     }
-
-
 
 
   //**************************************************************************
@@ -155,6 +157,7 @@ public class Request {
         if (conn==null) conn = getConnection(false);
         return new Response(this);
     }
+
 
   //**************************************************************************
   //** setUseCache
@@ -191,20 +194,49 @@ public class Request {
     }
 
 
-
+  //**************************************************************************
+  //** setCredentials
+  //**************************************************************************
+  /** Used to set the username and password used to authenticate the client.
+   *  The credentials are used in the "Authorization" request header and 
+   *  encoded using "Basic" authentication. Note that credentials encoded 
+   *  using "Basic" authentication can be easily decoded. As a general rule, 
+   *  do not pass credentials to sites that are not secured using SSL.
+   */
     public void setCredentials(String username, String password){
         this.username = username;
         this.password = password;
     }
-    
+
+
+  //**************************************************************************
+  //** setUserName
+  //**************************************************************************
+  /** Used to set the username used to authenticate the client. See 
+   *  setCredentials() for more information.
+   */    
     public void setUserName(String username){
         this.username = username;
     }
 
+
+  //**************************************************************************
+  //** setPassword
+  //**************************************************************************
+  /** Used to set the password used to authenticate the client. See 
+   *  setCredentials() for more information.
+   */ 
     public void setPassword(String password){
         this.password = password;
     }
 
+
+  //**************************************************************************
+  //** getCredentials
+  //**************************************************************************
+  /** Used to get a Base64 encoded string representing the username and 
+   *  password. The string is used for "Basic" authentication.
+   */ 
     private String getCredentials() throws Exception {
         if (username==null || password==null) return null;
         else
@@ -276,9 +308,8 @@ public class Request {
 
         parseResponse(conn);
     }
-   
-    
-    
+
+
   //**************************************************************************
   //** write
   //**************************************************************************
@@ -293,7 +324,6 @@ public class Request {
         for (int i=0; i<14; i++) boundary += new java.util.Random().nextInt(10);
         int boundarySize = boundary.length();
         
-      
         try{
             
           //Compute payload size and generate content metadata for each input
@@ -684,7 +714,6 @@ public class Request {
     }
 
 
-
   //**************************************************************************
   //** getResponseCode
   //**************************************************************************
@@ -748,7 +777,6 @@ public class Request {
     }
 
 
-
   //**************************************************************************
   //** setProxy
   //**************************************************************************
@@ -781,6 +809,7 @@ public class Request {
         }
          return null;
     }
+
 
   //**************************************************************************
   //** setProxy
@@ -827,7 +856,6 @@ public class Request {
             return false;
         }
     }
-
 
 
   //**************************************************************************
