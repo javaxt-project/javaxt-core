@@ -230,8 +230,7 @@ public class URL {
   //**************************************************************************
   //** getParameter
   //************************************************************************** 
-  /** Used to retrieve the value of a specific variable supplied in the query 
-   *  string.
+  /** Returns the value of a specific variable supplied in the query string.
    *
    *  @param key Query string parameter name. Performs a case insensitive
    *   search for the keyword.
@@ -258,8 +257,10 @@ public class URL {
   //**************************************************************************
   //** getParameter
   //**************************************************************************
-  /**  Used to retrieve the value of a specific variable supplied in the query
-   *   string using multiple keywords.
+  /** Returns the value of a specific variable supplied in the query string.
+   *  @param keys An array containing multiple possible parameter names.
+   *  Performs a case insensitive search for each parameter name and returns
+   *  the value for the first match.
    */
     public String getParameter(String[] keys){
 
@@ -282,7 +283,7 @@ public class URL {
   //**************************************************************************
   //** getParameters
   //**************************************************************************
-  /**  Used to retrieve the query string parameters
+  /** Returns a list of parameters found in query string.
    */
     public HashMap<String, List<String>> getParameters(){
         return parameters;
@@ -292,7 +293,7 @@ public class URL {
   //**************************************************************************
   //** removeParameter
   //**************************************************************************
-  /**  Used to remove a parameter from the query string
+  /** Used to remove a parameter from the query string
    */
     public String removeParameter(String key){
         StringBuffer str = new StringBuffer();
@@ -313,7 +314,7 @@ public class URL {
   //**************************************************************************
   //** getHost
   //**************************************************************************
-  /**  Used to return the hostname found in the URL
+  /** Returns the host name or IP address found in the URL.
    */
     public String getHost(){
         return host;
@@ -323,7 +324,7 @@ public class URL {
   //**************************************************************************
   //** setHost
   //**************************************************************************
-  /**  Used to update the hostname found in the URL
+  /** Used to update the host name or IP address found in the URL.
    */
     public void setHost(String host){
         if (host.contains(":")){
@@ -337,7 +338,7 @@ public class URL {
   //**************************************************************************
   //** getPort
   //**************************************************************************
-  /**  Used to return the port found in the URL
+  /** Returns the server port found in the URL.
    */
     public Integer getPort(){
         return port;
@@ -347,7 +348,7 @@ public class URL {
   //**************************************************************************
   //** setPort
   //**************************************************************************
-  /**  Used to update the port found in the URL
+  /** Used to update the port found in the URL.
    */
     public void setPort(int port){
         this.port = port;
@@ -357,7 +358,7 @@ public class URL {
   //**************************************************************************
   //** setProtocol
   //**************************************************************************
-  /**  Used to update the protocol found in the URL
+  /** Used to update the protocol found in the URL.
    */
     public void setProtocol(String protocol){
         this.protocol = protocol;
@@ -367,7 +368,7 @@ public class URL {
   //**************************************************************************
   //** getProtocol
   //**************************************************************************
-  /**  Used to return the protocol found in the URL
+  /** Returns the protocol found in the URL.
    */
     public String getProtocol(){
         return protocol;
@@ -377,7 +378,7 @@ public class URL {
   //**************************************************************************
   //** getQueryString
   //**************************************************************************
-  /**  Used to return the querystring in the URL
+  /** Returns the query string in the URL, or an empty string if none exists.
    */
     public String getQueryString(){
 
@@ -406,7 +407,7 @@ public class URL {
   //**************************************************************************
   //** setQueryString
   //**************************************************************************
-  /**  Used to update the querystring in the URL
+  /** Used to update the query string in the URL.
    */
     public void setQueryString(String query){
         if (query==null){
@@ -425,7 +426,7 @@ public class URL {
   //**************************************************************************
   //** getKeys
   //**************************************************************************
-  /**  Used to return a list of parameters/keys found in the querystring
+  /** Returns a list of parameter names found in the query string.
    */
     public java.util.HashSet<String> getKeys(){
         java.util.HashSet<String> keys = new java.util.HashSet<String>();
@@ -440,7 +441,9 @@ public class URL {
   //**************************************************************************
   //** getPath
   //**************************************************************************
-  /**  Used to return the path portion of the URL
+  /** Return the path portion of the URL, starting with a "/" character. The
+   *  path does not include the query string. If no path is found, returns a
+   *  null.
    */
     public String getPath(){
         return path;
@@ -489,7 +492,7 @@ public class URL {
   //**************************************************************************
   //** toURL
   //**************************************************************************
-  /**  Returns a properly encoded URL for HTTP requests
+  /** Returns a properly encoded URL for HTTP requests
    */
     public java.net.URL toURL(){
         java.net.URL url = null;
