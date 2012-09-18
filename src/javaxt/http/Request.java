@@ -253,11 +253,9 @@ public class Request {
    */
     public void write(InputStream payload) {
 
-        //this.setHeader("Connection", "close");
-        if (conn==null) conn = getConnection(false);
-        conn = connect(true);
-        OutputStream output = null;
+        if (conn==null) conn = getConnection(true);
 
+        OutputStream output = null;
         try{
             output = conn.getOutputStream();
             byte[] buf = new byte[8192]; //8KB
@@ -296,8 +294,7 @@ public class Request {
    *   @param payload Byte array containing the body of the HTTP request.
    */
     public void write(byte[] payload) {
-        if (conn==null) conn = getConnection(false);
-        conn = connect(true);
+        if (conn==null) conn = getConnection(true);
 
         try{
             conn.getOutputStream().write(payload);
@@ -361,8 +358,7 @@ public class Request {
 
 
           //Open socket
-            if (conn==null) conn = getConnection(false);
-            conn = connect(true);  
+            if (conn==null) conn = getConnection(true);
 
             
           //Write content
@@ -572,9 +568,27 @@ public class Request {
    */
     private URLConnection getConnection(boolean doOutput){
 
+        
+      //If we're writing data to the socket (e.g. "POST") and maxRedirects<0, 
+      //simply open a connection and let the caller figure out what to do with 
+      //the response.
+        if (doOutput && maxRedirects<1){
+            URLConnection conn = this.connect(true);
+            requestHeaders = conn.getRequestProperties();
+            return conn;
+        }
+        
 
+      //If we're still here, perform a "GET" request and look for 3XX series
+      //response codes. Follow redirects as needed. Note that once the
+      //parseResponse() method is called, clients can no longer write to the
+      //socket. Therefore, for "POST" requests, we must open a writable socket
+      //after parsing the response from the original "GET" request. The net
+      //effect is that when posting data and maxRedirects>0, the HTTP client
+      //will make 2 requests to the server: 1 to test the URL, the second to
+      //post data.
         conn = null;
-        URLConnection conn = this.connect(doOutput);
+        URLConnection conn = this.connect(false);
         if (conn!=null){
 	    requestHeaders = conn.getRequestProperties();
             parseResponse(conn);
@@ -586,7 +600,7 @@ public class Request {
 
                     try{
                         this.url = new java.net.URL(getResponseHeader("Location"));
-                        conn = this.connect(doOutput);
+                        conn = this.connect(false);
                         parseResponse(conn);
                         numRedirects++;
                         if (numRedirects>maxRedirects) break;
@@ -599,6 +613,13 @@ public class Request {
             }
         }
 
+
+      //Open a writable socket as needed.
+        if (doOutput){
+            conn = connect(true);
+            requestHeaders = conn.getRequestProperties();
+        }
+
         return conn;
     }
 
@@ -606,8 +627,9 @@ public class Request {
   //**************************************************************************
   //** parseResponse
   //**************************************************************************
-  /** Used to parse the first line from the http response */
-
+  /** Used to parse the first line from the http response. Note that once,
+   *  this method is called, clients can no longer write to the socket!
+   */
     private void parseResponse(URLConnection conn){
 
 
@@ -620,7 +642,7 @@ public class Request {
         //requestHeaders = conn.getRequestProperties();
 
 
-        headers = conn.getHeaderFields();
+        headers = conn.getHeaderFields(); //<-- Once this is called, clients can no longer write to the socket!
         if (!headers.isEmpty()){
 
             List status = (List)headers.get(null);
