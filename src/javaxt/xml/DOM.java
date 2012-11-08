@@ -157,9 +157,9 @@ public class DOM {
             ByteArrayOutputStream bas = new ByteArrayOutputStream();            
             StreamResult result = new StreamResult(bas);
             transformer.transform(source, result);
-
-            return bas.toString();
-
+            String encoding = xml.getXmlEncoding();
+            if (encoding!=null) return bas.toString(encoding);
+            else return bas.toString();
         }
         catch (Exception e){
             //System.out.println(e.toString());
