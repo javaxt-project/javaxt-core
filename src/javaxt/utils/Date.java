@@ -347,6 +347,8 @@ public class Date {
   //**************************************************************************
   /** Returns a long integer used to represent the Date in the following
    *  format: "yyyyMMddHHmmssSSS". The time zone is automatically set to UTC.
+   *  This is can be used to perform simple date comparisons and storing dates
+   *  in a database as integers (e.g. SQLite). <p/>
    *  Note that this method is different from the getTime() method which
    *  returns the number of milliseconds since January 1, 1970, 00:00:00 UTC.
    */

@@ -499,189 +499,132 @@ public class Recordset {
         if (State==1){
             try{                
                 
-              //Determine whether to use a prepared statement or a resultset to add/update records
-                boolean usePreparedStatement = false;
+              //Special case for PostGIS geometry types...
                 Driver driver = Connection.getDatabase().getDriver();
-                if (driver.equals("DB2") || driver.equals("SQLite") ){
-                    usePreparedStatement = true;
-                }
-                else if (driver.equals("PostgreSQL")){
-                  //PostGIS doesn't support JDBC inserts either...
-                    usePreparedStatement = true;
+                if (driver.equals("PostgreSQL")){
                     for (int i=0; i<Fields.length; i++ ) { 
                          Object value = null;
                          if (Fields[i].Value!=null) value = Fields[i].Value.toObject();
                          if (value!=null){
-                            //Special case for PostGIS geometry types...
                             if (value.getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){                                
                                 Fields[i].Value = new Value(getGeometry(value));
                                 break;
                             }
                          }
                     }
-                    
                 }
                 
                 
-              //Set/update records in the resultset
-                if (usePreparedStatement==false){
 
-                    for (int i=0; i<Fields.length; i++ ) {
-                        String FieldName = Fields[i].Name;
-                        String FieldType = Fields[i].Class; 
-                        Value FieldValue = Fields[i].Value;
-                        
-                        if (Fields[i].RequiresUpdate){
+                if (!isDirty()) return;
 
-                            if (FieldType.indexOf("String")>=0)
-                            rs.updateString(FieldName, FieldValue.toString());
-
-                            if (FieldType.indexOf("Integer")>=0)
-                            rs.updateInt(FieldName, FieldValue.toInteger());
-
-                            if (FieldType.indexOf("Short")>=0)
-                            rs.updateShort(FieldName, FieldValue.toShort());
-
-                            if (FieldType.indexOf("Long")>=0)
-                            rs.updateLong(FieldName, FieldValue.toLong());
-
-                            if (FieldType.indexOf("Double")>=0)
-                            rs.updateDouble(FieldName, FieldValue.toDouble());
-
-                            if (FieldType.indexOf("Timestamp")>=0)
-                            rs.updateTimestamp(FieldName, FieldValue.toTimeStamp());
-
-                            if (FieldType.indexOf("Date")>=0)
-                            rs.updateDate(FieldName, new java.sql.Date(FieldValue.toDate().getTime()));
-                            
-                            if (FieldType.indexOf("Bool")>=0)
-                            rs.updateBoolean(FieldName, FieldValue.toBoolean() );
-
-                            if (FieldType.indexOf("Object")>=0)
-                            rs.updateObject(FieldName, FieldValue.toObject());
-
-                            if (FieldValue!=null){
-                                if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
-                                    rs.updateObject(FieldName, getGeometry(FieldValue));
-                                }
-                            }
-                        
-                        }
-
+                java.util.ArrayList<String> cols = new java.util.ArrayList<String>();
+                for (int i=0; i<Fields.length; i++){
+                    if (Fields[i].RequiresUpdate){
+                        cols.add(Fields[i].getName());
                     }
+                }
 
-                    rs.updateRow();
+                int numUpdates = cols.size();
+
+                StringBuffer sql = new StringBuffer();
+
+                if (InsertOnUpdate){
+                    sql.append("INSERT INTO " + Fields[0].getTable() + " (");
+                    for (int i=0; i<numUpdates; i++){
+                        String colName = cols.get(i);
+                        if (colName.contains(" ")) colName = "[" + colName + "]";
+                        sql.append(colName);
+                        if (numUpdates>1 && i<numUpdates-1){
+                            sql.append(",");
+                        }
+                    }
+                    sql.append(") VALUES (");
+                    for (int i=0; i<numUpdates; i++){
+                        sql.append("?");
+                        if (numUpdates>1 && i<numUpdates-1){
+                            sql.append(",");
+                        }
+                    }
+                    sql.append(")");
                 }
                 else{
-
-                    if (!isDirty()) return;
-
-                    java.util.ArrayList<String> cols = new java.util.ArrayList<String>();
-                    for (int i=0; i<Fields.length; i++){
-                        if (Fields[i].RequiresUpdate){
-                            cols.add(Fields[i].getName());
+                    sql.append("UPDATE " + Fields[0].getTable() + " SET ");
+                    for (int i=0; i<numUpdates; i++){
+                        sql.append(cols.get(i));
+                        sql.append("=?");
+                        if (numUpdates>1 && i<numUpdates-1){
+                            sql.append(", ");
                         }
                     }
-
-                    int numUpdates = cols.size();
-
-                    StringBuffer sql = new StringBuffer();
-
-                    if (InsertOnUpdate){
-                        sql.append("INSERT INTO " + Fields[0].getTable() + " (");
-                        for (int i=0; i<numUpdates; i++){
-                            sql.append(cols.get(i));
-                            if (numUpdates>1 && i<numUpdates-1){
-                                sql.append(",");
-                            }
-                        }
-                        sql.append(") VALUES (");
-                        for (int i=0; i<numUpdates; i++){
-                            sql.append("?");
-                            if (numUpdates>1 && i<numUpdates-1){
-                                sql.append(",");
-                            }
-                        }
-                        sql.append(")");
+                    String where = new Parser(this.sqlString).getWhereString();
+                    if (where!=null){
+                        sql.append(" WHERE "); sql.append(where);
                     }
-                    else{
-                        sql.append("UPDATE " + Fields[0].getTable() + " SET ");
-                        for (int i=0; i<numUpdates; i++){
-                            sql.append(cols.get(i));
-                            sql.append("=?");
-                            if (numUpdates>1 && i<numUpdates-1){
-                                sql.append(", ");
-                            }
-                        }
-                        String where = new Parser(this.sqlString).getWhereString();
-                        if (where!=null){
-                            sql.append(" WHERE "); sql.append(where);
-                        }
-                    }
-
-                    java.sql.PreparedStatement stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
-                    int id = 1;
-                    for (int i=0; i<Fields.length; i++ ) {
-                        String FieldType = Fields[i].Class;
-                        Value FieldValue = Fields[i].Value;
-
-
-                        if (Fields[i].RequiresUpdate){
-                            if (FieldType.indexOf("String")>=0)
-                            stmt.setString(id, FieldValue.toString());
-
-                            if (FieldType.indexOf("Integer")>=0)
-                            stmt.setInt(id, FieldValue.toInteger());
-
-                            if (FieldType.indexOf("Short")>=0)
-                            stmt.setShort(id, FieldValue.toShort());
-
-                            if (FieldType.indexOf("Long")>=0)
-                            stmt.setLong(id, FieldValue.toLong());
-
-                            if (FieldType.indexOf("Double")>=0)
-                            stmt.setDouble(id, FieldValue.toDouble());
-
-                            if (FieldType.indexOf("Timestamp")>=0)
-                            stmt.setTimestamp(id, FieldValue.toTimeStamp());
-
-                            if (FieldType.indexOf("Date")>=0)
-                            stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
-
-                            if (FieldType.indexOf("Bool")>=0)
-                            stmt.setBoolean(id, FieldValue.toBoolean() );
-
-                            if (FieldType.indexOf("Object")>=0)
-                            stmt.setObject(id, FieldValue.toObject() );
-
-                            if (FieldValue!=null){
-                                try{
-                                    if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
-                                        stmt.setObject(id, getGeometry(FieldValue));
-                                    }
-                                }
-                                catch(Exception e){}
-                            }
-
-                            id++;
-                        }
-                    }
-                    stmt.executeUpdate();
-                    
-
-
-                    if (InsertOnUpdate){
-                        java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                        if (generatedKeys.next()) {
-                            this.GeneratedKey = new Value(generatedKeys.getString(1));
-                        }
-
-                        InsertOnUpdate = false;
-                    }
-
-                    
-                    //stmt.close();
                 }
+
+                java.sql.PreparedStatement stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                int id = 1;
+                for (int i=0; i<Fields.length; i++ ) {
+                    String FieldType = Fields[i].Class;
+                    Value FieldValue = Fields[i].Value;
+
+
+                    if (Fields[i].RequiresUpdate){
+                        if (FieldType.indexOf("String")>=0)
+                        stmt.setString(id, FieldValue.toString());
+
+                        if (FieldType.indexOf("Integer")>=0)
+                        stmt.setInt(id, FieldValue.toInteger());
+
+                        if (FieldType.indexOf("Short")>=0)
+                        stmt.setShort(id, FieldValue.toShort());
+
+                        if (FieldType.indexOf("Long")>=0)
+                        stmt.setLong(id, FieldValue.toLong());
+
+                        if (FieldType.indexOf("Double")>=0)
+                        stmt.setDouble(id, FieldValue.toDouble());
+
+                        if (FieldType.indexOf("Timestamp")>=0)
+                        stmt.setTimestamp(id, FieldValue.toTimeStamp());
+
+                        if (FieldType.indexOf("Date")>=0)
+                        stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
+
+                        if (FieldType.indexOf("Bool")>=0)
+                        stmt.setBoolean(id, FieldValue.toBoolean() );
+
+                        if (FieldType.indexOf("Object")>=0)
+                        stmt.setObject(id, FieldValue.toObject() );
+
+                        if (FieldValue!=null){
+                            try{
+                                if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
+                                    stmt.setObject(id, getGeometry(FieldValue));
+                                }
+                            }
+                            catch(Exception e){}
+                        }
+
+                        id++;
+                    }
+                }
+                stmt.executeUpdate();
+
+
+
+                if (InsertOnUpdate){
+                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                    if (generatedKeys.next()) {
+                        this.GeneratedKey = new Value(generatedKeys.getString(1));
+                    }
+
+                    InsertOnUpdate = false;
+                }
+
+
+                //stmt.close();                
             }
             catch(java.sql.SQLException e){
                 throw e;
