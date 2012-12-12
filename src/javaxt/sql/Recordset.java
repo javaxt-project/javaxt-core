@@ -554,7 +554,9 @@ public class Recordset {
                 else{
                     sql.append("UPDATE " + tableName + " SET ");
                     for (int i=0; i<numUpdates; i++){
-                        sql.append(cols.get(i));
+                        String colName = cols.get(i);
+                        if (colName.contains(" ")) colName = "[" + colName + "]";
+                        sql.append(colName);
                         sql.append("=?");
                         if (numUpdates>1 && i<numUpdates-1){
                             sql.append(", ");
