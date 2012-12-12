@@ -330,12 +330,20 @@ public class Date {
   //** toString
   //**************************************************************************
   /** Used to format the current date into a string.
-   *  @param format Pattern used to format the date (e.g.
-   *  "EEE MMM dd HH:mm:ss z yyyy"). Please refer to the SimpleDateFormat class
-   *  for more information.
+   *  @param format Pattern used to format the date (e.g. "MM/dd/yyyy hh:mm a", 
+   *  "EEE MMM dd HH:mm:ss z yyyy", etc). Please refer to the
+   *  java.text.SimpleDateFormat class for more information.
    */
     public String toString(String format){
         SimpleDateFormat currFormatter = 
+            new SimpleDateFormat(format, currentLocale);
+        if (timeZone!=null) currFormatter.setTimeZone(timeZone);
+        return currFormatter.format(currDate);
+    }
+
+
+    public String toString(String format, java.util.TimeZone timeZone){
+        SimpleDateFormat currFormatter =
             new SimpleDateFormat(format, currentLocale);
         if (timeZone!=null) currFormatter.setTimeZone(timeZone);
         return currFormatter.format(currDate);
@@ -347,8 +355,16 @@ public class Date {
   //**************************************************************************
   /** Returns a long integer used to represent the Date in the following
    *  format: "yyyyMMddHHmmssSSS". The time zone is automatically set to UTC.
-   *  This is can be used to perform simple date comparisons and storing dates
-   *  in a database as integers (e.g. SQLite). <p/>
+   *  This is useful for perform simple date comparisons and storing dates
+   *  in a database as integers (e.g. SQLite). Here's an example of how to
+   *  go from a date to a long and a long to a date:
+   <pre>
+        javaxt.utils.Date orgDate = new javaxt.utils.Date();
+        Long l = orgDate.toLong(); //"yyyyMMddHHmmssSSS" formatted long value
+        javaxt.utils.Date newDate = new javaxt.utils.Date(l+"");
+        newDate.setTimeZone("UTC", true);
+        System.out.println(newDate);
+   </pre>
    *  Note that this method is different from the getTime() method which
    *  returns the number of milliseconds since January 1, 1970, 00:00:00 UTC.
    */

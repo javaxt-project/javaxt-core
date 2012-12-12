@@ -114,6 +114,23 @@ public class Value {
 
 
   //**************************************************************************
+  //** toFloat
+  //**************************************************************************
+  /** Returns the value as a float. Returns a null if there was a problem
+   *  converting the value to a float or if the value is null.
+   */
+    public Float toFloat(){
+        if (value==null) return null;
+        try{
+            return Float.valueOf(value+"");
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
   //** toDate
   //**************************************************************************
   /** Returns the value as a Date. Returns a null if there was a problem

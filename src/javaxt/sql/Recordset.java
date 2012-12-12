@@ -529,8 +529,11 @@ public class Recordset {
 
                 StringBuffer sql = new StringBuffer();
 
+                String tableName = Fields[0].getTable();
+                if (tableName.contains(" ")) tableName = "[" + tableName + "]";
+
                 if (InsertOnUpdate){
-                    sql.append("INSERT INTO " + Fields[0].getTable() + " (");
+                    sql.append("INSERT INTO " + tableName + " (");
                     for (int i=0; i<numUpdates; i++){
                         String colName = cols.get(i);
                         if (colName.contains(" ")) colName = "[" + colName + "]";
@@ -549,7 +552,7 @@ public class Recordset {
                     sql.append(")");
                 }
                 else{
-                    sql.append("UPDATE " + Fields[0].getTable() + " SET ");
+                    sql.append("UPDATE " + tableName + " SET ");
                     for (int i=0; i<numUpdates; i++){
                         sql.append(cols.get(i));
                         sql.append("=?");
@@ -565,38 +568,47 @@ public class Recordset {
 
                 java.sql.PreparedStatement stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
                 int id = 1;
-                for (int i=0; i<Fields.length; i++ ) {
-                    String FieldType = Fields[i].Class;
-                    Value FieldValue = Fields[i].Value;
-
-
+                for (int i=0; i<Fields.length; i++) {
                     if (Fields[i].RequiresUpdate){
-                        if (FieldType.indexOf("String")>=0)
+                        String FieldType = Fields[i].Class.toLowerCase();
+                        if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
+                        Value FieldValue = Fields[i].Value;
+
+
+                        if (FieldType.indexOf("string")>=0)
                         stmt.setString(id, FieldValue.toString());
 
-                        if (FieldType.indexOf("Integer")>=0)
+                        else if(FieldType.indexOf("int")>=0)
                         stmt.setInt(id, FieldValue.toInteger());
 
-                        if (FieldType.indexOf("Short")>=0)
+                        else if (FieldType.indexOf("short")>=0)
                         stmt.setShort(id, FieldValue.toShort());
 
-                        if (FieldType.indexOf("Long")>=0)
+                        else if (FieldType.indexOf("long")>=0)
                         stmt.setLong(id, FieldValue.toLong());
 
-                        if (FieldType.indexOf("Double")>=0)
+                        else if (FieldType.indexOf("double")>=0)
                         stmt.setDouble(id, FieldValue.toDouble());
 
-                        if (FieldType.indexOf("Timestamp")>=0)
+                        else if (FieldType.indexOf("float")>=0)
+                        stmt.setFloat(id, FieldValue.toFloat());
+
+                        else if (FieldType.indexOf("decimal")>=0)
+                        stmt.setBigDecimal(id, FieldValue.toBigDecimal());
+
+                        else if (FieldType.indexOf("timestamp")>=0)
                         stmt.setTimestamp(id, FieldValue.toTimeStamp());
 
-                        if (FieldType.indexOf("Date")>=0)
+                        else if (FieldType.indexOf("date")>=0)
                         stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
 
-                        if (FieldType.indexOf("Bool")>=0)
+                        else if (FieldType.indexOf("bool")>=0)
                         stmt.setBoolean(id, FieldValue.toBoolean() );
 
-                        if (FieldType.indexOf("Object")>=0)
-                        stmt.setObject(id, FieldValue.toObject() );
+                        else if (FieldType.indexOf("object")>=0)
+                        stmt.setObject(id, FieldValue.toObject());
+
+                        //else System.out.println(i + " " + Fields[i].Name + " " + FieldType);
 
                         if (FieldValue!=null){
                             try{
