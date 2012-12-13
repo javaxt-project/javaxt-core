@@ -206,8 +206,7 @@ public class Value {
   /**  Used to determine if the value is numeric. */
 
     public boolean isNumeric(){
-        if (toDouble()==null) return false;
-        else return true;
+        return (toDouble()!=null);
     }
 
 
