@@ -466,8 +466,7 @@ public class Recordset {
 
               //DB2 and Xerial's SQLite JDBC driver don't seem to support
               //moveToInsertRow or insertRow so we'll have to create an SQL
-              //Insert statement instead. To do so, we'll use the Fields array
-              //to store new values...
+              //Insert statement instead.
                 if (driver.equals("DB2") || driver.equals("SQLite")){
                 }
                 else{ //for all other cases...
@@ -481,7 +480,7 @@ public class Recordset {
                 }
             }
             catch(Exception e){
-                System.out.println("AddNew ERROR: " + e.toString());
+                System.err.println("AddNew ERROR: " + e.toString());
             }
         }
     }
@@ -496,7 +495,7 @@ public class Recordset {
         if (isReadOnly) throw new java.sql.SQLException("Read only!");
         if (State==1){
             if (!isDirty()) return;
-            try{                
+            try{
 
 
               //Determine whether to use a prepared statement or a resultset 
@@ -658,47 +657,49 @@ public class Recordset {
                             sql.append(" WHERE ");
                             for (int i=0; i<keys.size(); i++){
                                 Field field = keys.get(i);
-
+                                fields.add(field);
                                 if (i>0) sql.append(" AND ");
                                 String colName = field.getName();
-                                
-                                
-                                fields.add(field);
                                 if (colName.contains(" ")) colName = "[" + colName + "]";
                                 sql.append(colName); sql.append("=?");
                             }
                         }
                         else{
 
-
-                          //Warn user that there might be a problem with the update
-                            StringBuffer msg = new StringBuffer();
-                            msg.append("WARNING: Updating " + tableName + " table without a unique key.\r\n");
-                            msg.append("Multiple rows may be affected with this update.\r\n");
-                            try{ int x = 1/0; } catch(Exception e){
-                                java.io.ByteArrayOutputStream bas = new java.io.ByteArrayOutputStream();
-                                java.io.PrintStream s = new java.io.PrintStream(bas, true);
-                                e.printStackTrace(s);
-                                s.close();
-                                boolean append = false;
-                                for (String line : bas.toString().split("\n")){
-                                    if (append){
-                                        msg.append("\t");
-                                        msg.append(line.trim());
-                                        msg.append("\r\n");
-                                    }
-                                    if (!append && line.contains(this.getClass().getCanonicalName())) append = true;
-                                }
-                                System.err.println(msg);
-                            }
-
-
-                          //Build the where clause
+                          //Since we don't have any keys, use the original where clause
                             String where = new Parser(this.sqlString).getWhereString();
                             if (where!=null){
                                 sql.append(" WHERE "); sql.append(where);
                             }
-                            
+
+                          //Find how many records will be affected by this update
+                            java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + " WHERE " + (where==null?"":where));
+                            int numRecords = r2.getInt(1);
+                            r2.close();
+
+
+                          //Warn user that there might be a problem with the update
+                            if (numRecords>1){
+                                StringBuffer msg = new StringBuffer();
+                                msg.append("WARNING: Updating " + tableName + " table without a unique key.\r\n");
+                                msg.append("Multiple rows may be affected with this update.\r\n");
+                                try{ int x = 1/0; } catch(Exception e){
+                                    java.io.ByteArrayOutputStream bas = new java.io.ByteArrayOutputStream();
+                                    java.io.PrintStream s = new java.io.PrintStream(bas, true);
+                                    e.printStackTrace(s);
+                                    s.close();
+                                    boolean append = false;
+                                    for (String line : bas.toString().split("\n")){
+                                        if (append){
+                                            msg.append("\t");
+                                            msg.append(line.trim());
+                                            msg.append("\r\n");
+                                        }
+                                        if (!append && line.contains(this.getClass().getCanonicalName())) append = true;
+                                    }
+                                    System.err.println(msg);
+                                }
+                            }
                         }
                     }
 
@@ -876,13 +877,18 @@ public class Recordset {
     }
 
 
+  //**************************************************************************
+  //** isDirty
+  //**************************************************************************
+  /** Returns true if any of the fields have been modified.
+   */
     public boolean isDirty(){
         for (Field field : Fields){
             if (field.isDirty()) return true;
         }
         return false;
     }
-    
+
 
   //**************************************************************************
   //** SetValue
