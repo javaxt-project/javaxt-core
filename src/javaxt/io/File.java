@@ -3,6 +3,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.io.*;
+import java.util.Locale;
 
 //******************************************************************************
 //**  File Class - By Peter Borissow
@@ -17,7 +18,11 @@ import java.io.*;
 
 public class File implements Comparable {
     
-    private java.io.File File; 
+    private java.io.File file; //<--DO NOT USE DIRECTLY! Use getFile() instead.
+    private String name = "";
+    private String path = "";
+    private FileAttributes attr;
+
     public final String PathSeparator = System.getProperty("file.separator");
     public final String LineSeperator = System.getProperty("line.separator");
     private static final boolean isWindows = Directory.isWindows;
@@ -34,8 +39,9 @@ public class File implements Comparable {
         if (Path.startsWith("\"") && Path.endsWith("\"")){
             Path = Path.substring(1,Path.length()-1);
         }
-        File = new java.io.File(Path);
-        
+        int idx = Path.replace("\\", "/").lastIndexOf("/")+1;
+        path = Path.substring(0, idx);
+        name = Path.substring(idx);
     }
 
 
@@ -48,7 +54,17 @@ public class File implements Comparable {
    */        
     public File(java.io.File File) {
         if (File.isDirectory()){} //throw an error or set this.File=null?
-        this.File = File;
+        this.file = File;
+        if (file!=null) {
+            name = file.getName();
+            try{
+               path = file.getParentFile().getCanonicalPath().toString();
+            }
+            catch(Exception e){
+               path = file.getParentFile().toString();
+            }
+            if (!path.endsWith(PathSeparator)) path += PathSeparator;
+        }
     }
 
     
@@ -79,7 +95,7 @@ public class File implements Comparable {
    *  getFileAttributes() in the Directory class.
    */
     protected File(Directory directory){
-        this.File = directory.toFile();
+        this.file = directory.toFile();
     }
     
     
@@ -89,11 +105,10 @@ public class File implements Comparable {
   /**  Returns the name of the file, excluding the path. */
     
     public String getName(){
-        if (File!=null) return File.getName();
-        else return "";
+        return name;
     }
-    
-    
+
+
   //**************************************************************************
   //** Get File Name
   //************************************************************************** 
@@ -107,14 +122,13 @@ public class File implements Comparable {
         if (!IncludeFileExtension){
             String FileExt = getExtension();
             if (FileExt.length()>0){
-                FileName = FileName.substring(0, 
-                           FileName.length() - (FileExt.length()+1));
+                FileName = FileName.substring(0, FileName.length()-(FileExt.length()+1));
             }
         }
         return FileName;
     }
-    
-    
+
+
   //**************************************************************************
   //** Get File Path
   //**************************************************************************  
@@ -122,21 +136,10 @@ public class File implements Comparable {
    *   a file separator to the end of the string. 
    */
     public String getPath(){
-        if (File!=null) {
-            String path = ""; //File.getParentFile().toString();
-            try{
-               path = File.getParentFile().getCanonicalPath().toString();
-            }
-            catch(Exception e){
-               path = File.getParentFile().toString();
-            }
-            if (!path.endsWith(PathSeparator)) path += PathSeparator;
-            return path;
-        }
-        else return "";
+        return path;
     }
-    
-    
+
+
   //**************************************************************************
   //** Get Directory
   //************************************************************************** 
@@ -146,25 +149,40 @@ public class File implements Comparable {
         return getParentDirectory();
     }
 
+
   //**************************************************************************
   //** Get Parent Directory
   //**************************************************************************
   /**  Returns the file's parent directory. */
 
     public Directory getParentDirectory(){
-        if (File!=null) return new Directory(getPath());
+        if (path.length()>0) return new Directory(path);
         else return null;
     }
 
-    
-    
+
   //**************************************************************************
   //** toFile
   //**************************************************************************
   /**  Returns the java.io.File representation of this object. */
 
     public java.io.File toFile(){
-        return File;
+        return getFile();
+    }
+
+
+  //**************************************************************************
+  //** getFile
+  //**************************************************************************
+  /**  Returns the java.io.File representation of this object. */
+    private java.io.File getFile(){
+        
+      //Remove cached file attributes. This is important when updating or 
+      //deleting the file.
+        attr = null;
+
+        if (file==null) file = new java.io.File(path + name);
+        return file;
     }
 
     
@@ -176,25 +194,23 @@ public class File implements Comparable {
    *   if there is no extension.
    */
     public String getExtension(){
-        String FileName = getName();
-        if (FileName.contains((CharSequence) ".")){
-            return FileName.substring(FileName.lastIndexOf(".")+1,FileName.length());
-        }
-        else{
-            return "";
-        }
+        if (name.contains(".")) return name.substring(name.lastIndexOf(".")+1);
+        else return "";
     }
-    
-    
+
+
   //**************************************************************************
   //** Get File Size
   //**************************************************************************
   /**  Returns the size of the file, in bytes. */
     
     public long getSize(){
-        if (File!=null) return File.length();
+        if (file!=null) return file.length();
+        FileAttributes attr = getFileAttributes();
+        if (attr!=null) return attr.getSize();
         else return 0;
     }
+
 
   //**************************************************************************
   //** getDate
@@ -203,7 +219,9 @@ public class File implements Comparable {
    *  identical to the getLastModifiedTime() method.
    */
     public java.util.Date getDate(){
-        if (File!=null) return new javaxt.utils.Date(File.lastModified()).getDate();
+        if (file!=null) return new java.util.Date(file.lastModified());
+        FileAttributes attr = getFileAttributes();
+        if (attr!=null) return attr.getLastWriteTime();
         else return null;
     }
 
@@ -214,6 +232,7 @@ public class File implements Comparable {
   /**  Used to set/update the last modified date. */
 
     public void setDate(java.util.Date lastModified){
+        java.io.File File = getFile();
         if (File!=null){
             long t = lastModified.getTime();
             if (File.lastModified()!=t) File.setLastModified(t);
@@ -227,21 +246,21 @@ public class File implements Comparable {
   /**  Used to determine whether a file exists. Returns false if the file
    *   system can't find the file or if the object is a directory.
    */
-    public boolean exists(){ 
-        if (File!=null){
-            if (File.isFile()) return File.exists();
-        }
-        return false;
+    public boolean exists(){
+        if (file!=null) return file.exists();
+        return getFileAttributes()!=null;
     }
-    
-    
+
+
   //**************************************************************************
   //** isHidden
   //**************************************************************************
   /** Used to check whether the file is hidden.
    */
     public boolean isHidden(){
-        if (File!=null) return File.isHidden();
+        if (file!=null) return file.isHidden();
+        FileAttributes attr = getFileAttributes();
+        if (attr!=null) return attr.isHidden();
         else return false;
     }
 
@@ -252,7 +271,9 @@ public class File implements Comparable {
   /** Used to check whether the file has read permissions.
    */
     public boolean isReadOnly(){
-        if (File!=null) return !File.canWrite();
+        if (file!=null) return !file.canWrite();
+        FileAttributes attr = getFileAttributes();
+        if (attr!=null) return attr.isReadOnly();
         else return true;
     }
 
@@ -265,6 +286,7 @@ public class File implements Comparable {
    *  return false.
    */
     public boolean isExecutable(){
+        java.io.File File = getFile();
         if (File!=null){
 
             //return File.canExecute(); //<--incompatable with JDK 1.5
@@ -293,12 +315,13 @@ public class File implements Comparable {
    */
     public boolean isLink(){
 
+        java.io.File File = getFile();
         if (File == null || !File.exists()) {
             return false;
         }
 
 
-        if (this.getExtension().equalsIgnoreCase("lnk")){
+        if (getExtension().equalsIgnoreCase("lnk")){
             return (new LnkParser(this).getFile()!=null);
         }
         else{
@@ -326,6 +349,7 @@ public class File implements Comparable {
    */
     public java.io.File getLink(){
 
+        java.io.File File = getFile();
         if (File == null || !File.exists()) {
             return null;
         }
@@ -364,7 +388,8 @@ public class File implements Comparable {
   //**************************************************************************
   /**  Used to delete the file. Warning: this operation is irrecoverable. */
     
-    public boolean delete(){ 
+    public boolean delete(){
+        java.io.File File = getFile();
         if (File!=null) return File.delete();
         else return false;
     }
@@ -387,26 +412,26 @@ public class File implements Comparable {
   /**  Used to move the file to a different directory. */
     
     public javaxt.io.File moveTo(Directory Destination){
+        java.io.File File = getFile();
         java.io.File Dir = Destination.toFile();
         Dir.mkdirs();
-        javaxt.io.File newFile = new javaxt.io.File(Dir, File.getName());
-        File.renameTo(newFile.toFile());
-        File = newFile.toFile();
-        return newFile;
+        java.io.File newFile = new java.io.File(Dir, File.getName());
+        File.renameTo(newFile);
+        file = newFile;
+        return this;
     }
-    
-    
+
+
   //**************************************************************************
   //** Copy File
   //**************************************************************************
   /**  Used to create a copy of this file.
    */
     public boolean copyTo(Directory Destination, boolean Overwrite){
-        File Output = new File(Destination, File.getName());
-        return copyTo(Output,Overwrite);
+        return copyTo(new File(Destination, getName()), Overwrite);
     }
-    
-    
+
+
   //**************************************************************************
   //** Copy File
   //**************************************************************************
@@ -415,7 +440,7 @@ public class File implements Comparable {
     public boolean copyTo(javaxt.io.File Destination, boolean Overwrite){
         
       //Validate Input/Output
-        System.out.println(Destination);
+        java.io.File File = getFile();
         if (File.exists()==false) return false;
         if (Destination.exists() && Overwrite==false) return false;
         if (File.equals(Destination.toFile())) return false;
@@ -425,8 +450,6 @@ public class File implements Comparable {
         
       //Copy File
         try{
-            
-
             FileInputStream input  = new FileInputStream(File);
             FileOutputStream output = new FileOutputStream(Destination.toFile());
             final ReadableByteChannel inputChannel = Channels.newChannel(input);
@@ -451,7 +474,7 @@ public class File implements Comparable {
             return true;
         }
         catch(Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
             return false;
         }
     }
@@ -469,11 +492,11 @@ public class File implements Comparable {
         if (FileName!=null){
             FileName = FileName.trim();
             if (FileName.length()>0){
+                java.io.File File = getFile();
                 if (File!=null) {
-                    javaxt.io.File newFile = new javaxt.io.File(getPath() + FileName);
-                    File.renameTo(newFile.toFile());
-                    File = newFile.toFile();
-                    return newFile;
+                    java.io.File newFile = new java.io.File(getPath() + FileName);
+                    File.renameTo(newFile);
+                    file = newFile;
                 }
             }
         }
@@ -489,6 +512,7 @@ public class File implements Comparable {
     public BufferedWriter getBufferedWriter(String charsetName){
 
         try{
+            java.io.File File = getFile();
             File.getParentFile().mkdirs();
             if (charsetName==null){
                 return new BufferedWriter( new FileWriter(File) );
@@ -502,7 +526,7 @@ public class File implements Comparable {
         }        
     }
 
-    
+
   //**************************************************************************
   //** getBufferedReader
   //**************************************************************************
@@ -511,29 +535,24 @@ public class File implements Comparable {
    *   BufferedReader br = file.getBufferedReader("UTF-8");
    *   String strLine;
    *   while ((strLine = br.readLine()) != null){
-   *      System.out.println (strLine);
+   *      System.out.println(strLine);
    *   }
    *   </pre>
-   *   WARNING: This method will never throw an error.
-   * 
-   *   @return BufferedReader
+   *   @return BufferedReader or null
    */
     public BufferedReader getBufferedReader(){
-
+        java.io.File File = getFile();
         if (File.exists()){
             try{
-
               //NOTE: FileReader always assumes default encoding is OK!
-                return new BufferedReader( new FileReader(File) ); 
-
+                return new BufferedReader( new FileReader(File) );
             }
             catch (Exception e){
             }
-
         }
         return null;
     }
-    
+
 
   //**************************************************************************
   //** getBufferedReader
@@ -552,15 +571,13 @@ public class File implements Comparable {
    *   Examples include UTF-8 and ISO-8859-1
    */
     public BufferedReader getBufferedReader(String charsetName){
+        java.io.File File = getFile();
         if (File.exists()){
             try{
-
                 return new java.io.BufferedReader(new java.io.InputStreamReader(this.getInputStream(),charsetName));
-
             }
             catch (Exception e){
             }
-
         }
         return null;
     }
@@ -583,10 +600,9 @@ public class File implements Comparable {
   /** Used to open the file and read the contents into an image.
    */
     public Image getImage(){
-        if (File.exists()){
-            return new Image(File);
-        }
-        return null;
+        java.io.File File = getFile();
+        if (File.exists()) return new Image(File);
+        else return null;
     }
 
     
@@ -647,7 +663,7 @@ public class File implements Comparable {
   //**************************************************************************
     
     public ByteArrayOutputStream getBytes(){
-        
+        java.io.File File = getFile();
         if (File.exists()){
             try{
                 FileInputStream InputStream = new FileInputStream(File);
@@ -666,8 +682,7 @@ public class File implements Comparable {
         
         return null;
     }
-    
-    
+
 
     public void write(ByteArrayOutputStream bas){
         write(bas.toByteArray());
@@ -675,6 +690,7 @@ public class File implements Comparable {
 
 
     public void write(byte[] bytes){
+        java.io.File File = getFile();
         if (File!=null){                
             FileOutputStream output = null;
             try {
@@ -692,6 +708,7 @@ public class File implements Comparable {
     
     
     public void write(InputStream input){
+        java.io.File File = getFile();
         if (File!=null){                
             FileOutputStream output = null;
             try {
@@ -735,6 +752,7 @@ public class File implements Comparable {
    *  default character encoding defined on the host machine.
    */
     public void write(String Text, String charsetName){
+        java.io.File File = getFile();
         if (File!=null){                
             Writer output = null;
             try {
@@ -773,7 +791,7 @@ public class File implements Comparable {
   //**************************************************************************
     
     public void write(String[] Content){
-        
+        java.io.File File = getFile();
         if (File!=null){
         
             Writer output = null;
@@ -801,7 +819,7 @@ public class File implements Comparable {
   /** Used to write an image to a file. */
     
     public void write(java.awt.image.BufferedImage Image){
-              
+        java.io.File File = getFile();
         if (File!=null){      
             try{
                 
@@ -886,7 +904,7 @@ public class File implements Comparable {
   /**  Returns a new FileInputStream Object */
     
     public FileInputStream getInputStream() throws IOException{
-        return new FileInputStream(this.File);
+        return new FileInputStream(getFile());
     }
     
   //**************************************************************************
@@ -895,24 +913,26 @@ public class File implements Comparable {
   /**  Returns a new FileOutputStream Object */
     
     public FileOutputStream getOutputStream() throws IOException{
-        return new FileOutputStream(this.File);
+        return new FileOutputStream(getFile());
     }
-    
-    
+
+
   //**************************************************************************
   //** toString
   //**************************************************************************
   /**  Returns the full file path (including the file name) */
     
     public String toString(){
-        return File.toString();
+        return path + name;
     }
  
 
     @Override
     public int hashCode(){
-        return this.File.hashCode();
+        if (isWindows) return toString().toLowerCase(Locale.ENGLISH).hashCode() ^ 1234321; //java.io.Win32FileSystem.java
+        else return toString().hashCode() ^ 1234321; //java.io.UnixFileSystem.java
     }
+
 
     //@Override
     public int compareTo(Object obj){
@@ -926,19 +946,13 @@ public class File implements Comparable {
   //**************************************************************************
   
     public boolean equals(Object obj){
-        
-        if (obj instanceof javaxt.io.File){
-            return File.equals(((javaxt.io.File) obj).toFile());
-        }
-        else if (obj instanceof java.io.File){
-            if (((java.io.File) obj).isFile()) 
-                return File.equals(obj);
+        if (obj instanceof javaxt.io.File || obj instanceof java.io.File){
+            return obj.hashCode()==this.hashCode();
         }
         return false;
     }
-    
-    
-    
+
+
   //**************************************************************************
   //** IsValidPath -- NOT USED!
   //**************************************************************************
@@ -949,13 +963,13 @@ public class File implements Comparable {
         if (PathToFile==null) return false;
         if (PathToFile.length()<1) return false;
   
-        if (File.isDirectory()) return false;
+        //if (File.isDirectory()) return false;
         
-        String FileName = File.getName();
+        String FileName = getName();
         if (FileName.length()<1) return false;
         if (FileName.length()>260) return false;
         
-        PathToFile = File.toString();
+        PathToFile = toString();
         PathToFile = PathToFile.replace((CharSequence) "\\", "/");
         String[] Path = PathToFile.split("/");                
         String[] arr = new String[]{ "/", "?", "<", ">", "\\", ":", "*", "|", "\"" };
@@ -1071,13 +1085,23 @@ public class File implements Comparable {
 
 
   //**************************************************************************
+  //** setLastModifiedTime
+  //**************************************************************************
+  /** Used to update the timestamp of when the file was last modified.
+   */
+    public void setLastModifiedTime(java.util.Date date){
+        setDate(date);
+    }
+
+
+  //**************************************************************************
   //** getLastModifiedTime
   //**************************************************************************
   /** Returns a timestamp of when the file was last modified. This is
    *  identical to the getDate() method.
    */
     public java.util.Date getLastModifiedTime(){
-        return this.getDate();
+        return getDate();
     }
 
 
@@ -1159,8 +1183,16 @@ public class File implements Comparable {
    *  separate calls to getLastAccessTime(), getLastAccessTime(), and
    *  getLastWriteTime().
    */
-    public FileAttributes getFileAttributes() throws Exception{
-        return new FileAttributes(this);
+    public FileAttributes getFileAttributes(){
+        if (attr==null || (new java.util.Date().getTime()-attr.lastUpdate)>10000){
+            try{
+                attr = new FileAttributes(toString());
+            }
+            catch(Exception e){
+                attr = null;
+            }
+        }
+        return attr;
     }
 
 
@@ -1274,31 +1306,39 @@ public class File implements Comparable {
  *
  ******************************************************************************/
 
-public class FileAttributes {
+public static class FileAttributes {
 
     private long dwFileAttributes;
     private java.util.Date ftCreationTime;
     private java.util.Date ftLastAccessTime;
     private java.util.Date ftLastWriteTime;
-    private long nFileSizeHigh;
-    private long nFileSizeLow;
+    private long size;
     private java.util.HashSet<String> flags = new java.util.HashSet<String>();
+    private long lastUpdate;
     
-    private FileAttributes(File file) throws Exception {
+    public FileAttributes(String path) throws Exception {
         
-        if (!file.exists()) throw new Exception("File not found.");
+        //if (!file.exists()) throw new Exception("File not found.");
         if (isWindows){
 
             if (loadDLL()){
 
-                long[] attributes = GetFileAttributesEx(file.toString());
+                long[] attributes = GetFileAttributesEx(path);
 
                 dwFileAttributes = attributes[0];
                 ftCreationTime = ftFormatter.parse(attributes[1]+"");
                 ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
                 ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
-                nFileSizeHigh = attributes[4];
-                nFileSizeLow = attributes[5];
+                
+
+              //Compute file size using the nFileSizeHigh and nFileSizeLow attributes
+              //Note that nFileSizeHigh will be zero unless the file size is greater 
+              //than MAXDWORD=0xffffffff (4.2 Gig)
+                long MAXDWORD = 0xffffffff;
+                long nFileSizeHigh = attributes[4];
+                long nFileSizeLow = attributes[5];
+                size = (nFileSizeHigh * MAXDWORD) + nFileSizeLow;
+
 
                 if (bitand(dwFileAttributes, FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY)
                 flags.add("READONLY");
@@ -1352,10 +1392,14 @@ public class FileAttributes {
         else{//UNIX or LINIX Operating System
             
           //Set the write time to the last modified date
-            ftLastWriteTime = file.getDate();
+            java.io.File f = new java.io.File(path);
+            ftLastWriteTime = new java.util.Date(f.lastModified());
+            if (!f.canWrite()) flags.add("READONLY");
+            if (f.isHidden()) flags.add("HIDDEN");
+
             
           //Execute ls command to get last access time
-            String[] params = new String[]{"ls", "-lau", "--full-time", file.toString()};
+            String[] params = new String[]{"ls", "-lau", "--full-time", path};
             javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
             cmd.run();                        
             java.util.Iterator<String> it = cmd.getOutput().iterator();
@@ -1363,14 +1407,16 @@ public class FileAttributes {
             
           //Execute ls command to get creation time (FreeBSD on UFS2 only)
             if (isFreeBSD){
-                params = new String[]{"ls", "-laU", "--full-time", file.toString()};
+                params = new String[]{"ls", "-laU", "--full-time", path};
                 cmd = new javaxt.io.Shell(params);  
                 cmd.run();                        
                 it = cmd.getOutput().iterator();
                 if (it.hasNext()) ftCreationTime = parseDate(it.next());            
             }
         }
-        
+
+      //Set 
+        lastUpdate = new java.util.Date().getTime();
     }
     
     /** Used to extract a date from a ls output. */
@@ -1388,8 +1434,10 @@ public class FileAttributes {
         }        
         return null;
     }
-    
 
+    public long getSize(){
+        return size;
+    }
     public java.util.Date getCreationTime(){
         return ftCreationTime;
     }
@@ -1399,7 +1447,12 @@ public class FileAttributes {
     public java.util.Date getLastWriteTime(){
         return ftLastWriteTime;
     }
-
+    public boolean isHidden(){
+        return flags.contains("HIDDEN");
+    }
+    public boolean isReadOnly(){
+        return flags.contains("READONLY");
+    }
     public java.util.HashSet<String> getFlags(){
         return flags;
     }
