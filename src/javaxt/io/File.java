@@ -1265,12 +1265,17 @@ public class File implements Comparable {
 
     /** Used to determine whether the JVM is running on FreeBSD. */
     private static final boolean isFreeBSD = 
-            System.getProperty("os.name").toLowerCase().contains("freebsd"); 
+            System.getProperty("os.name").toLowerCase().contains("freebsd");
     
+    /** Used to determine whether the JVM is running on Mac OS X. */
+    private static final boolean isOSX = 
+            System.getProperty("os.name").toLowerCase().contains("os x"); 
+        
 
-    /** Used to track load status. Null = no load attempted, True = successfully
-     * loaded the dll, False = failed to load dll (don't try again). Do not try
-     * to modify the value directly. Use the loadDLL() method instead.*/
+  /** Used to track load status. Null = no load attempted, True = successfully
+   *  loaded the dll, False = failed to load dll (don't try again). Do not try
+   *  to modify the value directly. Use the loadDLL() method instead.
+   */
     private static Boolean dllLoaded;
 
 
@@ -1390,44 +1395,74 @@ public static class FileAttributes {
             }
         }
         else{//UNIX or LINIX Operating System
+
+
+          //Execute ls command to get last access time and creation time
+            if (isOSX){
+                String[] params = new String[]{"ls", "-lauT", path};
+                javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
+                cmd.run();                        
+                java.util.Iterator<String> it = cmd.getOutput().iterator();
+                if (it.hasNext()) ftLastAccessTime = parseOSXDate(it.next());
+                
+                params = new String[]{"ls", "-laUT", path};
+                cmd = new javaxt.io.Shell(params);
+                cmd.run();
+                it = cmd.getOutput().iterator();
+                if (it.hasNext()) ftCreationTime = parseOSXDate(it.next()); 
+            }
+            else{//Linux (e.g. Ubuntu)
+                String[] params = new String[]{"ls", "-lau", "--full-time", path};
+                javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
+                cmd.run();                        
+                java.util.Iterator<String> it = cmd.getOutput().iterator();
+                if (it.hasNext()) ftLastAccessTime = parseFullDate(it.next());
+
+              //Execute ls command to get creation time (FreeBSD on UFS2 only)
+                if (isFreeBSD){
+                    params = new String[]{"ls", "-laU", "--full-time", path};
+                    cmd = new javaxt.io.Shell(params);
+                    cmd.run();
+                    it = cmd.getOutput().iterator();
+                    if (it.hasNext()) ftCreationTime = parseFullDate(it.next());
+                }
+            }
+
             
           //Set the write time to the last modified date
             java.io.File f = new java.io.File(path);
             ftLastWriteTime = new java.util.Date(f.lastModified());
             if (!f.canWrite()) flags.add("READONLY");
-            if (f.isHidden()) flags.add("HIDDEN");
-
-            
-          //Execute ls command to get last access time
-            String[] params = new String[]{"ls", "-lau", "--full-time", path};
-            javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
-            cmd.run();                        
-            java.util.Iterator<String> it = cmd.getOutput().iterator();
-            if (it.hasNext()) ftLastAccessTime = parseDate(it.next());
-            
-          //Execute ls command to get creation time (FreeBSD on UFS2 only)
-            if (isFreeBSD){
-                params = new String[]{"ls", "-laU", "--full-time", path};
-                cmd = new javaxt.io.Shell(params);  
-                cmd.run();                        
-                it = cmd.getOutput().iterator();
-                if (it.hasNext()) ftCreationTime = parseDate(it.next());            
-            }
+            if (f.isHidden()) flags.add("HIDDEN");            
         }
 
-      //Set 
+
+      //Set lastUpdate (used to cache file attributes)
         lastUpdate = new java.util.Date().getTime();
     }
     
-    /** Used to extract a date from a ls output. */
-    private java.util.Date parseDate(String line){
+    /** Used to extract a date from a ls output using the "--full-time" option. */
+    private java.util.Date parseFullDate(String line){
         if (line!=null){
-
             String[] arr = line.split(" ");
             String date = arr[5] + " " + arr[6] + " " + arr[7];
-
             try{
                 return new javaxt.utils.Date(date, "yyyy-MM-dd HH:mm:ss.SSS z").getDate();
+            }
+            catch(Exception e){
+            }
+        }        
+        return null;
+    }
+
+    /** Used to extract a date from a ls output using the "T" option on OSX. */
+    private java.util.Date parseOSXDate(String line){
+        if (line!=null){
+            String[] arr = line.split(" ");
+            String date = arr[7] + " " + arr[9] + " " + arr[10]+ " " + arr[11];
+            //System.out.println(date);
+            try{
+                return new javaxt.utils.Date(date, "MMM dd hh:mm:ss yyyy").getDate();
             }
             catch(Exception e){
             }
@@ -1466,16 +1501,26 @@ public static class FileAttributes {
     private static final int FILE_ATTRIBUTE_READONLY  = 1;
 
 
-    private static final int FILE_ATTRIBUTE_HIDDEN    = 2;   //The file or directory is hidden. It is not included in an ordinary directory listing.
+  /** The file or directory is hidden. It is not included in an ordinary
+   *  directory listing.
+   */
+    private static final int FILE_ATTRIBUTE_HIDDEN    = 2;
 
-    private static final int FILE_ATTRIBUTE_SYSTEM    = 4;   //A file or directory that the operating system uses a part of, or uses exclusively.
+  /** A file or directory that the operating system uses a part of, or uses
+   * exclusively.
+   */
+    private static final int FILE_ATTRIBUTE_SYSTEM    = 4;
 
-    private static final int FILE_ATTRIBUTE_DIRECTORY = 16;  //The handle that identifies a directory.
+  /** The handle that identifies a directory. */
+    private static final int FILE_ATTRIBUTE_DIRECTORY = 16;
 
-    private static final int FILE_ATTRIBUTE_ARCHIVE   = 32;  //A file or directory that is an archive file or directory.
-                                                //Applications typically use this attribute to mark files for backup or removal.
+  /** A file or directory that is an archive file or directory. Applications
+   *  typically use this attribute to mark files for backup or removal.
+   */
+    private static final int FILE_ATTRIBUTE_ARCHIVE   = 32;
 
-    private static final int FILE_ATTRIBUTE_DEVICE    = 64;  //This value is reserved for system use.
+  /** This value is reserved for system use. */
+    private static final int FILE_ATTRIBUTE_DEVICE    = 64;
 
   /** A file that does not have other attributes set. This attribute is valid
    *  only when used alone.
@@ -1490,36 +1535,43 @@ public static class FileAttributes {
    */
     private static final int FILE_ATTRIBUTE_TEMPORARY = 256;
 
-    private static final int FILE_ATTRIBUTE_SPARSE_FILE  = 512; //A file that is a sparse file.
-
+  /** A file that is a sparse file. */
+    private static final int FILE_ATTRIBUTE_SPARSE_FILE  = 512;
 
   /** A file or directory that has an associated reparse point, or a file that
    *  is a symbolic link.
    */
     private static final int FILE_ATTRIBUTE_REPARSE_POINT = 1024; 
 
-    private static final int FILE_ATTRIBUTE_COMPRESSED = 2048; //A file or directory that is compressed. For a file, all
-                                                  //of the data in the file is compressed. For a directory,
-                                                  //compression is the default for newly created files and subdirectories.
+  /** A file or directory that is compressed. For a file, all of the data in
+   *  the file is compressed. For a directory, compression is the default for
+   *  newly created files and subdirectories.
+   */
+    private static final int FILE_ATTRIBUTE_COMPRESSED = 2048; 
 
-    private static final int FILE_ATTRIBUTE_OFFLINE  = 4096;   //The data of a file is not available immediately. This attribute
-                                                  //indicates that the file data is physically moved to offline storage.
-                                                  //This attribute is used by Remote Storage, which is the hierarchical
-                                                  //storage management software. Applications should not arbitrarily change
-                                                  //this attribute.
+  /** The data of a file is not available immediately. This attribute indicates
+   *  that the file data is physically moved to offline storage. This attribute
+   *  is used by Remote Storage, which is the hierarchical storage management
+   *  software. Applications should not arbitrarily change this attribute.
+   */
+    private static final int FILE_ATTRIBUTE_OFFLINE  = 4096;
 
-    private static final int FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 8192; //The file or directory is not to be indexed by the content indexing service.
+  /** The file or directory is not to be indexed by the content indexing
+   *  service.
+   */
+    private static final int FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 8192;
 
-    private static final int FILE_ATTRIBUTE_ENCRYPTED = 16384; //A file or directory that is encrypted. For a file, all data streams in
-                                                  //the file are encrypted. For a directory, encryption is the default for
-                                                  //newly created files and subdirectories.
+   /** A file or directory that is encrypted. For a file, all data streams in
+    *  the file are encrypted. For a directory, encryption is the default for
+    *  newly created files and subdirectories.
+    */
+    private static final int FILE_ATTRIBUTE_ENCRYPTED = 16384;
 
     private static final int FILE_ATTRIBUTE_VIRTUAL = 65536;  //This value is reserved for system use.
 
 
 
-
-    private long bitand (long Number1, long Number2){
+    private long bitand(long Number1, long Number2){
         try {
             return Number1 & Number2;
         }
