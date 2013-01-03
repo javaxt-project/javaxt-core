@@ -1109,8 +1109,7 @@ public class File implements Comparable {
   //** getCreationTime
   //**************************************************************************
   /** Returns a timestamp of when the file was first created. Returns a null
-   *  if the timestamp is not available. Note that this attribute is currently
-   *  only available on FreeBSD UFS2 and Windows NTFS.
+   *  if the timestamp is not available. 
    */
     public java.util.Date getCreationTime(){
         try{
@@ -1157,9 +1156,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** getFlags
   //**************************************************************************
-  /** Returns keywords representing file attributes. Returns an empty HashSet 
-   *  if the attributes are not available. Note that this attribute is  
-   *  currently only available on Windows XP or later.
+  /** Returns keywords representing file attributes (e.g. "READONLY", "HIDDEN",
+   *  etc).
    */
     public java.util.HashSet<String> getFlags(){
         try{
@@ -1174,17 +1172,16 @@ public class File implements Comparable {
   //**************************************************************************
   //** getFileAttributes
   //**************************************************************************
-  /** Returns extended file attributes such as when the file was first created
-   *  and when it was last accessed. Note that the getLastAccessTime(),
-   *  getLastAccessTime(), and getLastWriteTime() in the File class all call
-   *  this method. With each method, a call is made to the underlying file
-   *  system to instantiate the FileAttributes class. It is therefore more
-   *  efficient to call the getFileAttributes() method once, than to make
-   *  separate calls to getLastAccessTime(), getLastAccessTime(), and
-   *  getLastWriteTime().
+  /** Returns file attributes such as when the file was first created and when
+   *  it was last accessed. File attributes are cached for up to one second.
+   *  This provides users the ability to retrieve multiple attributes at once. 
+   *  Without caching, we would have to ping the file system every time we call 
+   *  getLastAccessTime(), getLastAccessTime(), getLastWriteTime(), etc. The
+   *  cached attributes are automatically updated when the file is updated or
+   *  deleted by this class.
    */
     public FileAttributes getFileAttributes(){
-        if (attr==null || (new java.util.Date().getTime()-attr.lastUpdate)>10000){
+        if (attr==null || (new java.util.Date().getTime()-attr.lastUpdate)>1000){
             try{
                 attr = new FileAttributes(toString());
             }
