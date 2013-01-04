@@ -247,8 +247,10 @@ public class File implements Comparable {
    *   system can't find the file or if the object is a directory.
    */
     public boolean exists(){
-        if (file!=null) return file.exists();
-        return getFileAttributes()!=null;
+        if (file!=null) return (file.isFile() && file.exists());
+        FileAttributes attr = getFileAttributes();
+        if (attr!=null) return !attr.isDirectory();
+        return false;
     }
 
 
@@ -1430,7 +1432,8 @@ public static class FileAttributes {
             java.io.File f = new java.io.File(path);
             ftLastWriteTime = new java.util.Date(f.lastModified());
             if (!f.canWrite()) flags.add("READONLY");
-            if (f.isHidden()) flags.add("HIDDEN");            
+            if (f.isHidden()) flags.add("HIDDEN");
+            if (f.isDirectory()) flags.add("DIRECTORY");
         }
 
 
@@ -1478,6 +1481,9 @@ public static class FileAttributes {
     }
     public java.util.Date getLastWriteTime(){
         return ftLastWriteTime;
+    }
+    public boolean isDirectory(){
+        return flags.contains("DIRECTORY");
     }
     public boolean isHidden(){
         return flags.contains("HIDDEN");

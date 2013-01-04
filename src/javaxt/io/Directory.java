@@ -327,8 +327,7 @@ public class Directory implements Comparable {
   //** getCreationTime
   //**************************************************************************
   /** Returns a timestamp of when the directory was first created. Returns a
-   *  null if the timestamp is not available. Note that this attribute is
-   *  currently only available on FreeBSD UFS2 and Windows NTFS.
+   *  null if the timestamp is not available.
    */
     public java.util.Date getCreationTime(){
         return new File(this).getCreationTime();
@@ -361,8 +360,7 @@ public class Directory implements Comparable {
   //** getFlags
   //**************************************************************************
   /** Returns keywords representing directory attributes. Returns an empty 
-   *  HashSet if the attributes are not available. Note that this attribute is 
-   *  currently only available on Windows XP or later.
+   *  HashSet if the attributes are not available.
    */
     public java.util.HashSet<String> getFlags(){
         return new File(this).getFlags();
@@ -373,13 +371,7 @@ public class Directory implements Comparable {
   //** getFileAttributes
   //**************************************************************************
   /** Returns extended file attributes such as when the file was first created
-   *  and when it was last accessed. Note that the getLastAccessTime(),
-   *  getLastAccessTime(), and getLastWriteTime() in the File class all call
-   *  this method. With each method, a call is made to the underlying file
-   *  system to instantiate the FileAttributes class. It is therefore more
-   *  efficient to call the getFileAttributes() method once, than to make
-   *  separate calls to getLastAccessTime(), getLastAccessTime(), and
-   *  getLastWriteTime().
+   *  and when it was last accessed. 
    */
     public File.FileAttributes getFileAttributes() throws Exception{
         return new File(this).getFileAttributes();
@@ -2263,7 +2255,7 @@ class DirectorySearch implements Runnable {
                             accept = filter.accept(item);
                         }
                        
-                       if (accept){
+                        if (accept){
                            
                            if (item.isDirectory()){
                                updatePool(new Directory(item));
@@ -2280,7 +2272,7 @@ class DirectorySearch implements Runnable {
                                addFile(new File(item));
 
                            }
-                       }
+                        }
                     }
                 }
 
@@ -2696,7 +2688,7 @@ class FileSystemWatcher implements Runnable {
  *
  *   Also note that if you change the package or method name of this class, you 
  *   need to use javah to regenerate a C header file and recompile the dll file. 
- *   As far as I know, there is no way around it becasue of the way JVM binds to 
+ *   As far as I know, there is no way around it because of the way JVM binds to
  *   native dll.
  *
  ******************************************************************************/
