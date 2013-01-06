@@ -215,14 +215,14 @@ public class File implements Comparable {
   //**************************************************************************
   //** getDate
   //**************************************************************************
-  /** Returns a timestamp of when the file was last modified. This is
-   *  identical to the getLastModifiedTime() method.
+  /** Returns a timestamp of when the file was last modified. If the file does
+   *  not exist, returns a date of Jan 1, 1970.
    */
     public java.util.Date getDate(){
         if (file!=null) return new java.util.Date(file.lastModified());
         FileAttributes attr = getFileAttributes();
         if (attr!=null) return attr.getLastWriteTime();
-        else return null;
+        else return new java.util.Date(0); //<--Legacy crap. Should return null instead!
     }
 
 
@@ -452,7 +452,7 @@ public class File implements Comparable {
         
       //Copy File
         try{
-            FileInputStream input  = new FileInputStream(File);
+            FileInputStream input = new FileInputStream(File);
             FileOutputStream output = new FileOutputStream(Destination.toFile());
             final ReadableByteChannel inputChannel = Channels.newChannel(input);
             final WritableByteChannel outputChannel = Channels.newChannel(output);
@@ -1187,6 +1187,10 @@ public class File implements Comparable {
             try{
                 attr = new FileAttributes(toString());
             }
+            catch(java.lang.NumberFormatException e){
+                e.printStackTrace();
+                attr = null;
+            }
             catch(Exception e){
                 attr = null;
             }
@@ -1278,10 +1282,6 @@ public class File implements Comparable {
     private static Boolean dllLoaded;
 
 
-    /** Simple date formatter for extended file attributes. */
-    private static final java.text.SimpleDateFormat
-        ftFormatter = new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS");
-
     /** JNI entry point to retrieve file attributes. */
     private static native long[] GetFileAttributesEx(String lpPathName) throws Exception;
 
@@ -1319,13 +1319,15 @@ public static class FileAttributes {
     private long size;
     private java.util.HashSet<String> flags = new java.util.HashSet<String>();
     private long lastUpdate;
-    
+    private java.text.SimpleDateFormat ftFormatter =
+            new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS");
+
     public FileAttributes(String path) throws Exception {
         
-        //if (!file.exists()) throw new Exception("File not found.");
         if (isWindows){
 
             if (loadDLL()){
+                //path = path.replace("/", "\\");
 
                 long[] attributes = GetFileAttributesEx(path);
 
@@ -1333,7 +1335,7 @@ public static class FileAttributes {
                 ftCreationTime = ftFormatter.parse(attributes[1]+"");
                 ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
                 ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
-                
+
 
               //Compute file size using the nFileSizeHigh and nFileSizeLow attributes
               //Note that nFileSizeHigh will be zero unless the file size is greater 
