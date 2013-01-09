@@ -200,8 +200,8 @@ public class Recordset {
               //Otherwise it will fetch back all the records at once
                 if (fetchSize!=null) Conn.setAutoCommit(false);
 
-              //DB2 Connection
-                if (driver.equals("DB2")){
+              //DB2 and SQLite only support forward cursors
+                if (driver.equals("DB2") || driver.equals("SQLite")){
                     stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY, rs.CONCUR_READ_ONLY);
                 }
 
@@ -973,7 +973,7 @@ public class Recordset {
   /** Move the cursor to the next record in the recordset. */
     
     public boolean moveNext(){
-        
+
         if (EOF == true) return false;
         
         if (x>=MaxRecords-1) {
@@ -1003,7 +1003,7 @@ public class Recordset {
         return false;
     }
 
-    
+
   //**************************************************************************
   //** Move
   //**************************************************************************  
@@ -1058,10 +1058,7 @@ public class Recordset {
         catch(Exception e){}
         
     }
-    
-    
 
-    
 
   //**************************************************************************
   //** updateFields

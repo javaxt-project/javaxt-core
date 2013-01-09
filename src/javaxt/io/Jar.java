@@ -310,8 +310,9 @@ public class Jar {
   //**************************************************************************
   //** JAR Entry Class
   //**************************************************************************
-  /** Used to represent a single entry in a jar file. */  
-    
+  /** Used to represent an entry in a jar/war file. The jar file might be
+   *  zipped or unpacked by a web server.
+   */
     public class Entry{
         private ZipEntry zipEntry = null;
         private java.io.File fileEntry = null;
@@ -326,7 +327,22 @@ public class Jar {
             this.fileEntry = fileEntry;
         }
         
-        
+
+        public java.util.Date getDate(){
+            if (fileEntry==null) return new java.util.Date(zipEntry.getTime());
+            else return new java.util.Date(fileEntry.lastModified());
+        }
+
+
+      /** Returns a long value representing a cyclic redundancy check
+       * (CRC-32 checksum) of the uncompressed entry data, or -1 if not known.
+       */
+        public long checksum(){
+            if (fileEntry==null) return zipEntry.getCrc();
+            else return new javaxt.io.File(fileEntry).checksum();
+        }
+
+
         public java.io.File getFile(){
             return fileEntry;
         }
@@ -371,6 +387,7 @@ public class Jar {
         public void extractFile(java.io.File destination){
             try{
                 if (fileEntry==null){
+                    destination.getParentFile().mkdirs();
                     FileOutputStream out = new FileOutputStream(destination);
                     ZipInputStream in = new ZipInputStream(new FileInputStream(file));
                     ZipEntry zipEntry = null;
@@ -400,7 +417,7 @@ public class Jar {
                 }
             }
             catch(Exception e){
-                
+                e.printStackTrace();
             }
         }
         

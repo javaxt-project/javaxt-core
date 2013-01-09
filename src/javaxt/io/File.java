@@ -384,7 +384,7 @@ public class File implements Comparable {
         return null;
     }
 
-    
+
   //**************************************************************************
   //** Delete File
   //**************************************************************************
@@ -624,18 +624,17 @@ public class File implements Comparable {
         catch(Exception e){}
         return "";
     }
-    
-    
+
+
   //**************************************************************************
   //** getText
   //**************************************************************************
-  /**  Used to extract the contents of the file as a String. 
-   *   WARNING: This method will never throw an error.
-   *
-   *   @param charsetName Name of the character encoding used to read the file.
-   *   Examples include UTF-8 and ISO-8859-1
+  /** Used to extract the contents of the file as a String. Returns an empty
+   *  String if the file is empty or the contents cannot be converted to a
+   *  String.
+   *  @param charsetName Name of the character encoding used to read the file.
+   *  Examples include UTF-8 and ISO-8859-1
    */
-    
     public String getText(String charsetName){
         try{
            return getBytes().toString(charsetName);
@@ -648,8 +647,10 @@ public class File implements Comparable {
   //**************************************************************************
   //** getXML
   //**************************************************************************
-  /** Returns an XML DOM Document (org.w3c.dom.Document) */
-    
+  /** Returns an XML DOM Document (org.w3c.dom.Document) represented by this
+   *  file. Returns a null if the file contents cannot be converted into a
+   *  DOM Document.
+   */
     public org.w3c.dom.Document getXML(){
         try{
             return javaxt.xml.DOM.createDocument(getInputStream());
@@ -658,12 +659,14 @@ public class File implements Comparable {
             return null;
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** getBytes
   //**************************************************************************
-    
+  /** Returns a ByteArrayOutputStream for the file. Returns a null if a
+   *  ByteArrayOutputStream cannot be created (e.g. file does not exist).
+   */
     public ByteArrayOutputStream getBytes(){
         java.io.File File = getFile();
         if (File.exists()){
@@ -684,6 +687,25 @@ public class File implements Comparable {
         
         return null;
     }
+
+
+  //**************************************************************************
+  //** checksum
+  //**************************************************************************
+  /** Returns a long value representing a cyclic redundancy check
+   * (CRC-32 checksum) of the file, or -1 if not known.
+   */
+    public long checksum(){
+        try{
+            java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+            crc.update(getBytes().toByteArray());
+            return crc.getValue();
+        }
+        catch(Exception e){
+            return -1;
+        }
+    }
+
 
 
     public void write(ByteArrayOutputStream bas){
@@ -1033,6 +1055,15 @@ public class File implements Comparable {
         if (this.extensionEquals("pub")) return "application/x-mspublisher";
         if (this.extensionEquals("wmz")) return "application/x-ms-wmz";
         if (this.extensionEquals("wmd")) return "application/x-ms-wmd";
+        if (this.extensionEquals("one,onetoc2,onetmp,onepkg")) return "application/msonenote";
+        if (this.extensionEquals("docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        if (this.extensionEquals("dotx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.template";
+        if (this.extensionEquals("xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (this.extensionEquals("xltx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.template";
+        if (this.extensionEquals("pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        if (this.extensionEquals("ppsx")) return "application/vnd.openxmlformats-officedocument.presentationml.slideshow";
+        if (this.extensionEquals("potx")) return "application/vnd.openxmlformats-officedocument.presentationml.template";
+        if (this.extensionEquals("sldx")) return "application/vnd.openxmlformats-officedocument.presentationml.slide";
         
       //OTHER APPLICATIONS
         if (this.extensionEquals("ai,eps,ps")) return "application/postscript";
@@ -1226,39 +1257,77 @@ public class File implements Comparable {
                 }
 
 
-              //Find the appropriate dll
+              //Find dll entry in the zip/jar file
                 Jar jar = new Jar(Jar.class);
                 Jar.Entry entry = jar.getEntry(null, dllName);
-                java.io.File dll = entry.getFile();
+                long checksum = entry.checksum();
+                
+                
+              //Construct list of possible file locations for the dll
+                java.util.ArrayList<java.io.File> files = new java.util.ArrayList<java.io.File>();
+                files.add(new java.io.File(jar.getFile().getParentFile(), dllName));
+                javaxt.io.Directory dir = new javaxt.io.Directory(System.getProperty("user.home"));
+                for (String appDir : new String[]{"AppData\\Local", "Application Data"}){
+                    javaxt.io.Directory d = new javaxt.io.Directory(dir + appDir);
+                    if (d.exists() && d.toFile().canWrite()){
+                        dir = d;
+                        break;
+                    }
+                }
+                files.add(new java.io.File(dir + "JavaXT\\" + dllName));
 
-              //Extract the dll next to the jar file (if necessary)
-                if (dll==null){
-                    dll = new java.io.File(jar.getFile().getParentFile(), dllName);
-                    if (dll.exists()==false){
+
+              //Try to load dll
+                for (java.io.File dll : files){
+                    
+                    if (dll.exists()){
+
+                      //Check whether the dll equals the jar entry. Extract as needed.
+                        byte[] b = new byte[(int)dll.length()];
+                        java.io.DataInputStream is = null;
+                        try{
+                            is = new java.io.DataInputStream(new FileInputStream(dll));
+                            is.readFully(b, 0, b.length);
+                            is.close();
+                            java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+                            crc.update(b);
+                            if (checksum!=crc.getValue()){
+                                dll.delete();
+                                entry.extractFile(dll);
+                            }
+                        }
+                        catch(Exception e){
+                            try{is.close();}catch(Exception ex){}
+                        }
+                    }
+                    else{
+
+                      //File does not exist so extract the dll
                         entry.extractFile(dll);
+                    }
+
+
+                  //Load the dll
+                    if (dll.exists()){
+                        try{
+                            System.load(dll.toString());
+                            dllLoaded = true;
+                            break;
+                        }
+                        catch(Exception e){
+                            e.printStackTrace();
+                        }
                     }
                 }
 
 
-                try{
-                    System.load(dll.toString());
-                    dllLoaded = true;
-                    return dllLoaded;
-
-                }
-                catch(Exception e){
-                    //e.printStackTrace();
-
-                  //Don't update the static variable to give users a chance
-                  //to fix the load error.
-                    return false;
-                }
-
-            }
-            else{
-                return dllLoaded;
+              //Don't update the static variable to give users a chance to fix
+              //the load error (e.g. manually extract the dll and copy it into
+              //one of the directories).
+              //dllLoaded = false;
             }
             
+            return dllLoaded;
         }
         else{//not windows...
             return false;
@@ -1339,8 +1408,8 @@ public static class FileAttributes {
 
               //Compute file size using the nFileSizeHigh and nFileSizeLow attributes
               //Note that nFileSizeHigh will be zero unless the file size is greater 
-              //than MAXDWORD=0xffffffff (4.2 Gig)
-                long MAXDWORD = 0xffffffff;
+              //than MAXDWORD (4.2 Gig)
+                long MAXDWORD = 4294967296L;
                 long nFileSizeHigh = attributes[4];
                 long nFileSizeLow = attributes[5];
                 size = (nFileSizeHigh * MAXDWORD) + nFileSizeLow;
