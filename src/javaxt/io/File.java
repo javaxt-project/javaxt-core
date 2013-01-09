@@ -947,6 +947,7 @@ public class File implements Comparable {
   /**  Returns the full file path (including the file name) */
     
     public String toString(){
+        if (file!=null) return file.toString();
         return path + name;
     }
  
