@@ -1484,7 +1484,7 @@ public static class FileAttributes {
                 String[] arr = line.split(" ");
                 if (arr.length>10){
                     try{
-                        String date = arr[7] + " " + arr[8] + " " + arr[9]+ " " + arr[10];
+                        String date = arr[5] + " " + arr[6] + " " + arr[7]+ " " + arr[8];
                         return new javaxt.utils.Date(date, "MMM dd hh:mm:ss yyyy").getDate();
                     }
                     catch(Exception e){
