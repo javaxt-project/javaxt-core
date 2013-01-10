@@ -57,17 +57,12 @@ public class File implements Comparable {
         this.file = File;
         if (file!=null) {
             name = file.getName();
-            try{
-               path = file.getParentFile().getCanonicalPath().toString();
-            }
-            catch(Exception e){
-               path = file.getParentFile().toString();
-            }
+            path = file.getParentFile().toString();
             if (!path.endsWith(PathSeparator)) path += PathSeparator;
         }
     }
 
-    
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -87,18 +82,6 @@ public class File implements Comparable {
     }
 
 
-  //**************************************************************************
-  //** Protected Constructor
-  //**************************************************************************
-  /** Creates a new instance of this class using a Directory. This constructor
-   *  was added to support methods such as isLink(), getLink(), and
-   *  getFileAttributes() in the Directory class.
-   */
-    protected File(Directory directory){
-        this.file = directory.toFile();
-    }
-    
-    
   //**************************************************************************
   //** Get File Name
   //************************************************************************** 
@@ -316,30 +299,7 @@ public class File implements Comparable {
    *   shortcuts.
    */
     public boolean isLink(){
-
-        java.io.File File = getFile();
-        if (File == null || !File.exists()) {
-            return false;
-        }
-
-
-        if (getExtension().equalsIgnoreCase("lnk")){
-            return (new LnkParser(this).getFile()!=null);
-        }
-        else{
-            if (isWindows){
-                java.util.HashSet<String> flags = this.getFlags();
-                if (flags!=null)  return (flags.contains("REPARSE_POINT"));
-            }
-            else{
-                try{
-                    return !File.getCanonicalFile().equals(File.getAbsoluteFile());
-                }
-                catch(Exception e){
-                }
-            }
-        }
-        return false;
+        return getLink()!=null;
     }
 
 
@@ -350,38 +310,12 @@ public class File implements Comparable {
    *   shortcut.
    */
     public java.io.File getLink(){
-
-        java.io.File File = getFile();
-        if (File == null || !File.exists()) {
+        try{
+            return getFileAttributes().getLink();
+        }
+        catch(Exception e){
             return null;
         }
-
-        if (this.getExtension().equalsIgnoreCase("lnk")){
-            return new LnkParser(this).getFile();
-        }
-        else{
-            if (isWindows){
-                try{
-                    if (loadDLL()){
-                        java.io.File link = new java.io.File(GetTarget(File.toString()));
-                        if (link.exists()) return link;
-                    }
-                }
-                catch(Exception e){
-                    //e.printStackTrace();
-                }
-            }
-            else{
-                try{
-                    if (!File.getCanonicalFile().equals(File.getAbsoluteFile())){
-                        return File.getCanonicalFile(); //this needs to be tested...
-                    }
-                }
-                catch(Exception e){
-                }
-            }
-        }
-        return null;
     }
 
 
@@ -451,11 +385,13 @@ public class File implements Comparable {
         Destination.getParentDirectory().create();
         
       //Copy File
+        ReadableByteChannel inputChannel = null;
+        WritableByteChannel outputChannel = null;
         try{
             FileInputStream input = new FileInputStream(File);
             FileOutputStream output = new FileOutputStream(Destination.toFile());
-            final ReadableByteChannel inputChannel = Channels.newChannel(input);
-            final WritableByteChannel outputChannel = Channels.newChannel(output);
+            inputChannel = Channels.newChannel(input);
+            outputChannel = Channels.newChannel(output);
             final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocateDirect(bufferSize);
 
             while (inputChannel.read(buffer) != -1) {
@@ -476,7 +412,8 @@ public class File implements Comparable {
             return true;
         }
         catch(Exception e){
-            //e.printStackTrace();
+            try{inputChannel.close();}catch(Exception ex){}
+            try{outputChannel.close();}catch(Exception ex){}
             return false;
         }
     }
@@ -1172,22 +1109,6 @@ public class File implements Comparable {
 
 
   //**************************************************************************
-  //** getLastWriteTime
-  //**************************************************************************
-  /** Returns a timestamp of when the file was last written to. Returns a null
-   *  if the timestamp is not available. 
-   */
-    public java.util.Date getLastWriteTime(){
-        try{
-            return getFileAttributes().getLastWriteTime();
-        }
-        catch(Exception e){
-            return null;
-        }
-    }
-
-
-  //**************************************************************************
   //** getFlags
   //**************************************************************************
   /** Returns keywords representing file attributes (e.g. "READONLY", "HIDDEN",
@@ -1218,10 +1139,6 @@ public class File implements Comparable {
         if (attr==null || (new java.util.Date().getTime()-attr.lastUpdate)>1000){
             try{
                 attr = new FileAttributes(toString());
-            }
-            catch(java.lang.NumberFormatException e){
-                e.printStackTrace();
-                attr = null;
             }
             catch(Exception e){
                 attr = null;
@@ -1335,15 +1252,11 @@ public class File implements Comparable {
         }
     }
 
-
-    /** Used to determine whether the JVM is running on FreeBSD. */
-    private static final boolean isFreeBSD = 
-            System.getProperty("os.name").toLowerCase().contains("freebsd");
     
     /** Used to determine whether the JVM is running on Mac OS X. */
     private static final boolean isOSX = 
-            System.getProperty("os.name").toLowerCase().contains("os x"); 
-        
+            System.getProperty("os.name").toLowerCase().contains("os x");
+
 
   /** Used to track load status. Null = no load attempted, True = successfully
    *  loaded the dll, False = failed to load dll (don't try again). Do not try
@@ -1358,6 +1271,7 @@ public class File implements Comparable {
 
     /** JNI entry point to retrieve file attributes. */
     private static native String GetTarget(String lpPathName) throws Exception;
+
 
 //******************************************************************************
 //**  FileAttributes Class
@@ -1382,26 +1296,26 @@ public class File implements Comparable {
 
 public static class FileAttributes {
 
-    private long dwFileAttributes;
     private java.util.Date ftCreationTime;
     private java.util.Date ftLastAccessTime;
     private java.util.Date ftLastWriteTime;
     private long size;
     private java.util.HashSet<String> flags = new java.util.HashSet<String>();
-    private long lastUpdate;
-    private java.text.SimpleDateFormat ftFormatter =
-            new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS");
+    private java.io.File link;
+    protected long lastUpdate;
 
     public FileAttributes(String path) throws Exception {
-        
+
         if (isWindows){
 
             if (loadDLL()){
-                //path = path.replace("/", "\\");
 
-                long[] attributes = GetFileAttributesEx(path);
+              //Get attributes
+                long[] attributes = GetFileAttributesEx(path);                
 
-                dwFileAttributes = attributes[0];
+              //Parse dates
+                java.text.SimpleDateFormat ftFormatter =
+                new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS");
                 ftCreationTime = ftFormatter.parse(attributes[1]+"");
                 ftLastAccessTime = ftFormatter.parse(attributes[2]+"");
                 ftLastWriteTime = ftFormatter.parse(attributes[3]+"");
@@ -1416,6 +1330,8 @@ public static class FileAttributes {
                 size = (nFileSizeHigh * MAXDWORD) + nFileSizeLow;
 
 
+              //Parse misc file attributes
+                long dwFileAttributes = attributes[0];
                 if (bitand(dwFileAttributes, FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY)
                 flags.add("READONLY");
 
@@ -1460,9 +1376,23 @@ public static class FileAttributes {
 
                 if (bitand(dwFileAttributes, FILE_ATTRIBUTE_VIRTUAL) == FILE_ATTRIBUTE_VIRTUAL)
                 flags.add("VIRTUAL");
+
+
+              //Parse symlink
+                if (flags.contains("REPARSE_POINT")){
+                    link = new java.io.File(GetTarget(path));
+                }
+                
             }
             else{
-                throw new Exception("Failed to load javaxt-core.dll.");
+                
+              //Failed to load the javaxt-core.dll. Fall back to the java.io.File object.
+                java.io.File f = new java.io.File(path);
+                ftLastWriteTime = new java.util.Date(f.lastModified());
+                if (!f.canWrite()) flags.add("READONLY");
+                if (f.isHidden()) flags.add("HIDDEN");
+                if (f.isDirectory()) flags.add("DIRECTORY");
+                
             }
         }
         else{//UNIX or LINIX Operating System
@@ -1474,71 +1404,96 @@ public static class FileAttributes {
                 javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
                 cmd.run();                        
                 java.util.Iterator<String> it = cmd.getOutput().iterator();
-                if (it.hasNext()) ftLastAccessTime = parseOSXDate(it.next());
+                ftLastAccessTime = parseOSXDate(it);
                 
                 params = new String[]{"ls", "-laUT", path};
                 cmd = new javaxt.io.Shell(params);
                 cmd.run();
                 it = cmd.getOutput().iterator();
-                if (it.hasNext()) ftCreationTime = parseOSXDate(it.next()); 
+                ftCreationTime = parseOSXDate(it);
             }
             else{//Linux (e.g. Ubuntu)
                 String[] params = new String[]{"ls", "-lau", "--full-time", path};
-                javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
+                javaxt.io.Shell cmd = new javaxt.io.Shell(params);
                 cmd.run();                        
                 java.util.Iterator<String> it = cmd.getOutput().iterator();
-                if (it.hasNext()) ftLastAccessTime = parseFullDate(it.next());
+                ftLastAccessTime = parseFullDate(it);
 
-              //Execute ls command to get creation time (FreeBSD on UFS2 only)
-                if (isFreeBSD){
-                    params = new String[]{"ls", "-laU", "--full-time", path};
-                    cmd = new javaxt.io.Shell(params);
-                    cmd.run();
-                    it = cmd.getOutput().iterator();
-                    if (it.hasNext()) ftCreationTime = parseFullDate(it.next());
-                }
+                params = new String[]{"ls", "-laU", "--full-time", path};
+                cmd = new javaxt.io.Shell(params);
+                cmd.run();
+                it = cmd.getOutput().iterator();
+                ftCreationTime = parseFullDate(it);
             }
 
-            
-          //Set the write time to the last modified date
+      
+          //Set other attributes including last modified date
             java.io.File f = new java.io.File(path);
             ftLastWriteTime = new java.util.Date(f.lastModified());
             if (!f.canWrite()) flags.add("READONLY");
             if (f.isHidden()) flags.add("HIDDEN");
             if (f.isDirectory()) flags.add("DIRECTORY");
+            try{
+                if (!f.getCanonicalFile().equals(f.getAbsoluteFile())){
+                    flags.add("REPARSE_POINT");
+                    link = f.getCanonicalFile(); 
+                }
+            }
+            catch(Exception e){
+            }
         }
 
-
+        
+      //Check whether the file is a Windows shortcut (.lnk file) and parse as needed
+        if (!isDirectory() && link==null){
+            link = new LnkParser(path).getFile();
+        }
+        
+        
       //Set lastUpdate (used to cache file attributes)
         lastUpdate = new java.util.Date().getTime();
     }
     
     /** Used to extract a date from a ls output using the "--full-time" option. */
-    private java.util.Date parseFullDate(String line){
-        if (line!=null){
-            String[] arr = line.split(" ");
-            String date = arr[5] + " " + arr[6] + " " + arr[7];
-            try{
-                return new javaxt.utils.Date(date, "yyyy-MM-dd HH:mm:ss.SSS z").getDate();
+    private java.util.Date parseFullDate(java.util.Iterator<String> it){
+        while (it.hasNext()){
+            String line = it.next();
+            if (line!=null){
+                while (line.contains("  ")) line = line.replace("  ", " ");
+                String[] arr = line.split(" ");
+                if (arr.length>7){
+                    try{
+                        if (arr[6].length()>8) arr[6] = arr[6].substring(0,8);
+                        String date = arr[5] + " " + arr[6] + " " + arr[7];
+                        System.out.println(" ** " + date);
+                        System.out.println(" ++ " + new javaxt.utils.Date(arr[5] + " " + arr[6], "yyyy-MM-dd HH:mm:ss"));
+                        return new javaxt.utils.Date(date, "yyyy-MM-dd HH:mm:ss z").getDate();
+                    }
+                    catch(Exception e){
+                    }
+                }
             }
-            catch(Exception e){
-            }
-        }        
+        }
         return null;
     }
 
     /** Used to extract a date from a ls output using the "T" option on OSX. */
-    private java.util.Date parseOSXDate(String line){
-        if (line!=null){
-            String[] arr = line.split(" ");
-            String date = arr[7] + " " + arr[9] + " " + arr[10]+ " " + arr[11];
-            //System.out.println(date);
-            try{
-                return new javaxt.utils.Date(date, "MMM dd hh:mm:ss yyyy").getDate();
+    private java.util.Date parseOSXDate(java.util.Iterator<String> it){
+        while (it.hasNext()){
+            String line = it.next();
+            if (line!=null){
+                while (line.contains("  ")) line = line.replace("  ", " ");
+                String[] arr = line.split(" ");
+                if (arr.length>10){
+                    try{
+                        String date = arr[7] + " " + arr[8] + " " + arr[9]+ " " + arr[10];
+                        return new javaxt.utils.Date(date, "MMM dd hh:mm:ss yyyy").getDate();
+                    }
+                    catch(Exception e){
+                    }
+                }
             }
-            catch(Exception e){
-            }
-        }        
+        }
         return null;
     }
 
@@ -1565,6 +1520,9 @@ public static class FileAttributes {
     }
     public java.util.HashSet<String> getFlags(){
         return flags;
+    }
+    public java.io.File getLink(){
+        return link;
     }
 
   /** A file that is read-only. Applications can read the file, but cannot
@@ -1674,7 +1632,7 @@ public static class FileAttributes {
  *
  ******************************************************************************/
 
-public class LnkParser {
+public static class LnkParser {
 
     private java.io.File file;
 

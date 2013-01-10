@@ -25,6 +25,7 @@ public class Directory implements Comparable {
     private boolean useCache = false;
     private static List events = new LinkedList();
     private FileSystemWatcher FileSystemWatcher;
+    private File.FileAttributes attr;
     
     public static final String PathSeparator = System.getProperty("file.separator");
     protected static final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
@@ -43,7 +44,7 @@ public class Directory implements Comparable {
         Directory = new java.io.File(Path);
         if (Directory.exists() && Directory.isDirectory()==false){
             Directory = Directory.getParentFile();
-        }  
+        }
     }
     
   /** Creates a new instance of Directory using a java.io.File */
@@ -51,7 +52,7 @@ public class Directory implements Comparable {
         Directory = File;
         if (Directory.exists() && Directory.isDirectory()==false){
             Directory = Directory.getParentFile();
-        }  
+        }
     }
 
 
@@ -232,19 +233,10 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** getPath
   //**************************************************************************
-  /**  Returns the full path to this directory, including the directory name.*/
+  /** Returns the full path to this directory, including the directory name.*/
     
     public String getPath(){
-        String path = "";
-        try{
-           path = Directory.getCanonicalPath().toString();
-         //return Directory.getCanonicalPath().toString() + Directory.separator;
-        }
-        catch(Exception e){
-           path = Directory.toString();
-         //return Directory.toString() + Directory.separator;
-        }
-        
+       String path = Directory.getAbsolutePath();
        if (path.endsWith(Directory.separator)) return path;
        else return path + Directory.separator;
     }
@@ -298,7 +290,7 @@ public class Directory implements Comparable {
    *   junctions.
    */
     public boolean isLink(){
-        return new File(this).isLink();
+        return getLink()!=null;
     }
 
 
@@ -308,7 +300,12 @@ public class Directory implements Comparable {
   /**  Returns the target of a symbolic link or Windows junction
    */
     public java.io.File getLink(){
-        return new File(this).getLink();
+        try{
+            return getFileAttributes().getLink();
+        }
+        catch(Exception e){
+            return null;
+        }
     }
 
 
@@ -330,7 +327,12 @@ public class Directory implements Comparable {
    *  null if the timestamp is not available.
    */
     public java.util.Date getCreationTime(){
-        return new File(this).getCreationTime();
+        try{
+            return getFileAttributes().getCreationTime();
+        }
+        catch(Exception e){
+            return null;
+        }
     }
 
 
@@ -341,18 +343,12 @@ public class Directory implements Comparable {
    *  null if the timestamp is not available. 
    */
     public java.util.Date getLastAccessTime(){
-        return new File(this).getLastAccessTime();
-    }
-
-
-  //**************************************************************************
-  //** getLastWriteTime
-  //**************************************************************************
-  /** Returns a timestamp of when the directory was last written to. Returns a
-   *  null if the timestamp is not available. 
-   */
-    public java.util.Date getLastWriteTime(){
-        return new File(this).getLastWriteTime();
+        try{
+            return getFileAttributes().getLastAccessTime();
+        }
+        catch(Exception e){
+            return null;
+        }
     }
 
 
@@ -363,20 +359,39 @@ public class Directory implements Comparable {
    *  HashSet if the attributes are not available.
    */
     public java.util.HashSet<String> getFlags(){
-        return new File(this).getFlags();
+        try{
+            return getFileAttributes().getFlags();
+        }
+        catch(Exception e){
+            return new java.util.HashSet<String>();
+        }
     }
 
 
   //**************************************************************************
   //** getFileAttributes
   //**************************************************************************
-  /** Returns extended file attributes such as when the file was first created
-   *  and when it was last accessed. 
+  /** Returns file attributes such as when the file was first created and when
+   *  it was last accessed. File attributes are cached for up to one second.
+   *  This provides users the ability to retrieve multiple attributes at once. 
+   *  Without caching, we would have to ping the file system every time we call 
+   *  getLastAccessTime(), getLastAccessTime(), getLastWriteTime(), etc. The
+   *  cached attributes are automatically updated when the file is updated or
+   *  deleted by this class.
    */
-    public File.FileAttributes getFileAttributes() throws Exception{
-        return new File(this).getFileAttributes();
+    public File.FileAttributes getFileAttributes(){
+        if (attr==null || (new java.util.Date().getTime()-attr.lastUpdate)>1000){
+            try{
+                attr = new File.FileAttributes(toString());
+            }
+            catch(Exception e){
+                attr = null;
+            }
+        }
+        return attr;
     }
-    
+
+
   //**************************************************************************
   //** getParentDirectory
   //**************************************************************************
@@ -968,9 +983,9 @@ public class Directory implements Comparable {
 
       //Generate a list of files in this directory that match the file filter
         java.util.List files = new java.util.ArrayList();
-        path = getPath();
         String[] list = null;
         if (isWindows){
+            path = getPath();
             list = dir(); //<--use dir command instead of listFiles() for windows
             if (list==null) return null;
 
