@@ -1465,8 +1465,6 @@ public static class FileAttributes {
                     try{
                         if (arr[6].length()>8) arr[6] = arr[6].substring(0,8);
                         String date = arr[5] + " " + arr[6] + " " + arr[7];
-                        System.out.println(" ** " + date);
-                        System.out.println(" ++ " + new javaxt.utils.Date(arr[5] + " " + arr[6], "yyyy-MM-dd HH:mm:ss"));
                         return new javaxt.utils.Date(date, "yyyy-MM-dd HH:mm:ss z").getDate();
                     }
                     catch(Exception e){
