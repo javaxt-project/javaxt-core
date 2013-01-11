@@ -1256,7 +1256,9 @@ public class File implements Comparable {
     /** Used to determine whether the JVM is running on Mac OS X. */
     private static final boolean isOSX = 
             System.getProperty("os.name").toLowerCase().contains("os x");
-
+    
+    private static final boolean isSolaris = 
+            System.getProperty("os.name").toLowerCase().contains("sunos");
 
   /** Used to track load status. Null = no load attempted, True = successfully
    *  loaded the dll, False = failed to load dll (don't try again). Do not try
@@ -1411,6 +1413,13 @@ public static class FileAttributes {
                 cmd.run();
                 it = cmd.getOutput().iterator();
                 ftCreationTime = parseOSXDate(it);
+            }
+            else if (isSolaris){
+                String[] params = new String[]{"ls", "-lauE", path};
+                javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
+                cmd.run();                        
+                java.util.Iterator<String> it = cmd.getOutput().iterator();
+                ftLastAccessTime = parseFullDate(it);
             }
             else{//Linux (e.g. Ubuntu)
                 String[] params = new String[]{"ls", "-lau", "--full-time", path};
