@@ -75,24 +75,50 @@ public class Directory implements Comparable {
       //Pick up any windows mounted drives that might not have been returned
       //from the listRoots() method (e.g. disconnected mounted drives).
         if (isWindows){
-            javaxt.io.Shell cmd = new javaxt.io.Shell("net use");
-            cmd.run();
-
-            java.util.Iterator<String> it = cmd.getOutput().iterator();
-            boolean parse = false;
-            while (it.hasNext()){
-                String line = it.next();
-                if (line==null) break;
-                else line = line.trim();
-                if (!parse && line.startsWith("----")){
-                    parse = true;
-                    line = it.next();
-                    if (line==null) break;
+            
+            boolean doNetUse = false;
+            if (File.loadDLL()){
+                try{
+                    String drives = File.GetNetworkDrives();
+                    if (drives!=null){
+                        for (String drive : drives.split("\n")){
+                            if (drive.trim().length()>0){
+                                String[] arr = drive.split("\t");
+                                String driveName = arr[0];
+                                String driveType = arr[1];
+                                directories.add(new Directory(driveName));
+                            }
+                        }
+                    }
                 }
-                if (line.contains(":")){
-                    line = line.substring(0, line.indexOf(":")+1);
-                    line = line.substring(line.lastIndexOf(" ")+1);
-                    directories.add(new Directory(line.trim()));
+                catch(Exception e){
+                    doNetUse = true;
+                }
+            }            
+            else{
+                doNetUse = true;
+            }
+            
+            if (doNetUse){
+                javaxt.io.Shell cmd = new javaxt.io.Shell("net use");
+                cmd.run();
+
+                java.util.Iterator<String> it = cmd.getOutput().iterator();
+                boolean parse = false;
+                while (it.hasNext()){
+                    String line = it.next();
+                    if (line==null) break;
+                    else line = line.trim();
+                    if (!parse && line.startsWith("----")){
+                        parse = true;
+                        line = it.next();
+                        if (line==null) break;
+                    }
+                    if (line.contains(":")){
+                        line = line.substring(0, line.indexOf(":")+1);
+                        line = line.substring(line.lastIndexOf(" ")+1);
+                        directories.add(new Directory(line.trim()));
+                    }
                 }
             }
         }
@@ -109,19 +135,43 @@ public class Directory implements Comparable {
     public boolean exists(){
 
         String path = Directory.toString();
+        
+      //Special case for a directory whose path represents a server name (e.g. "\\192.168.0.1")
         if (isWindows && path.startsWith("\\\\")){
             if (path.endsWith(PathSeparator)) path = path.substring(0, path.length()-1);
             if (!path.substring(2).contains(PathSeparator)){
-                javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + path);
-                cmd.run();
-                java.util.List errors = cmd.getErrors();
-                errors.remove(null);
-                if (errors.isEmpty()){
-                    return true;
+                boolean doNetUse = false;
+                if (File.loadDLL()){
+                    try{
+                        File.GetSharedDrives(path.substring(2));
+                        return true;
+                    }
+                    catch(Exception e){
+                        if (e.getMessage().trim().equals("53")){
+                            return false;
+                        }
+                        else{
+                            doNetUse = true;
+                        }
+                    }
                 }
                 else{
-                    return false;
+                    doNetUse = true;
                 }
+                
+                if (doNetUse){
+                    javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + path);
+                    cmd.run();
+                    java.util.List errors = cmd.getErrors();
+                    errors.remove(null);
+                    if (errors.isEmpty()){
+                        return true;
+                    }
+                    else{
+                        return false;
+                    }
+                }
+                
             }
         }
 
@@ -850,7 +900,7 @@ public class Directory implements Comparable {
                             results.add(new Directory(file));
                         }
                         else{
-                             results.add(new File(file));
+                            results.add(new File(file));
                         }
                     }
                     Collections.sort(results, new FileComparer(this));
@@ -867,6 +917,109 @@ public class Directory implements Comparable {
         }
     }
 
+    
+  //**************************************************************************
+  //** getSharedDrives
+  //**************************************************************************
+  /**  Returns a list of shared directories found on a given server. */
+    
+    private java.io.File[] getSharedDrives(String serverName){
+        if (isWindows){
+            serverName = serverName.replace("/", "\\\\");
+            if (serverName.startsWith("\\\\")) serverName = serverName.substring(2);
+            if (serverName.contains("\\")) serverName = serverName.substring(0, serverName.indexOf("\\"));            
+            boolean doNetView = false;
+            
+            if (File.loadDLL()){
+                try{
+                    String drives = File.GetSharedDrives(serverName);
+                    if (drives!=null){
+                        java.util.ArrayList<java.io.File> files = new java.util.ArrayList<java.io.File>();
+                        for (String drive : drives.split("\n")){
+                            drive = drive.trim();
+                            if (drive.length()>0){
+                                String[] arr = drive.split("\t");
+                                files.add(new java.io.File("\\\\" + serverName + "\\" + arr[0]));
+                            }
+                        }
+                        if (files.isEmpty()) return null;
+                        else return files.toArray(new java.io.File[files.size()]);
+                    }
+                }
+                catch(Exception e){
+                    doNetView = true;
+                }
+            }   
+            else{
+                doNetView = true;
+            }
+            
+          //If we're still here, something went wrong with the JNI. Try using 
+          //net view instead. Note that unlike the JNI, net view won't return 
+          //hidden network drives.
+            if (doNetView){
+            
+                javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + serverName);
+                cmd.run();
+                java.util.List errors = cmd.getErrors();
+                errors.remove(null);
+                if (errors.isEmpty()){
+
+                    String path = "\\\\" + serverName + "\\";
+                    java.util.List output = cmd.getOutput();
+
+
+                  //Remove empty lines from the standard output stream
+                    java.util.List<String> tmp = new java.util.Vector<String>();
+                    java.util.Iterator<String> it = output.iterator();
+                    while (it.hasNext()){
+                        String row = it.next();
+                        if (row==null || row.trim().length()==0){} else tmp.add(row);
+                    }
+                    output = tmp;
+                    tmp = null;
+
+
+                  //Parse the standard output stream and create a list of shared directories
+                    java.util.ArrayList<java.io.File> files = new java.util.ArrayList<java.io.File>();
+                    int x = 0;
+                    int len = -1;
+                    it = output.iterator();
+                    while (it.hasNext()){
+                        String row = it.next();
+                        if (row.startsWith("---")){
+                            String colHeader = (String) output.get(x-1);
+                            if (colHeader.startsWith("Share name") && colHeader.contains("Type")){
+                                len = colHeader.indexOf("Type");
+                            }
+                        }
+                        else{
+
+                            if (row.startsWith("The command completed successfully.")){
+                                break;
+                            }
+                            
+                            if (len>0 && row.length()>len){
+                                String type = row.substring(len);
+                                type = type.substring(0, type.indexOf(" "));
+                                if (type.equalsIgnoreCase("Disk")){
+                                    files.add(new java.io.File(path + row.substring(0, len).trim()));
+                                }
+                            }
+                        }
+                        x++;
+                    }
+
+                  //Convert the list of files into an array
+                    if (files.isEmpty()) return null;
+                    else return files.toArray(new java.io.File[files.size()]);
+
+                }            
+            }
+        }
+        return null;
+    }
+    
 
   //**************************************************************************
   //** listFiles
@@ -910,73 +1063,25 @@ public class Directory implements Comparable {
             
             if (path.endsWith(PathSeparator)) path = path.substring(0, path.length()-1);
             if (!path.substring(2).contains(PathSeparator)){
-                javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + path);
-                cmd.run();
-                java.util.List errors = cmd.getErrors();
-                errors.remove(null);
-                if (errors.isEmpty()){
-
-                    path += PathSeparator;
-                    java.util.List output = cmd.getOutput();
-
-
-                  //Remove empty lines from the standard output stream
-                    java.util.List<String> tmp = new java.util.Vector<String>();
-                    java.util.Iterator<String> it = output.iterator();
-                    while (it.hasNext()){
-                        String row = it.next();
-                        if (row==null || row.trim().length()==0){} else tmp.add(row);
-                    }
-                    output = tmp;
-                    tmp = null;
-
-
-                  //Parse the standard output stream and create a list of shared directories
-                    java.util.List<java.io.File> files = new java.util.Vector<java.io.File>();
-                    int x = 0;
-                    int len = -1;
-                    it = output.iterator();
-                    while (it.hasNext()){
-                        String row = it.next();
-                        if (row.startsWith("---")){
-                            String colHeader = (String) output.get(x-1);
-                            if (colHeader.startsWith("Share name") && colHeader.contains("Type")){
-                                len = colHeader.indexOf("Type");
+                java.io.File[] sharedDrives = getSharedDrives(path);
+                if (sharedDrives!=null){
+                    java.util.ArrayList<java.io.File> files = new java.util.ArrayList<java.io.File>();
+                    for (java.io.File file : sharedDrives){
+                        if (file.exists()){
+                            if (fileFilter==null) {
+                                files.add(file);
                             }
-                        }
-
-                        if (len>0 && row.length()>len){
-                            row = path + row.substring(0, len).trim();
-                            java.io.File file = new java.io.File(row);
-                            if (file.exists()){
-                                if (fileFilter==null) {
-                                    files.add(new java.io.File(row));
-                                }
-                                else{
-                                    if (fileFilter.accept(file)){
-                                        files.add(new java.io.File(row));
-                                    }
+                            else{
+                                if (fileFilter.accept(file)){
+                                    files.add(file);
                                 }
                             }
-                        }
-
-                        if (row.startsWith("The command completed successfully.")){
-                            break;
-                        }
-                        x++;
+                        }     
                     }
-
-                  //Convert the list of files into an array
-                    java.io.File[] arr = new java.io.File[files.size()];
-                    for (int i=0; i<arr.length; i++){
-                        arr[i] = files.get(i);
-                    }
-                    return arr;
-
+                    return files.toArray(new java.io.File[files.size()]);
                 }
+                return new java.io.File[0];
             }
-
-            
         }
 
 
@@ -986,7 +1091,7 @@ public class Directory implements Comparable {
         String[] list = null;
         if (isWindows){
             path = getPath();
-            list = dir(); //<--use dir command instead of listFiles() for windows
+            list = dir();
             if (list==null) return null;
 
             for (int i=0; i<list.length; i++){
@@ -1047,7 +1152,7 @@ public class Directory implements Comparable {
   //** ls
   //**************************************************************************
   /** Used to list contents of a directory using a unix ls command.
-   */
+   *
     private String[] ls(){
 
               
@@ -1105,8 +1210,7 @@ public class Directory implements Comparable {
 
         return arr;
     }
-    
-
+    */
 
   //**************************************************************************
   //** dir
@@ -1115,11 +1219,39 @@ public class Directory implements Comparable {
    *  when listing contents from a network share. The alternative is to use
    *  list() method which is MUCH faster. Unfortunately, there's no way to
    *  distinguish between files and directories in the array. My only recourse
-   *  is to shell out a "dir" command on windows and parse the output.
+   *  is to either use a JNI or shell out a "dir" command and parse the output.
+   *  @return An array of strings representing the names of files and 
+   *  directories found in this directory. Note that directory names include
+   *  a path separator which is used to distinguish files from directories.
    */
     private String[] dir(){
 
-        java.util.List<String> files = new java.util.ArrayList<String>();
+        java.util.ArrayList<String> files = new java.util.ArrayList<String>();
+      
+      //Try listing files using the JNI
+        boolean doDir = false;
+        if (File.loadDLL()){
+            try{
+                String list = File.GetFiles(getPath() + "*");
+                if (list!=null){
+                    for (String name : list.split("\n")){
+                        name = name.trim();
+                        if (name.length()>0 && !(name.equals(".\\") || name.equals("..\\")))
+                        files.add(name);
+                    }
+                }
+            }
+            catch(Exception e){
+                doDir = true;
+            }
+        }
+        else{
+            doDir = true;
+        }
+        
+        
+      //If we're still here, list files using a command prompt
+        if (doDir)
         try{
             String path = this.getPath();
             if (path.contains(" ")) path = "\"" + path + "\"";
@@ -1244,15 +1376,9 @@ public class Directory implements Comparable {
             Thread.currentThread().interrupt();
         }
 
-
-      //Convert the Vector to an Array
-        String[] arr = new String[files.size()];
-        for (int i=0; i<arr.length; i++){
-            arr[i] = files.get(i);
-        }
-
-        return arr;
-
+        
+      //Convert the list to an array
+        return files.toArray(new String[files.size()]);
     }
 
 
@@ -1378,8 +1504,8 @@ public class Directory implements Comparable {
     public List getEvents() throws Exception {
 
         if (FileSystemWatcher==null){
-            new Thread(new FileSystemWatcher(this)).start();
-            this.FileSystemWatcher = FileSystemWatcher;
+            FileSystemWatcher = new FileSystemWatcher(this);
+            new Thread(FileSystemWatcher).start();
         }
         return events;
         
@@ -1393,10 +1519,12 @@ public class Directory implements Comparable {
    */
     public void stop(){
         if (FileSystemWatcher!=null) FileSystemWatcher.stop();
-        //TODO: stop recursive search
-        
-        //for (int i=0; i<20; i++)
-        DirectorySearch.stop();
+
+        try{
+            //for (int i=0; i<20; i++)
+            DirectorySearch.stop();
+        }
+        catch(Exception e){}
     }
     
     
@@ -1443,8 +1571,8 @@ public class Directory implements Comparable {
   */
     public class Event{
 
-        private java.io.File file;
-        private java.io.File orgFile;
+        private String file;
+        private String orgFile;
         private java.util.Date date;
         private String action;
         
@@ -1462,6 +1590,9 @@ public class Directory implements Comparable {
         private Event(String event) {
             if (event!=null){
                 event = event.trim();
+                if (event.length()==0) event = null;
+            }
+            if (event!=null){
                 try{
 
                   //Parse event string
@@ -1470,10 +1601,19 @@ public class Directory implements Comparable {
                     String path = text.substring(text.indexOf(" ")).trim();
                     String action = text.substring(0,text.indexOf(" ")).trim();
                     
+                    boolean exists = true;
+                    boolean isDirectory = false;
+                    try{
+                        isDirectory = new File.FileAttributes(path).isDirectory();
+                    }
+                    catch(Exception e){
+                        exists = false;
+                    }
+                    
 
                   //Set local variables
                     this.date = parseDate(date);
-                    this.file = new java.io.File(path);
+                    this.file = path;
                     this.action = action;
                     boolean updateEvents = true;
 
@@ -1481,7 +1621,7 @@ public class Directory implements Comparable {
                   //Determine whether to update the events list when a file or 
                   //folder is modified.
                     if (action.equalsIgnoreCase("modify")){
-                        if (file.isDirectory() || file.exists()==false){
+                        if (isDirectory || !exists){
                             updateEvents = false;
                         }
                         else{
@@ -1524,9 +1664,6 @@ public class Directory implements Comparable {
                             //System.out.println(events.size());
                         }
                     }
-
-
-
                 }
                 catch(Exception ex){
                     //ex.printStackTrace();
@@ -1540,6 +1677,7 @@ public class Directory implements Comparable {
       /**  Creates a new instance of FileSystemEvent for EventMonitor 
        */
         private Event(String action, java.io.File file){
+            /*
             this.date = new java.util.Date();
             this.action = action;
             this.file = file;
@@ -1547,6 +1685,7 @@ public class Directory implements Comparable {
                 events.add(this);
                 events.notifyAll();
             }
+            */
         }
 
 
@@ -1574,11 +1713,11 @@ public class Directory implements Comparable {
       //************************************************************************
       /**  Returns the file or directory that was created, modified, or deleted. 
        */
-        public java.io.File getFile(){
+        public String getFile(){
             return file;
         }
         
-        public java.io.File getOriginalFile(){
+        public String getOriginalFile(){
             return orgFile;
         }
         
@@ -1606,10 +1745,9 @@ public class Directory implements Comparable {
 
         public String toString(){
           if (action.equalsIgnoreCase("rename"))
-            return "[" + date.toString() + "] " + action + " " + orgFile.getPath() + " To " + file.getPath();
+            return "[" + date.toString() + "] " + action + " " + orgFile + " To " + file;
           else
-            return "[" + date.toString() + "] " + action + " " + file.getPath();
-            
+            return "[" + date.toString() + "] " + action + " " + file;
         }
 
         public boolean equals(Object obj){
@@ -2247,7 +2385,7 @@ class DirectorySearch implements Runnable {
 
           //Process directory
             if (dir!=null) {
-
+                
               //Notify Path/Status Object of new task
                 addPath(dir);
 
@@ -2259,34 +2397,46 @@ class DirectorySearch implements Runnable {
                     boolean addedDirectory = false;
                     for (int i=0; i<items.length; i++){
                         Object obj = items[i];
-                        java.io.File item = null;
+                        boolean isDirectory = false;
                         boolean accept = false;
                         if (obj instanceof String){
-                            accept = filter.accept((String)obj);
-                            if (accept) item = new java.io.File(obj.toString());
+                            String s = (String)obj;
+                            accept = filter.accept(s);
+                            isDirectory = s.replace("\\", "/").endsWith("/");
                         }
                         else if (obj instanceof java.io.File){
-                            item = (java.io.File) obj;
-                            accept = filter.accept(item);
+                            java.io.File f = (java.io.File)obj;
+                            accept = filter.accept(f);
+                            isDirectory = f.isDirectory();
                         }
-                       
+                        
                         if (accept){
-                           
-                           if (item.isDirectory()){
-                               updatePool(new Directory(item));
-                           }
-                           else{
+                            
+                            if (isDirectory){    
+                                if (obj instanceof String){
+                                    updatePool(new Directory((String)obj));
+                                }
+                                else if (obj instanceof java.io.File){
+                                    updatePool(new Directory((java.io.File)obj));
+                                }
+                            }
+                            else{
 
                              //Add Current Directory to the array
-                               if (!addedDirectory){
-                                   addDirectory(dir);
-                                   addedDirectory = true;
-                               }
+                                if (!addedDirectory){
+                                    addDirectory(dir);
+                                    addedDirectory = true;
+                                }
 
                              //Add File to the array
-                               addFile(new File(item));
+                                if (obj instanceof String){
+                                    addFile(new File((String)obj));
+                                }
+                                else if (obj instanceof java.io.File){
+                                    addFile(new File((java.io.File)obj));
+                                }
 
-                           }
+                            }
                         }
                     }
                 }
@@ -2458,23 +2608,22 @@ class FileSystemWatcher implements Runnable {
 
                 while (true) {
                     FileSystemWatcherNative.FindNextChangeNotification(osWaitHandle);
-
+                    
                     String event = null;
                     while(( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
-                        directory.addEvent(event);
+                        for (String e : event.split("\n")) directory.addEvent(e.trim());
                     }
                     
                   //Sometimes there is a bit of a delay retrieving new events so we try again
                     Thread.sleep(25);
                     while(( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
-                        directory.addEvent(event);
-                    }                    
+                        for (String e : event.split("\n")) directory.addEvent(e.trim());
+                    }
 
                     if (FileSystemWatcherNative.WaitForSingleObject(osWaitHandle, 
                         FileSystemWatcherNative.INFINITE) !=  FileSystemWatcherNative.WAIT_OBJECT_0) {
                         throw new Exception("Wait failed while waiting for OS to signal file system event.");  
                     }
-
 
                     if (terminationRequested) {
                         break;
@@ -2490,7 +2639,6 @@ class FileSystemWatcher implements Runnable {
 
             }
             finally {
-
                 if (this.osHandle != null) {
                     try {
                       FileSystemWatcherNative.FindCloseChangeNotification(this.osHandle.longValue());
@@ -2499,14 +2647,11 @@ class FileSystemWatcher implements Runnable {
                     //nothing can be done here except logging the error.
                       Logger.getLogger("FileSystemWatcher").log(Level.WARNING, 
                         "Unable to close file system watch handle.", ex2);
-                    }
-                  this.osHandle = null;
-                }       
+                    }  
+                    this.osHandle = null;
+                }
             }
-
         }
-
-
     }
     
     
@@ -2515,8 +2660,11 @@ class FileSystemWatcher implements Runnable {
   //**************************************************************************
     
     public void stop(){
-        terminationRequested = true;
         
+        //TODO: The FileSystemWatcher doesn't stop right away. It waits until 
+        //the next event. Need to figure out a way to stop it immediately.
+        terminationRequested = true;
+
         if (timer!=null){
             timer.cancel();
             timer = null;
@@ -2527,10 +2675,9 @@ class FileSystemWatcher implements Runnable {
   //**************************************************************************
   //** EventMonitor
   //**************************************************************************
-  /**  Used to periodically check for changes made to the file system. This 
-   *   class is only used on non-windows machines.
+  /** Used to periodically check for changes made to the file system. This 
+   *  class is only used on non-windows machines.
    */
-    
     private class EventMonitor extends TimerTask {
         
         private List index = new LinkedList();
@@ -2670,11 +2817,6 @@ class FileSystemWatcher implements Runnable {
         
     } //End EventMonitor Class
     
-
-    
-
-    
-
     
   //**************************************************************************
   //** Finalize
@@ -2746,4 +2888,3 @@ final class FileSystemWatcherNative {
     
     
 } // End FileSystemWatcherNative
-    

@@ -1141,6 +1141,7 @@ public class File implements Comparable {
                 attr = new FileAttributes(toString());
             }
             catch(Exception e){
+                //e.printStackTrace();
                 attr = null;
             }
         }
@@ -1270,9 +1271,18 @@ public class File implements Comparable {
     /** JNI entry point to retrieve file attributes. */
     private static native long[] GetFileAttributesEx(String lpPathName) throws Exception;
 
-
-    /** JNI entry point to retrieve file attributes. */
+    /** JNI entry point to retrieve link target. */
     private static native String GetTarget(String lpPathName) throws Exception;
+
+     /** JNI entry point to retrieve a list of shared drives on a server. */
+    protected static native String GetSharedDrives(String serverName) throws Exception;
+
+     /** JNI entry point to retrieve a list of network drives mounted to the host. */
+    protected static native String GetNetworkDrives() throws Exception;
+    
+     /** JNI entry point to retrieve a list of files and directories. */
+    protected static native String GetFiles(String lpPathName) throws Exception;
+    
 
 
 //******************************************************************************
@@ -1384,7 +1394,7 @@ public static class FileAttributes {
                 if (flags.contains("REPARSE_POINT")){
                     link = new java.io.File(GetTarget(path));
                 }
-                
+
             }
             else{
                 
