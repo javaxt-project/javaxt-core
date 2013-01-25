@@ -13,7 +13,7 @@ import java.util.HashMap;
  *
  ******************************************************************************/
 
-public class Date {
+public class Date implements Comparable {
     
     private Locale currentLocale = Locale.getDefault();
     private java.util.TimeZone timeZone;
@@ -743,6 +743,17 @@ public class Date {
         if (hour>0 || min>0 || sec>0 || ms>0) return true;
         return false;
     }
+
+
+  //**************************************************************************
+  //** compareTo
+  //**************************************************************************
+  /** Compares two Dates for ordering.
+   */
+    public int compareTo(Object obj){
+        return new DateComparer().compare(this, obj);
+    }
+
 
     private static class DateComparer implements java.util.Comparator {
 

@@ -574,7 +574,7 @@ public class Recordset {
                             //else System.out.println(i + " " + Fields[i].Name + " " + FieldType);
 
 
-                            if (FieldValue!=null){
+                            if (FieldValue!=null && !FieldValue.isNull()){
                                 if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
                                     rs.updateObject(FieldName, getGeometry(FieldValue));
                                 }
