@@ -783,7 +783,7 @@ public class Directory implements Comparable {
     boolean wait = false;
     java.util.List files = directory.getChildren(true, null, wait);
     if (wait){
-        for (int i=0; i < files.size(); i++){
+        for (int i=0; i &lt; files.size(); i++){
             System.out.println(files.get(i));
         }
     }
@@ -1080,7 +1080,7 @@ public class Directory implements Comparable {
                     }
                     return files.toArray(new java.io.File[files.size()]);
                 }
-                return new java.io.File[0];
+                return null;
             }
         }
 
@@ -1088,12 +1088,9 @@ public class Directory implements Comparable {
 
       //Generate a list of files in this directory that match the file filter
         java.util.List files = new java.util.ArrayList();
-        String[] list = null;
         if (isWindows){
             path = getPath();
-            list = dir();
-            if (list==null) return null;
-
+            String[] list = dir();
             for (int i=0; i<list.length; i++){
 
                 boolean isDirectory = list[i].endsWith("\\");
@@ -1558,7 +1555,7 @@ public class Directory implements Comparable {
    *  from the FileSystemWatcher Class via the EventMonitor.
    */
     
-    protected void addEvent(String action, java.io.File file){
+    protected void addEvent(String action, String file){
         new Event(action,file);
     }
     
@@ -1676,8 +1673,7 @@ public class Directory implements Comparable {
       //************************************************************************
       /**  Creates a new instance of FileSystemEvent for EventMonitor 
        */
-        private Event(String action, java.io.File file){
-            /*
+        private Event(String action, String file){
             this.date = new java.util.Date();
             this.action = action;
             this.file = file;
@@ -1685,7 +1681,6 @@ public class Directory implements Comparable {
                 events.add(this);
                 events.notifyAll();
             }
-            */
         }
 
 
@@ -2393,7 +2388,10 @@ class DirectorySearch implements Runnable {
 
               //Add subdirectories to the processing pool and insert files into file array
                 Object[] items = dir.listFiles();
-                if (items!=null){
+                if (items==null){
+                    addDirectory(dir);
+                }
+                else{
                     boolean addedDirectory = false;
                     for (int i=0; i<items.length; i++){
                         Object obj = items[i];
@@ -2573,13 +2571,14 @@ class FileSystemWatcher implements Runnable {
     private boolean terminationRequested = false;
     private Long osHandle = null;
 
-    
+
   //**************************************************************************
   //** Constructors
   //**************************************************************************   
   /** Creates a new instance of FileSystemWatcher using a directory and a dll.
    */ 
-    public FileSystemWatcher(Directory directory) throws Exception {
+    public FileSystemWatcher(Directory directory) throws java.io.IOException {
+        if (!directory.exists()) throw new java.io.IOException("Directory not found.");
         this.directory = directory;
     }
     
@@ -2590,64 +2589,45 @@ class FileSystemWatcher implements Runnable {
     
     public final void run(){ 
 
-        if (File.loadDLL()==false){
-
-            System.out.println("Failed to load javaxt-core.dll...");
+        if (!File.loadDLL()){
             this.timer = new Timer();
             timer.schedule( new EventMonitor(), new java.util.Date(), 1000 );
-
         }
         else{
-            
             try {
-
-                long osWaitHandle = FileSystemWatcherNative.FindFirstChangeNotification(
-                    directory.getPath(), includeSubdirectories, -1);
+                long osWaitHandle = FileSystemWatcherNative.FindFirstChangeNotification(directory.getPath(), includeSubdirectories, -1);
                 this.osHandle = new Long(osWaitHandle);
 
+                FileSystemWatcherNative.FindNextChangeNotification(osWaitHandle);
 
-                while (true) {
-                    FileSystemWatcherNative.FindNextChangeNotification(osWaitHandle);
-                    
-                    String event = null;
-                    while(( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
-                        for (String e : event.split("\n")) directory.addEvent(e.trim());
-                    }
-                    
-                  //Sometimes there is a bit of a delay retrieving new events so we try again
-                    Thread.sleep(25);
-                    while(( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
-                        for (String e : event.split("\n")) directory.addEvent(e.trim());
-                    }
+              //Process events. Note that the ReadDirectoryChangesW method will
+              //block until the next event comes in.
+                String event = null;
+                while(!terminationRequested && ( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
+                    for (String e : event.split("\n")) directory.addEvent(e.trim());
+                }
 
-                    if (FileSystemWatcherNative.WaitForSingleObject(osWaitHandle, 
-                        FileSystemWatcherNative.INFINITE) !=  FileSystemWatcherNative.WAIT_OBJECT_0) {
-                        throw new Exception("Wait failed while waiting for OS to signal file system event.");  
-                    }
-
-                    if (terminationRequested) {
-                        break;
-                    }
-
-                } //end while
-
+              //I have no idea what this block of code does. Probably safe to delete.
+                if (FileSystemWatcherNative.WaitForSingleObject(osWaitHandle,
+                    FileSystemWatcherNative.INFINITE) !=  FileSystemWatcherNative.WAIT_OBJECT_0) {
+                    throw new Exception("Wait failed while waiting for OS to signal file system event.");
+                }
             }
             catch (Exception ex) {
-
-            //nothing can be done here except logging the error.
-              Logger.getLogger("FileSystemWatcher").log(Level.WARNING, "Exception encountered.", ex);
-
+              //nothing can be done here except logging the error.
+              //Logger.getLogger("FileSystemWatcher").log(Level.WARNING, "Exception encountered.", ex);
             }
             finally {
                 if (this.osHandle != null) {
+                    System.out.println("Shutting down...");
                     try {
                       FileSystemWatcherNative.FindCloseChangeNotification(this.osHandle.longValue());
                     }
                     catch (Exception ex2) {
-                    //nothing can be done here except logging the error.
-                      Logger.getLogger("FileSystemWatcher").log(Level.WARNING, 
-                        "Unable to close file system watch handle.", ex2);
-                    }  
+                      //nothing can be done here except logging the error.
+                      //Logger.getLogger("FileSystemWatcher").log(Level.WARNING,
+                      //"Unable to close file system watch handle.", ex2);
+                    }
                     this.osHandle = null;
                 }
             }
@@ -2661,8 +2641,6 @@ class FileSystemWatcher implements Runnable {
     
     public void stop(){
         
-        //TODO: The FileSystemWatcher doesn't stop right away. It waits until 
-        //the next event. Need to figure out a way to stop it immediately.
         terminationRequested = true;
 
         if (timer!=null){
@@ -2680,7 +2658,7 @@ class FileSystemWatcher implements Runnable {
    */
     private class EventMonitor extends TimerTask {
         
-        private List index = new LinkedList();
+        private List index = null;
         private long lastUpdate = 0;
         private long interval = 0;
     
@@ -2697,38 +2675,36 @@ class FileSystemWatcher implements Runnable {
                 
                 List orgIndex = index;
                 List newIndex = createIndex();
-                
+
                 for (int i=0; i<newIndex.size(); i++){
-                     Item item = (Item) newIndex.get(i);
-                     if (orgIndex.contains(item)){
-                         int x = orgIndex.indexOf(item);
-                         Item orgItem = (Item) orgIndex.get(x); 
-                         orgIndex.remove(x);
-                         if (item.isDirectory()==false){
-                             if (item.getSize()!=orgItem.getSize() || 
-                                 item.getDate()!=orgItem.getDate())
-                             {
-                                 directory.addEvent("Modify",item.getFile());
-                             }
-                         }
-                     }
-                     else{
-                         directory.addEvent("Create",item.getFile());
-                     }
+                    Item item = (Item) newIndex.get(i);
+                    if (orgIndex.contains(item)){
+                        int x = orgIndex.indexOf(item);
+                        Item orgItem = (Item) orgIndex.get(x); 
+                        orgIndex.remove(x);
+                        if (item.isDirectory()==false){
+                            if (item.getSize()!=orgItem.getSize() || 
+                                item.getDate()!=orgItem.getDate())
+                            {
+                                directory.addEvent("Modify",item.getPath());
+                            }
+                        }
+                    }
+                    else{
+                        directory.addEvent("Create",item.getPath());
+                    }
                 }
                 if (orgIndex.size()>0){ 
                     for (int i=0; i<orgIndex.size(); i++){
-                         Item item = (Item) orgIndex.get(i);
-                         directory.addEvent("Delete",item.getFile());
+                        Item item = (Item) orgIndex.get(i);
+                        directory.addEvent("Delete",item.getPath());
                     }
                     orgIndex.clear();
                 }
                 
                 index = newIndex;
-                    
-              //Remove these 4 lines
                 long endTime = java.util.Calendar.getInstance().getTimeInMillis();
-                interval = startTime-endTime;  
+                interval = endTime-startTime;
                 //System.out.println(interval);
                 lastUpdate = endTime;
 
@@ -2746,9 +2722,28 @@ class FileSystemWatcher implements Runnable {
        */
         private List createIndex(){
             List index = new LinkedList();
-            List array = directory.getChildren(true);
-            for (int i=0; i<array.size(); i++){
-                 index.add( new Item(array.get(i)) );
+            java.util.List files = directory.getChildren(true, null, false);
+            Object obj;
+            while (true){
+                synchronized (files) {
+                    while (files.isEmpty()) {
+                      try {
+                          files.wait();
+                      }
+                      catch (InterruptedException e) {
+                          break;
+                      }
+                    }
+                    obj = files.remove(0);
+                    files.notifyAll();
+                }
+
+                if (obj==null){
+                    break;
+                }
+                else{
+                    index.add( new Item(obj) );
+                }
             }
             return index;
         }
@@ -2765,8 +2760,6 @@ class FileSystemWatcher implements Runnable {
        */
         private class Item {
 
-            private java.io.File file;
-            private String name;
             private String path;
             private long size;
             private long date;
@@ -2781,8 +2774,6 @@ class FileSystemWatcher implements Runnable {
                 else if (obj instanceof java.io.File) file=(java.io.File) obj;
 
                 if (file!=null){
-                    this.file = file;
-                    this.name = file.getName();
                     this.path = file.getPath();
                     this.size = file.length();
                     this.date = file.lastModified();
@@ -2790,12 +2781,6 @@ class FileSystemWatcher implements Runnable {
                 }
             }
 
-
-          /** Returns a java.io.File representation of this object. Note that
-           *  some of the properties of the file will vary from this object.
-           */
-            public java.io.File getFile() { return file; }
-            public String getName() { return name; }
             public String getPath() { return path; }
             public long getSize() {  return size; }
             public long getDate() { return date; }
