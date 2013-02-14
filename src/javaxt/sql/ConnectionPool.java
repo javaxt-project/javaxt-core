@@ -16,9 +16,7 @@ import javax.sql.PooledConnection;
 //**  ConnectionPool
 //******************************************************************************
 /**
- *   A lightweight standalone JDBC connection pool manager written by
- *   Christian d'Heureuse, Inventec Informatik AG, Zurich, Switzerland. Added
- *   2 new constructors to instantiate this class using a javaxt.sql.Database.
+ *   A lightweight standalone JDBC connection pool manager.
  *   
  ******************************************************************************/
 
