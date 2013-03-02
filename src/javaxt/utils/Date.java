@@ -122,9 +122,8 @@ public class Date implements Comparable {
   //** Constructor
   //**************************************************************************
   /** Creates a new instance of date using a timestamp (in milliseconds) 
-   *  since 1/1/1970
+   *  since 1/1/1970.
    */
-    
     public Date(long milliseconds){
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(milliseconds);
@@ -395,6 +394,7 @@ public class Date implements Comparable {
    *  @param obj Accepts a java.util.Date, a javaxt.utils.Date, or a String.
    */
     public boolean equals(Object obj){
+        if (obj==null) return false;
         if (obj instanceof javaxt.utils.Date){
             return ((javaxt.utils.Date) obj).getDate().equals(currDate);
         }
@@ -720,26 +720,18 @@ public class Date implements Comparable {
     public int getMilliSecond(){
         return Integer.valueOf(FormatDate(currDate, "S")).intValue();
     }
-    
-    
+
 
   //**************************************************************************
   //** hasTimeStamp
   //**************************************************************************
-  /** Used to determine whether a date has a timestamp.
+  /** Used to determine whether the date has a timestamp.
    */
     public boolean hasTimeStamp(){
-        return hasTimeStamp(getDate());
-    }
-
-
-    private static boolean hasTimeStamp(java.util.Date date){
-        java.util.Calendar cal = java.util.Calendar.getInstance();
-        cal.setTime(date);
-        int hour = cal.get(java.util.Calendar.HOUR);
-        int min = cal.get(java.util.Calendar.MINUTE);
-        int sec = cal.get(java.util.Calendar.SECOND);
-        int ms = cal.get(java.util.Calendar.MILLISECOND);
+        int hour = this.getHour();
+        int min = this.getMinute();
+        int sec = this.getSecond();
+        int ms = this.getMilliSecond();
         if (hour>0 || min>0 || sec>0 || ms>0) return true;
         return false;
     }
@@ -755,6 +747,11 @@ public class Date implements Comparable {
     }
 
 
+  //**************************************************************************
+  //** DateComparer Class
+  //**************************************************************************
+  /** Used to compare dates.
+   */
     private static class DateComparer implements java.util.Comparator {
 
         public final int compare(Object a, Object b){
@@ -810,7 +807,18 @@ public class Date implements Comparable {
 
             return result;
         }
-
+        
+        /** Used to determine whether a date has a timestamp. */
+        private static boolean hasTimeStamp(java.util.Date date){
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.setTime(date);
+            int hour = cal.get(java.util.Calendar.HOUR);
+            int min = cal.get(java.util.Calendar.MINUTE);
+            int sec = cal.get(java.util.Calendar.SECOND);
+            int ms = cal.get(java.util.Calendar.MILLISECOND);
+            if (hour>0 || min>0 || sec>0 || ms>0) return true;
+            return false;
+        }
     }
     
 
