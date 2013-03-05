@@ -139,9 +139,21 @@ public class DOM {
         }
         return null;
     }
-    
-    
-    
+
+
+  //**************************************************************************
+  //** equals
+  //**************************************************************************
+  /** Used to compare two XML documents by performing a raw string comparison.
+   */
+    public static boolean equals(Document xml, Document xml2){
+        if (xml==null && xml2==null) return true;
+        if (xml!=null && xml2==null) return false;
+        if (xml==null && xml2!=null) return false;
+        return getText(xml).equals(getText(xml2));
+    }
+
+
   //**************************************************************************
   //** getText
   //**************************************************************************

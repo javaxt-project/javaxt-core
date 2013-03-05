@@ -589,12 +589,21 @@ public class File implements Comparable {
    *  DOM Document.
    */
     public org.w3c.dom.Document getXML(){
+        FileInputStream is = null;
         try{
-            return javaxt.xml.DOM.createDocument(getInputStream());
+            is = getInputStream();
+            org.w3c.dom.Document xml = javaxt.xml.DOM.createDocument(is);
+            is.close();
+            return xml;
         }
         catch(Exception e){
-            return null;
         }
+        finally{
+            if (is!=null){
+                try{ is.close(); }catch(Exception e){}
+            }
+        }
+        return null;
     }
 
 
