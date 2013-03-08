@@ -472,7 +472,8 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** getFiles
   //**************************************************************************
-  /**  Used to retrieve an array of files found in this directory. 
+  /**  Used to retrieve an array of files found in this directory. Returns an
+   *   empty array if no files are found.
    *
    *   @param filter A file filter. You can pass in a java.io.FileFilter, a
    *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
@@ -516,8 +517,9 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** getFiles
   //**************************************************************************
-  /**  Used to retrieve an array of files found in this directory. */
-    
+  /**  Used to retrieve an array of files found in this directory. Returns an
+   *   empty array if no files are found.
+   */
     public File[] getFiles(){
         return getFiles(null);
     }
@@ -526,7 +528,8 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** getFiles
   //**************************************************************************
-  /**  Used to retrieve an array of files found in this directory. 
+  /**  Used to retrieve an array of files found in this directory. Returns an
+   *   empty array if no files are found.
    *
    *   @param filter A file filter. You can pass in a java.io.FileFilter, a
    *   String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).

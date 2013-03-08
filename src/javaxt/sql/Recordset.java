@@ -871,7 +871,7 @@ public class Recordset {
    */
     public Value getValue(int i){
         if (Fields!=null && i<Fields.length){
-            return Fields[i].Value;
+            if (Fields[i].Value!=null) return Fields[i].Value;
         }
         return new Value(null);
     }
