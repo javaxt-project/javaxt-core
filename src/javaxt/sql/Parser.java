@@ -19,7 +19,7 @@ public class Parser {
     private java.util.HashMap sql = new java.util.HashMap();
 
     private static String[] sqlOperators =
-    new String[]{"IS NULL","IS NOT NULL","BETWEEN","CONTAINS","LIKE","<>","<=",">=","=","<",">","IN","MATCHES","SOME","NOT EXISTS"};
+    new String[]{"IS NULL","IS NOT NULL","BETWEEN","CONTAINS","LIKE","<>","<=",">=","=","<",">","IN","MATCHES","SOME","NOT EXISTS","EXISTS"};
    
     private static String[] sqlKeywords = 
     new String[]{"SELECT","FROM","WHERE","ORDER BY","GROUP BY","HAVING"};
@@ -795,27 +795,36 @@ public class Parser {
                                
                                 String keyword = s.substring(i,i+sqlOperator.length());
                                 if (keyword.equalsIgnoreCase(sqlOperator)){
-                                    
-                                  //Check whether the string is an actual keyword or part of another word
+
                                     String a = "";
                                     String b = "";
                                     if (i>0) a = s.substring(i-1,i);
                                     if (i+keyword.length()+1<s.length()) b = s.substring(i+keyword.length(), i+keyword.length()+1);
 
-                                    if ((a.equals("") || a.equals(" ") || a.equals(")") || a.equals("]") || a.equals("\"") ) &&
-                                        (b.equals("") || b.equals(" ") || b.equals("(") || b.equals("[") || b.equals("\"") )
+                                    if (
+                                      //Check if keyword is part of another word
+                                        ( (a.equals("") || a.equals(" ") || a.equals(")") || a.equals("]") || a.equals("\"") ) &&
+                                          (b.equals("") || b.equals(" ") || b.equals("(") || b.equals("[") || b.equals("\"") )
+                                        ) || (
+                                      //Check if keyword is a symbol
+                                         keyword.equals("<>") || keyword.equals("<=") || keyword.equals(">=") ||
+                                         keyword.equals("=") || keyword.equals("<") || keyword.equals(">")
+                                        )
                                     ){
-                                    
+
                                         String entry = phrase.substring(0, phrase.length()-1).trim();
+                                        i = i + (keyword.length()-1);
+                                        phrase = new StringBuffer();
+
                                         if (entry.length()>0){
                                             list.add(entry);
-                                            phrase = new StringBuffer();
-                                            i = i + (keyword.length()-1);
-
-                                            //System.out.println("(+) " + entry + " (" + keyword + ")");
-
                                             this.operator = keyword;
                                             this.leftOperand = entry;
+                                        }
+                                        else{
+                                          //Things like "NOT EXISTS" statements
+                                            this.operator = keyword;
+                                            this.leftOperand = null;
                                         }
                                         break;
                                     }
@@ -1653,7 +1662,17 @@ public class Parser {
         }
 
 
-      //Print "Where" Statements
+      //Print "Having" Statements
+        if (getHavingString()!=null){
+            System.out.println();
+            System.out.println("-----------------------------------------");
+            System.out.println("HAVING Statements");
+            System.out.println("-----------------------------------------");
+            System.out.println(getHavingString());
+        }
+
+
+      //Print Tables and Columns
         System.out.println();
         System.out.println("-----------------------------------------");
         System.out.println("Exposed Tables and Columns");
