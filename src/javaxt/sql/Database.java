@@ -21,6 +21,7 @@ public class Database {
     private String password;
     private Driver driver; 
     private String props;
+    private String querystring;
     private static final Class<?>[] stringType = { String.class };
     private static final Class<?>[] integerType = { Integer.TYPE };
 
@@ -128,7 +129,9 @@ public class Database {
                 this.name = this.name.substring(1);
             }
         }
-        
+        querystring = url.getQueryString();
+        if (querystring.length()==0) querystring = null;
+
 
       //Extract additional connection parameters
         StringBuffer props = null;
@@ -356,6 +359,9 @@ public class Database {
             }
         }
 
+      //Append querystring as needed
+        if (querystring!=null) database += "?" + querystring;
+
 
       //Set Path
         String path = "";
@@ -378,8 +384,8 @@ public class Database {
         String properties = "";
         if (props!=null) properties = ";" + props;
 
-        
-        
+
+
       //Assemble Connection String
         return path + server + database + properties;
 

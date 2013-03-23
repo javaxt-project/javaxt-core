@@ -103,11 +103,14 @@ public class Parser {
 
             c = s.substring(i,i+1);
 
-            if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-            if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-            if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-            if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false;
-
+            if (c.equals("\"")){
+                if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                else insideDoubleQuotes = false;
+            }
+            if (c.equals("'")){
+                if (!insideSingleQuotes) insideSingleQuotes = true;
+                else insideSingleQuotes = false;
+            }
 
             if ((c.equals("(") && !insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)) {
                 insideParenthesis = true;
@@ -316,11 +319,14 @@ public class Parser {
 
                     c = s.substring(i,i+1);
 
-                    if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-                    if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-                    if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-                    if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false;
-
+                    if (c.equals("\"")){
+                        if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                        else insideDoubleQuotes = false;
+                    }
+                    if (c.equals("'")){
+                        if (!insideSingleQuotes) insideSingleQuotes = true;
+                        else insideSingleQuotes = false;
+                    }
                     if ((c.equals("(") && !insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)) {
                         insideParenthesis = true;
                         parenthesis = 0;
@@ -436,11 +442,14 @@ public class Parser {
 
                 c = s.substring(i,i+1);
 
-                if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-                if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-                if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-                if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false;
-
+                if (c.equals("\"")){
+                    if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                    else insideDoubleQuotes = false;
+                }
+                if (c.equals("'")){
+                    if (!insideSingleQuotes) insideSingleQuotes = true;
+                    else insideSingleQuotes = false;
+                }
 
                 phrase.append(c);
 
@@ -498,7 +507,12 @@ public class Parser {
         return fromStatement;
     }
 
-    
+
+  //**************************************************************************
+  //** FromStatement
+  //**************************************************************************
+  /** Used to represent the "FROM" clause.
+   */
     public class FromStatement {
 
         private String statement = null;
@@ -616,12 +630,14 @@ public class Parser {
 
                     c = s.substring(i,i+1);
 
-                    if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-                    if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-                    if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-                    if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false;
-
-
+                    if (c.equals("\"")){
+                        if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                        else insideDoubleQuotes = false;
+                    }
+                    if (c.equals("'")){
+                        if (!insideSingleQuotes) insideSingleQuotes = true;
+                        else insideSingleQuotes = false;
+                    }
 
                     if ((c.equals("(") && !insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)) {
                         insideParenthesis = true;
@@ -765,12 +781,14 @@ public class Parser {
 
                     c = s.substring(i,i+1);
 
-                    if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-                    if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-                    if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-                    if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false;
-
-
+                    if (c.equals("\"")){
+                        if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                        else insideDoubleQuotes = false;
+                    }
+                    if (c.equals("'")){
+                        if (!insideSingleQuotes) insideSingleQuotes = true;
+                        else insideSingleQuotes = false;
+                    }
 
                     if ((c.equals("(") && !insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)) {
                         insideParenthesis = true;
@@ -1232,11 +1250,14 @@ public class Parser {
 
             c = s.substring(i,i+1);
 
-            if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-            if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-            if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-            if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false;
-
+            if (c.equals("\"")){
+                if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                else insideDoubleQuotes = false;
+            }
+            if (c.equals("'")){
+                if (!insideSingleQuotes) insideSingleQuotes = true;
+                else insideSingleQuotes = false;
+            }
             phrase.append(c);
 
 
@@ -1411,7 +1432,6 @@ public class Parser {
         
         if (text.startsWith("(") && text.endsWith(")")){
         
-        
             boolean insideSingleQuotes = false;
             boolean insideDoubleQuotes = false;        
             boolean insideParenthesis = false;
@@ -1426,12 +1446,14 @@ public class Parser {
 
                 c = s.substring(i,i+1); 
 
-                if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-                if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-                if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-                if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false; 
-
-
+                if (c.equals("\"")){
+                    if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                    else insideDoubleQuotes = false;
+                }
+                if (c.equals("'")){
+                    if (!insideSingleQuotes) insideSingleQuotes = true;
+                    else insideSingleQuotes = false;
+                }
 
                 
                 if ((c.equals("(") && !insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)) {
@@ -1447,28 +1469,21 @@ public class Parser {
                         
                         insideParenthesis = false;
                         
-                        
                         if (i+1 < s.length()){
                             String nextString = s.substring(i+1).trim();
                             if (!nextString.startsWith("(")) gaps++;
                         }
                         
                     }
-                }                
-                
-                
+                }
             }
             
             if (gaps==0) text = text.substring(1, text.length()-1).trim();
-            
-            
-            
-        }
-        
-        return text;
-        
-    }
 
+        }
+
+        return text;
+    }
 
 
   //**************************************************************************
@@ -1508,12 +1523,14 @@ public class Parser {
 
                 c = s.substring(i,i+1);
 
-                if (c.equals("\"") && !insideDoubleQuotes) insideDoubleQuotes = true;
-                if (c.equals("\"") && insideDoubleQuotes)  insideDoubleQuotes = false;
-                if (c.equals("'") && !insideSingleQuotes) insideSingleQuotes = true;
-                if (c.equals("'") && insideSingleQuotes)  insideSingleQuotes = false;
-
-
+                if (c.equals("\"")){
+                    if (!insideDoubleQuotes) insideDoubleQuotes = true;
+                    else insideDoubleQuotes = false;
+                }
+                if (c.equals("'")){
+                    if (!insideSingleQuotes) insideSingleQuotes = true;
+                    else insideSingleQuotes = false;
+                }
 
                 if ((c.equals("(") && !insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)) {
                     insideParenthesis = true;
