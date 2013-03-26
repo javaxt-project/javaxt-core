@@ -188,23 +188,34 @@ public class DOM {
     public static String getText(NodeList nodeList){
         StringBuffer ret = new StringBuffer();
         for (int i=0; i<nodeList.getLength(); i++ ) {
-             Node node = nodeList.item(i);
-             if (node.getNodeType()==1){
-
-                 if (hasChildren(node)){
-                     ret.append(getNodeValue(node));
-                 }
-                 else{
-                     ret.append("<" + node.getNodeName() + getAttributes(node) + ">");
-                     ret.append(getNodeValue(node));
-                     ret.append("</" + node.getNodeName() + ">");
-                 }
-
-             }
+            ret.append(getText(nodeList.item(i)));
         }
         return ret.toString();
     }
-    
+
+
+  //**************************************************************************
+  //** getText
+  //**************************************************************************
+  /** Converts a Node to a String */
+
+    public static String getText(Node node){
+         StringBuffer ret = new StringBuffer();
+         if (node.getNodeType()==1){
+
+             if (hasChildren(node)){
+                 ret.append(getNodeValue(node));
+             }
+             else{
+                 ret.append("<" + node.getNodeName() + getAttributes(node) + ">");
+                 ret.append(getNodeValue(node));
+                 ret.append("</" + node.getNodeName() + ">");
+             }
+         }
+         return ret.toString();
+    }
+
+
   //**************************************************************************
   //** getAttributes
   //**************************************************************************

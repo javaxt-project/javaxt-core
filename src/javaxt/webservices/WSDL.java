@@ -765,18 +765,18 @@ public class WSDL {
                             attr = Messages.item(j).getAttributes();
                             type = DOM.getAttributeValue(attr, "type");
                             
-                            if (type!=""){ //This is rare!
-                                
-                                
-                                Element element = new Element(Messages.item(j));
-                                elements.add(element);
-
-                            }
-                            else{      
-                              
+//                            if (type.length()==0){ //This is rare!
+//
+//
+//                                Element element = new Element(Messages.item(j));
+//                                elements.add(element);
+//
+//                            }
+//                            else{
+                            
                                 String element = stripNameSpace(DOM.getAttributeValue(attr, "element"));
                                 elements = getElement(element);
-                            }
+                            //}
                             
                         }
                     }
@@ -900,7 +900,7 @@ public class WSDL {
                 Node outerNode = DOM.getOuterNode(xsd);
                 String outerNodeName = stripNameSpace(outerNode.getNodeName());
 
-                NodeList schemaNodes = null;
+                java.util.ArrayList<Node> schemaNodes = new java.util.ArrayList<Node>();
                 if (outerNodeName.equalsIgnoreCase("definitions")){
                     NodeList childNodes = outerNode.getChildNodes();
                     for (int i=0; i<childNodes.getLength(); i++){
@@ -910,14 +910,21 @@ public class WSDL {
                             for (int j=0; j<types.getLength(); j++){
                                 Node typeNode = types.item(j);
                                 if (stripNameSpace(typeNode.getNodeName()).equalsIgnoreCase("schema")){
-                                    schemaNodes = typeNode.getChildNodes();
+                                    NodeList nodes = typeNode.getChildNodes();
+                                    for (int k=0; k<nodes.getLength(); k++ ) {
+                                        schemaNodes.add(nodes.item(k));
+                                    }
                                 }
                             }
                         }
                     }
                 }
                 else if (outerNodeName.equalsIgnoreCase("schema")){
-                    schemaNodes = outerNode.getChildNodes();
+                    //schemaNodes = outerNode.getChildNodes();
+                    NodeList nodes = outerNode.getChildNodes();
+                    for (int k=0; k<nodes.getLength(); k++ ) {
+                        schemaNodes.add(nodes.item(k));
+                    }
                 }
                 else{
                     return;
@@ -929,23 +936,31 @@ public class WSDL {
 
 
               //Loop through Schemas and Get Imports
-                for (int i=0; i<schemaNodes.getLength(); i++ ) {
-                    Node node = getNode(schemaNodes.item(i), "import");
-                    if (node!=null){
-                        NamedNodeMap attr = node.getAttributes();
-
+                for (int i=0; i<schemaNodes.size(); i++ ) {
+                    Node schemaNode = schemaNodes.get(i);
+                    Node importNode = getNode(schemaNode, "import");
+                    if (importNode!=null){
+                        
                         if (followImports){
-                            importSchemas(DOM.getAttributeValue(attr, "schemaLocation"), auxSchemas);
+                            NamedNodeMap attr = importNode.getAttributes();
+                            String schemaLocation = DOM.getAttributeValue(attr, "schemaLocation");
+                            if (schemaLocation.length()>0){
+                                importSchemas(schemaLocation, auxSchemas);
+                            }
                         }
 
-                        Node iSchema = node.getParentNode();
-                        iSchema.removeChild(node);
+                        Node iSchema = importNode.getParentNode();
+                        iSchema.removeChild(importNode);
                     }
                 }
 
 
               //Insert new schemas
-                xml.append(DOM.getText(schemaNodes));
+                for (int i=0; i<schemaNodes.size(); i++ ) {
+                    Node schemaNode = schemaNodes.get(i);
+                    xml.append(DOM.getText(schemaNode));
+                }
+                //xml.append(DOM.getText(schemaNodes));
                 xml.append(auxSchemas);
 
 
@@ -971,7 +986,9 @@ public class WSDL {
    *  @param auxSchemas StringBuffer used to append new schema nodes.
    */
     private void importSchemas(String schemaLocation, StringBuffer auxSchemas){
-        
+
+        if (schemaLocation==null || schemaLocation.length()==0) return;
+
         javaxt.http.Response response = new javaxt.http.Request(schemaLocation).getResponse();
         String txt = response.getText();
 
@@ -989,9 +1006,9 @@ public class WSDL {
                 if (node!=null){
                     NamedNodeMap attr = node.getAttributes();
                     schemaLocation = DOM.getAttributeValue(attr, "schemaLocation");
-
-                    importSchemas(schemaLocation, auxSchemas);
-
+                    if (schemaLocation.length()>0){
+                        importSchemas(schemaLocation, auxSchemas);
+                    }
                     Node iSchema = node.getParentNode();
                     iSchema.removeChild(node);
                 }
@@ -1173,6 +1190,8 @@ public class WSDL {
                             if (Element.IsComplex){
                                 //???
                             }
+
+                            knownTypes.put(ElementName, Element);
 
                             java.util.Iterator<Element> it = getAttributes(childNode).iterator();
                             while (it.hasNext()){

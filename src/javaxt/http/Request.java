@@ -376,7 +376,6 @@ public class Request {
                   //Write input value
                     if (inputs[i].isFile()){
                         javaxt.io.File file = (javaxt.io.File) inputs[i].getValue();
-                        System.out.println(file);
                         java.io.InputStream inputStream = file.getInputStream();
                         byte[] b = new byte[1024];
                         int x=0;
@@ -770,6 +769,8 @@ public class Request {
 
 
     protected String[] getResponseHeaders(String headerName){
+
+        if (headers==null) return new String[0];
 
       //Iterate through the headers and find the matching header
         java.util.List values = new java.util.LinkedList();
