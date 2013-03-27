@@ -754,40 +754,25 @@ public class WSDL {
                 messageName = DOM.getAttributeValue(attr, "name");
                 if (messageName.equals(MessageName)){
 
-                  
 
                   //Loop through Messages and Find Message Parts
                     Messages = Definitions.item(i).getChildNodes();
                     for (int j=0; j<Messages.getLength(); j++ ) {
                         if (contains(Messages.item(j).getNodeName(), "part")) { 
-                            
 
                             attr = Messages.item(j).getAttributes();
                             type = DOM.getAttributeValue(attr, "type");
-                            
-//                            if (type.length()==0){ //This is rare!
-//
-//
-//                                Element element = new Element(Messages.item(j));
-//                                elements.add(element);
-//
-//                            }
-//                            else{
-                            
-                                String element = stripNameSpace(DOM.getAttributeValue(attr, "element"));
-                                elements = getElement(element);
-                            //}
-                            
+
+                            String element = stripNameSpace(DOM.getAttributeValue(attr, "element"));
+                            elements = getElement(element);
                         }
                     }
-                    
                     return elements;
                 }
             }
         }
         
         return null;
-        
     }
 
 
