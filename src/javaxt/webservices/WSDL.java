@@ -1343,7 +1343,7 @@ public class WSDL {
             if (nodeName.equals("complextype")){
 
 
-                boolean isAbstract = bool(DOM.getAttributeValue(node, "abstract"));
+                boolean isAbstract = DOM.getAttributeValue(node, "abstract").equalsIgnoreCase("true");
                 if (!isAbstract){
                     NodeList complexTypes = node.getChildNodes();
                     for (Node complexNode : DOM.getNodes(complexTypes)){
@@ -1388,15 +1388,38 @@ public class WSDL {
 // <editor-fold defaultstate="collapsed" desc="Public Members. Click on the + sign on the left to edit the code.">
 
 
-    
-    
-    
 
-    
-    
-    
+  //**************************************************************************
+  //** getServices
+  //**************************************************************************
+  /** Returns a list of web services found in this WSDL. */
 
-    
+    public Service[] getServices(){
+        java.util.ArrayList<Service> services = new java.util.ArrayList<Service>();
+        for (Node serviceNode : DOM.getNodes(ssd.getElementsByTagName("service"))){
+            services.add(new Service(serviceNode));
+        }
+        if (services.isEmpty()) return null;
+        else return services.toArray(new Service[services.size()]);
+    }
+
+
+  //**************************************************************************
+  //** getListOfServices
+  //**************************************************************************
+  /** Returns a list of service names found in this WSDL. */
+
+    public String[] getListOfServices(){
+        Service[] services = getServices();
+        if (services==null) return null;
+        String[] arr = new String[services.length];
+        for (int i=0; i<services.length; i++) {
+             arr[i] = services[i].getName();
+        }
+        return arr;
+    }
+
+
   //**************************************************************************
   //** getService
   //**************************************************************************
@@ -1429,27 +1452,23 @@ public class WSDL {
     public Service getService(int i){
         Service[] arrServices = getServices();
         if (arrServices!=null){
-            if (i<arrServices.length){
-                return arrServices[i];
-            }
+            if (i<arrServices.length) return arrServices[i];
         }
         return null;
     }
-    
-    
+
 
   //**************************************************************************
   //** getMethod
   //**************************************************************************
     
     public Method getMethod(String ServiceName, String MethodName){
-        Service Service = getService(ServiceName);
-        if (Service!=null){
-            return Service.getMethod(MethodName);
-        }
-        return null;
+        Service service = getService(ServiceName);
+        if (service!=null) return service.getMethod(MethodName);
+        else return null;
     }
-    
+
+
   //**************************************************************************
   //** getMethod
   //**************************************************************************
@@ -1461,272 +1480,26 @@ public class WSDL {
         }
         return null;
     }
-    
-    
 
-    
-    
-    
-  //**************************************************************************
-  //** getServices
-  //**************************************************************************
-  /**  Used to retrieve an array of Services from an SSD NodeList */
-    
-    public Service[] getServices(){
-        
-        java.util.ArrayList<Service> services = new java.util.ArrayList<Service>();
-        
-        for (Node serviceNode : DOM.getNodes(ssd.getElementsByTagName("service"))){
-            Service service = getService(serviceNode);
-            if (service!=null){
-                services.add(service);
-            }
-        }
-                
-        if (services.isEmpty()){
-            return null;
-        }
-        else{
-            return services.toArray(new Service[services.size()]);
-        }
-    }
-    
-  //**************************************************************************
-  //** getService -> NEW!
-  //**************************************************************************
-  /**  Used to retrieve a service from an SSD Service Node */
-    
-    private Service getService(Node ServiceNode){
-        
-        Service Service = null;
-        
-        if (ServiceNode.getNodeType()==1){
-            NamedNodeMap attr = ServiceNode.getAttributes();
-
-            Service = new Service();
-            Service.Name = DOM.getAttributeValue(attr, "name");
-            Service.NameSpace = DOM.getAttributeValue(attr, "namespace");
-            Service.URL = DOM.getAttributeValue(attr, "url");
-
-            NodeList ChildNodes = ServiceNode.getChildNodes();
-            for (int j=0; j<ChildNodes.getLength(); j++ ) {
-                if (ChildNodes.item(j).getNodeType()==1){
-                    String NodeName = ChildNodes.item(j).getNodeName();
-                    String NodeValue = ChildNodes.item(j).getTextContent();
-                    if (NodeName.toLowerCase().equals("description")){
-                        Service.Description = NodeValue;
-                    }
-                    if (NodeName.toLowerCase().equals("methods")){
-                        //Service.Methods = ChildNodes.item(j).getChildNodes();
-                        Service.Methods = getMethods(ChildNodes.item(j).getChildNodes());
-                    }
-                }
-            }
-        
-        }
-                    
-        return Service;
-    }
-    
-    
-  //**************************************************************************
-  //** getMethods
-  //**************************************************************************
-  /**  Used to retrieve an array of methods from an SSD NodeList */
-    
-    private Method[] getMethods(NodeList methodNodes){
-
-        java.util.ArrayList<Method> methods = new java.util.ArrayList<Method>();
-        
-        for (Node methodNode : DOM.getNodes(methodNodes)){
-
-            Method method = getMethod(methodNode);
-            if (method!=null){
-                methods.add(method);
-            }
-        }
-        
-        if (methods.isEmpty()){
-            return null;
-        }
-        else{
-            return methods.toArray(new Method[methods.size()]);
-        }
-    }
-    
-    
-  //**************************************************************************
-  //** getMethod
-  //**************************************************************************
-  /**  Used to retrieve a method from an SSD Method Node */
-    
-    private Method getMethod(Node MethodNode){
-        
-        Method Method = null;
-        
-        if (MethodNode.getNodeType()==1){
-            NamedNodeMap attr = MethodNode.getAttributes();
-
-            Method = new Method();
-            Method.Name = DOM.getAttributeValue(attr, "name");
-            Method.SoapAction = DOM.getAttributeValue(attr, "soapAction");
-            Method.ResultsNode = DOM.getAttributeValue(attr, "resultsNode");
-            //Method.URL = Service.URL;
-            //Method.NameSpace = Service.NameSpace;
-
-            NodeList ChildNodes = MethodNode.getChildNodes();
-            for (int j=0; j<ChildNodes.getLength(); j++ ) {
-                if (ChildNodes.item(j).getNodeType()==1){
-                    String NodeName = ChildNodes.item(j).getNodeName();
-                    String NodeValue = ChildNodes.item(j).getTextContent();
-                    if(NodeName.toLowerCase().equals("description")){
-                       Method.Description = NodeValue;
-                    }
-                    if(NodeName.toLowerCase().equals("parameters")){
-                         Method.ParameterXML = ChildNodes.item(j).getChildNodes();
-                         Method.Parameters = getParameters(ChildNodes.item(j).getChildNodes());
-                    }
-                }
-            }
-
-            
-        }
-            
-        return Method;
-    }
-    
-    
-    
-  //**************************************************************************
-  //** getParameters
-  //**************************************************************************
-  /**  Used to retrieve an array of parameters from an SSD NodeList */
-    
-    private Parameter[] getParameters(NodeList parameterNodes){
-        
-        java.util.ArrayList<Parameter> parameters = new java.util.ArrayList<Parameter>();
-
-        for (Node parameterNode : DOM.getNodes(parameterNodes)){
-            Parameter parameter = getParameter(parameterNode);
-            parameters.add(parameter);
-
-          //Need to verify recursion logic here!
-            if (parameter.isComplex()){
-                parameter.Children = getParameters(parameter.ChildNodes);
-            }
-        }
-        
-        if (parameters.isEmpty()){
-            return null;
-        }
-        else{
-            return parameters.toArray(new Parameter[parameters.size()]);
-        }
-    }
-    
-    
-
-  //**************************************************************************
-  //** getParameter
-  //**************************************************************************
-    
-    private Parameter getParameter(Node ParameterNode){
-        Parameter Parameter = new Parameter();
-        NamedNodeMap attr = ParameterNode.getAttributes();
-        Parameter.Name = DOM.getAttributeValue(attr, "name");
-        Parameter.Type = DOM.getAttributeValue(attr, "type");
-        Parameter.IsAttribute = bool(DOM.getAttributeValue(attr, "isattribute"));
-        Parameter.IsNillable = bool(DOM.getAttributeValue(attr, "isnillable"));
-        Parameter.minOccurs = DOM.getAttributeValue(attr, "minOccurs");
-        Parameter.ChildNodes = ParameterNode.getChildNodes();
-        Parameter.ParentNode = ParameterNode.getParentNode();
-        Parameter.Options = getOptions(ParameterNode.getChildNodes());
-
-        /*
-        if (Parameter.Options!=null){
-            Parameter.IsComplex = false;
-        }
-        */
-
-        return Parameter;
-    }
-    
-    
-  
-    
-  //**************************************************************************
-  //** getOptions
-  //**************************************************************************
-  /**  Used to retrieve an array of options from an SSD NodeList */
-    
-    private Option[] getOptions(NodeList optionNodes){
-        
-        java.util.ArrayList<Option> options = new java.util.ArrayList<Option>();
-        for (Node optionNode : DOM.getNodes(optionNodes)){
-            if (optionNode.getNodeName().equalsIgnoreCase("options")){
-                for (Node childNode : DOM.getNodes(optionNode.getChildNodes())){
-                    options.add(getOption(childNode));
-                }
-            }
-        }
-        
-        if (options.isEmpty()){
-            return null;
-        }
-        else{
-            return options.toArray(new Option[options.size()]);
-        }
-    }
-    
-    
-  //**************************************************************************
-  //** getOption
-  //**************************************************************************
-    
-    private Option getOption(Node node){
-        NamedNodeMap attr = node.getAttributes();        
-        String value = DOM.getAttributeValue(attr, "value");
-        String name = value;
-        return new Option(name, value);
-    }
-    
-    
-    
-    
-  //**************************************************************************
-  //** getListOfServices
-  //**************************************************************************
-    
-    public String[] getListOfServices(){
-        String[] arrServices = null;
-        Service[] Services = getServices();
-        if (Services!=null){
-            arrServices = new String[Services.length];
-            for (int i=0; i<Services.length; i++) { 
-                 arrServices[i] = Services[i].getName();
-            }
-        }
-
-        return arrServices;
-    } 
 
   //**************************************************************************
   //** getListOfMethods
   //**************************************************************************
     
     public String[] getListOfMethods(String ServiceName){
-        
-        String[] arrMethods = null;
-        Service Service = getService(ServiceName);
-        Method[] Methods = Service.Methods;
-        if (Methods!=null){
-            arrMethods = new String[Methods.length];
-            for (int i=0; i<Methods.length; i++) { 
-                 arrMethods[i] = Methods[i].getName();
+        Service service = getService(ServiceName);
+        if (service!=null){
+            Method[] methods = service.getMethods();
+            if (methods!=null){
+                String[] arr = new String[methods.length];
+                for (int i=0; i<methods.length; i++) {
+                     arr[i] = methods[i].getName();
+                }
+                return arr;
             }
         }
 
-        return arrMethods;
+        return null;
     }     
     
     
@@ -1735,13 +1508,13 @@ public class WSDL {
 
     private NodeList getChildNodes(NodeList ParentNodes, String NodeName){
         for (int i=0; i<ParentNodes.getLength(); i++ ) {
-             Node node = ParentNodes.item(i);
-             if (node.getNodeType() == 1){
+            Node node = ParentNodes.item(i);
+            if (node.getNodeType() == 1){
                  //System.out.println(node.getNodeName());
-                 if (node.getNodeName().endsWith(NodeName)) {
-                     return node.getChildNodes();
-                 }
-             }
+                if (node.getNodeName().endsWith(NodeName)) {
+                    return node.getChildNodes();
+                }
+            }
         }
         return null;
     }
@@ -1756,16 +1529,7 @@ public class WSDL {
     }
 
     
-  //**************************************************************************
-  //** bool - convert String to boolean
-  //**************************************************************************
-    
-    private boolean bool(String str){
-        if (str.equalsIgnoreCase("true")) return true;
-        else return false;
-    }
 
-    
   //**************************************************************************
   //** stripNameSpace
   //**************************************************************************
@@ -1775,10 +1539,7 @@ public class WSDL {
         return str;
     }
     
-  //**************************************************************************
-  //** Legacy VB String Functions
-  //**************************************************************************
-    
+
     private boolean contains(String str, String ch){ return string.contains(str,ch,true); }
 
 }

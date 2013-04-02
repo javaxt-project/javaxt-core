@@ -1,4 +1,8 @@
 package javaxt.webservices;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.NamedNodeMap;
+import javaxt.xml.DOM;
 
 //******************************************************************************
 //**  Service Class
@@ -10,11 +14,48 @@ package javaxt.webservices;
 
 public class Service {
 
-    protected String Name = "";
-    protected String Description = "";
-    protected String URL = "";
-    protected String NameSpace;
-    protected Method[] Methods = null;
+    private String Name = "";
+    private String Description = "";
+    private String URL = "";
+    private String NameSpace;
+    private Method[] Methods = null;
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Instantiates this class using a "Service" node from an SSD.
+   */
+    protected Service(Node ServiceNode){
+
+        NamedNodeMap attr = ServiceNode.getAttributes();
+        Name = DOM.getAttributeValue(attr, "name");
+        NameSpace = DOM.getAttributeValue(attr, "namespace");
+        URL = DOM.getAttributeValue(attr, "url");
+
+        NodeList ChildNodes = ServiceNode.getChildNodes();
+        for (int j=0; j<ChildNodes.getLength(); j++ ) {
+            if (ChildNodes.item(j).getNodeType()==1){
+                String NodeName = ChildNodes.item(j).getNodeName();
+                String NodeValue = ChildNodes.item(j).getTextContent();
+                if (NodeName.toLowerCase().equals("description")){
+                    Description = NodeValue;
+                }
+                if (NodeName.toLowerCase().equals("methods")){
+
+                    NodeList methodNodes = ChildNodes.item(j).getChildNodes();
+                    java.util.ArrayList<Method> methods = new java.util.ArrayList<Method>();
+                    for (Node methodNode : DOM.getNodes(methodNodes)){
+                        methods.add(new Method(methodNode));
+                    }
+                    if (!methods.isEmpty()){
+                        Methods = methods.toArray(new Method[methods.size()]);
+                    }
+                }
+            }
+        }
+    }
+
 
     public String getName(){return Name;}
     public String getDescription(){return Description;}
@@ -24,8 +65,7 @@ public class Service {
 
   //Equals
     public boolean equals(String ServiceName){
-        if (Name.equalsIgnoreCase(ServiceName)) return true;
-        else return false;
+        return Name.equalsIgnoreCase(ServiceName);
     }
 
   //Get Method

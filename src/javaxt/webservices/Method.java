@@ -1,5 +1,6 @@
 package javaxt.webservices;
 import org.w3c.dom.*;
+import javaxt.xml.DOM;
 
 //******************************************************************************
 //**  Method Class
@@ -11,35 +12,106 @@ import org.w3c.dom.*;
 
 public class Method {
 
+    private String Name;
+    private String Description;
+    //private String URL;
+    //private String NameSpace;
+    private String SoapAction;
+    private String ResultsNode;
+    private NodeList Parameters = null;
 
-    protected String Name;
-    protected String Description;
-    //private String URL; //Do we still need this?
-    //private String NameSpace; //Do we still need this?
-    protected String SoapAction;
-    protected String ResultsNode;
-    //private Service Service;
-    protected Parameter[] Parameters = null;
-    protected NodeList ParameterXML = null;
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Instantiates this class using a "Method" node from an SSD.
+   */
+    protected Method(Node MethodNode){
+
+        NamedNodeMap attr = MethodNode.getAttributes();
+        Name = DOM.getAttributeValue(attr, "name");
+        SoapAction = DOM.getAttributeValue(attr, "soapAction");
+        ResultsNode = DOM.getAttributeValue(attr, "resultsNode");
+        //Method.URL = Service.URL;
+        //Method.NameSpace = Service.NameSpace;
+
+        NodeList ChildNodes = MethodNode.getChildNodes();
+        for (int j=0; j<ChildNodes.getLength(); j++ ) {
+            if (ChildNodes.item(j).getNodeType()==1){
+                String NodeName = ChildNodes.item(j).getNodeName();
+                String NodeValue = ChildNodes.item(j).getTextContent();
+                if (NodeName.toLowerCase().equals("description")){
+                   Description = NodeValue;
+                }
+                if (NodeName.toLowerCase().equals("parameters")){
+                    Parameters = ChildNodes.item(j).getChildNodes();
+                }
+            }
+        }
+
+    }
+
 
 
     public String getName(){return Name;}
     public String getDescription(){return Description;}
     public String getSoapAction(){return SoapAction;}
     public String getResultsNodeName(){return ResultsNode;}
+
+
+  //**************************************************************************
+  //** getParameters
+  //**************************************************************************
+  /** Returns a list of parameters associated with this method. */
+
     public Parameters getParameters(){
-        if (Parameters==null) return null;
-        else {
-            return new Parameters(Parameters);
-        }
+
+      //Note that we don't store parameters as a class variable. Instead, we
+      //extract parameters from the SSD. This is important. Otherwise, the
+      //param values get cached.
+        Parameter[] parameters = getParameters(Parameters);
+        if (parameters==null) return null;
+        else return new Parameters(parameters);
     }
 
+
+
+
+
     public boolean equals(String MethodName){
-        if (Name.equalsIgnoreCase(MethodName)) return true;
-        else return false;
+        return Name.equalsIgnoreCase(MethodName);
     }
 
     public String toString(){
         return Name;
+    }
+
+
+
+  //**************************************************************************
+  //** getParameters
+  //**************************************************************************
+  /**  Used to retrieve an array of parameters from an SSD NodeList */
+
+    private Parameter[] getParameters(NodeList parameterNodes){
+
+        java.util.ArrayList<Parameter> parameters = new java.util.ArrayList<Parameter>();
+
+        for (Node parameterNode : DOM.getNodes(parameterNodes)){
+            Parameter parameter = new Parameter(parameterNode);
+            parameters.add(parameter);
+
+          //TODO: Need to verify recursion logic here!
+            if (parameter.isComplex()){
+                parameter.Children = getParameters(parameter.getChildNodes());
+            }
+        }
+
+        if (parameters.isEmpty()){
+            return null;
+        }
+        else{
+            return parameters.toArray(new Parameter[parameters.size()]);
+        }
     }
 }

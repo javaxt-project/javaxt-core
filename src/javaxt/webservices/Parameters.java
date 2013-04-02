@@ -42,14 +42,13 @@ public class Parameters {
         if (Parameters==null) return;
         Parameter parameter = getParameter(parameterName);
         if (parameter!=null){
-            if (parameter.getValue()==null){
-                parameter.setValue(parameterValue);
+            if (parameter.getMaxOccurs()>1){
+                //TODO: Create new instance of current parameter in parent and set value
+                //getParent(Parameter);
+                System.out.println("Not Implemented!");
             }
             else{
-                if (parameter.getMaxOccurs()>1){
-                    //TODO: Create new instance of current parameter in parent and set value
-                    //getParent(Parameter);
-                }
+                parameter.setValue(parameterValue);
             }
         }
     }
@@ -199,7 +198,7 @@ public class Parameters {
                 */
 
                 if (ParameterValue.trim().length()>0){
-                    if (parameter.Type.equalsIgnoreCase("base64Binary")){
+                    if (parameter.getType().equalsIgnoreCase("base64Binary")){
                         xml.append(ParameterValue);
                     }
                     else{
