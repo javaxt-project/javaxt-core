@@ -12,20 +12,22 @@ import javaxt.xml.DOM;
 
 public class Method {
 
+
     private String Name;
     private String Description;
     //private String URL;
     //private String NameSpace;
     private String SoapAction;
     private String ResultsNode;
+
     private NodeList Parameters = null;
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Instantiates this class using a "Method" node from an SSD.
-   */
+  /**  Used to retrieve a method from an SSD Method Node */
+
     protected Method(Node MethodNode){
 
         NamedNodeMap attr = MethodNode.getAttributes();
@@ -68,24 +70,11 @@ public class Method {
 
       //Note that we don't store parameters as a class variable. Instead, we
       //extract parameters from the SSD. This is important. Otherwise, the
-      //param values get cached.
+      //param values get cached
         Parameter[] parameters = getParameters(Parameters);
         if (parameters==null) return null;
         else return new Parameters(parameters);
     }
-
-
-
-
-
-    public boolean equals(String MethodName){
-        return Name.equalsIgnoreCase(MethodName);
-    }
-
-    public String toString(){
-        return Name;
-    }
-
 
 
   //**************************************************************************
@@ -113,5 +102,15 @@ public class Method {
         else{
             return parameters.toArray(new Parameter[parameters.size()]);
         }
+    }
+
+
+
+    public boolean equals(String MethodName){
+        return Name.equalsIgnoreCase(MethodName);
+    }
+
+    public String toString(){
+        return Name;
     }
 }
