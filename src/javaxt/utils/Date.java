@@ -266,16 +266,33 @@ public class Date implements Comparable {
    *  the timestamp so that the timestamp remains fixed at 4PM.
    */
     public void setTimeZone(String timeZone, boolean preserveTimeStamp){
-        
-        java.util.TimeZone timezone = getTimeZone(timeZone);
-        if (timezone==null) return;
+        setTimeZone(getTimeZone(timeZone), preserveTimeStamp);
+    }
+
+
+  //**************************************************************************
+  //** setTimeZone
+  //**************************************************************************
+  /** Used to set the current time zone. The time zone is used when comparing
+   *  and formatting dates.
+   *  @param timeZone Time zone (e.g. "UTC", "EDT", etc.)
+   *  @param preserveTimeStamp Flag used to indicate whether to preserve the
+   *  timestamp when changing time zones. Normally, when updating the timezone,
+   *  the timestamp is updated to the new timezone. For example, if the current
+   *  time is 4PM EST and you wish to switch to UTC, the timestamp would be
+   *  updated to 8PM. The preserveTimeStamp flag allows users to preserve the
+   *  the timestamp so that the timestamp remains fixed at 4PM.
+   */
+    public void setTimeZone(java.util.TimeZone timeZone, boolean preserveTimeStamp){
+
+        if (timeZone==null) return;
 
         if (preserveTimeStamp){
             
             String z1 = FormatDate(currDate, "z");
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("z", currentLocale);
-            dateFormat.setTimeZone(timezone);
+            dateFormat.setTimeZone(timeZone);
             String z2 = dateFormat.format(currDate);
 
             String d = FormatDate(currDate, "yyyy-MM-dd HH:mm:ss.SSS z").replace(z1, z2);
@@ -285,7 +302,7 @@ public class Date implements Comparable {
             catch(ParseException e){}
         }
         else{
-            this.timeZone = timezone;
+            this.timeZone = timeZone;
         }
     }
 
@@ -359,7 +376,7 @@ public class Date implements Comparable {
    *  go from a date to a long and a long to a date:
    <pre>
         javaxt.utils.Date orgDate = new javaxt.utils.Date();
-        Long l = orgDate.toLong(); //"yyyyMMddHHmmssSSS" formatted long value
+        Long l = orgDate.toLong(); //"yyyyMMddHHmmssSSS" formatted long in UTC
         javaxt.utils.Date newDate = new javaxt.utils.Date(l+"");
         newDate.setTimeZone("UTC", true);
         System.out.println(newDate);
@@ -372,6 +389,27 @@ public class Date implements Comparable {
         d.setTimeZone("UTC");
         return Long.parseLong(d.toString("yyyyMMddHHmmssSSS"));
     }
+
+
+//  //**************************************************************************
+//  //** toInt
+//  //**************************************************************************
+//  /** Returns an integer used to represent the Date in the following format:
+//   *  "yyyyMMdd". The time zone is automatically set to UTC. Here's an example
+//   *  of how to go from a date to an int and an int to a date:
+//   <pre>
+//        javaxt.utils.Date orgDate = new javaxt.utils.Date();
+//        int i = orgDate.toInt(); //"yyyyMMdd" formatted integer in UTC
+//        javaxt.utils.Date newDate = new javaxt.utils.Date(i+"");
+//        newDate.setTimeZone("UTC", true);
+//        System.out.println(newDate);
+//   </pre>
+//   */
+//    public int toInt(){
+//        Date d = this.clone();
+//        d.setTimeZone("UTC");
+//        return Integer.parseInt(d.toString("yyyyMMdd"));
+//    }
 
 
   //**************************************************************************
@@ -589,8 +627,8 @@ public class Date implements Comparable {
         if (this.timeZone!=null) cal.setTimeZone(timeZone);
         return cal;
     }
-    
-    
+
+
   //**************************************************************************
   //** getWeekdayName
   //**************************************************************************
@@ -738,9 +776,33 @@ public class Date implements Comparable {
 
 
   //**************************************************************************
+  //** removeTimeStamp
+  //**************************************************************************
+  /** Updates the date by removing the timestamp
+   */
+    public void removeTimeStamp(){
+        currDate = getShortDate().currDate;
+    }
+
+
+    private javaxt.utils.Date getShortDate(){
+        try{
+            java.util.TimeZone tz = getTimeZone();
+            javaxt.utils.Date date = new javaxt.utils.Date(toString("MM/dd/yyyy"));
+            date.setTimeZone(tz, true);
+            return date;
+        }
+        catch(Exception e){
+            return this; //Should never happen!
+        }
+    }
+    
+
+  //**************************************************************************
   //** compareTo
   //**************************************************************************
-  /** Compares two Dates for ordering.
+  /** Compares two dates for ordering. Older dates appear first in an ordered
+   *  list like a TreeSet.
    */
     public int compareTo(Object obj){
         return new DateComparer().compare(this, obj);
