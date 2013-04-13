@@ -317,19 +317,35 @@ public class Date implements Comparable {
     public void setTimeZone(String timeZone){
         setTimeZone(timeZone, false);
     }
-    
+
+
+  //**************************************************************************
+  //** setTimeZone
+  //**************************************************************************
+  /** Used to set the current time zone. The time zone is used when comparing
+   *  and formatting dates.
+   */
     public void setTimeZone(java.util.TimeZone timeZone){
         if (timeZone==null) return;
         this.timeZone = timeZone;
     }
 
+
+  //**************************************************************************
+  //** getTimeZone
+  //**************************************************************************
+  /** Returns the current time zone. The time zone is used when comparing
+   *  and formatting dates.
+   */
     public java.util.TimeZone getTimeZone(){
         return this.timeZone;
     }
 
+
     public int hashCode(){
         return this.currDate.hashCode();
     }
+
 
   //**************************************************************************
   //** toString
@@ -357,12 +373,26 @@ public class Date implements Comparable {
         return currFormatter.format(currDate);
     }
 
+    public String toString(String format, String timeZone){
+        return this.toString(format, getTimeZone(timeZone));
+    }
 
     public String toString(String format, java.util.TimeZone timeZone){
         SimpleDateFormat currFormatter =
             new SimpleDateFormat(format, currentLocale);
         if (timeZone!=null) currFormatter.setTimeZone(timeZone);
         return currFormatter.format(currDate);
+    }
+
+
+  //**************************************************************************
+  //** toISOString
+  //**************************************************************************
+  /** Returns the date in ISO 8601 format (e.g. "2013-01-04T05:00:00.000Z").
+   *  Note that ISO dates are in UTC.
+   */
+    public String toISOString(){
+        return toString("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "UTC");
     }
 
 
@@ -835,51 +865,7 @@ public class Date implements Comparable {
 
             Long x = d1.getTime();
             Long y = d2.getTime();
-            int result = x.compareTo(y);
-
-
-          //The following block of code is used to tweak the results when
-          //comparing 2 dates that have the same day, month, and year but one
-          //of the dates doesn't have a timestamp. The date with the timestamp
-          //will come out older that the date without the timestamp.
-
-            if (result!=0){
-
-                java.util.Calendar c1 = java.util.Calendar.getInstance();
-                c1.setTime(d1);
-
-                java.util.Calendar c2 = java.util.Calendar.getInstance();
-                c2.setTime(d2);
-
-                if (c1.get(java.util.Calendar.YEAR)==c2.get(java.util.Calendar.YEAR)){
-                    if (c1.get(java.util.Calendar.MONTH)==c2.get(java.util.Calendar.MONTH)){
-                        if (c1.get(java.util.Calendar.DATE)==c2.get(java.util.Calendar.DATE)){
-                            if (hasTimeStamp(d1)==true && hasTimeStamp(d2)==false){
-                                result = -1;
-                            }
-                            else if(hasTimeStamp(d1)==false && hasTimeStamp(d2)==true){
-                                result = 1;
-                            }
-                        }
-                    }
-                }
-
-
-            }
-
-            return result;
-        }
-        
-        /** Used to determine whether a date has a timestamp. */
-        private static boolean hasTimeStamp(java.util.Date date){
-            java.util.Calendar cal = java.util.Calendar.getInstance();
-            cal.setTime(date);
-            int hour = cal.get(java.util.Calendar.HOUR);
-            int min = cal.get(java.util.Calendar.MINUTE);
-            int sec = cal.get(java.util.Calendar.SECOND);
-            int ms = cal.get(java.util.Calendar.MILLISECOND);
-            if (hour>0 || min>0 || sec>0 || ms>0) return true;
-            return false;
+            return x.compareTo(y);
         }
     }
     
