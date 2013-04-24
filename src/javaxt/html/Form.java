@@ -14,7 +14,7 @@ public class Form {
     private String name;
     private String method = "post";
     private String action = "";
-    private java.util.List inputs = new java.util.LinkedList();
+    private java.util.ArrayList<Input> inputs = new java.util.ArrayList<Input>();
 
 
   //**************************************************************************
@@ -73,8 +73,8 @@ public class Form {
       //Convert the form inputs into a request
         StringBuffer payload = new StringBuffer();
         for (int i=0; i<inputs.size(); i++){
+            if (i>0) payload.append("&");
             payload.append(inputs.get(i).toString());
-            if (i<inputs.size()-1) payload.append("&");
         }
 
 
@@ -100,5 +100,4 @@ public class Form {
         return request.getResponse();
         
     }
-    
 }

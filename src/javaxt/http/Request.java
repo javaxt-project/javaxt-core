@@ -32,7 +32,7 @@ import javax.net.ssl.*;
 
 public class Request {
 
-    protected URLConnection conn = null;
+    private URLConnection conn = null;
     private Proxy HttpProxy;
 
     private java.net.URL url;
@@ -155,7 +155,7 @@ public class Request {
    */
     public Response getResponse(){
         if (conn==null) conn = getConnection(false);
-        return new Response(this);
+        return new Response(this, conn);
     }
 
 
@@ -516,6 +516,17 @@ public class Request {
             }
             else{
                 conn = url.openConnection(HttpProxy);
+            }
+
+
+          //Disable HTTP redirects
+            if (ssl){
+                HttpsURLConnection con = (HttpsURLConnection)conn;
+                con.setInstanceFollowRedirects(false);
+            }
+            else{
+                HttpURLConnection con = (HttpURLConnection)conn;
+                con.setInstanceFollowRedirects(false);
             }
 
 

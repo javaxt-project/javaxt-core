@@ -18,9 +18,9 @@ public class Response {
     private Request request;
 
 
-    protected Response(Request request){
+    protected Response(Request request, URLConnection conn){
         this.request = request;
-        this.conn = request.conn;
+        this.conn = conn;
     }
 
 
