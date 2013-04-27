@@ -1,6 +1,5 @@
 package javaxt.io;
 import java.util.*;
-import java.util.logging.*;
 import java.util.concurrent.ConcurrentHashMap;
 //******************************************************************************
 //**  Directory Class - By Peter Borissow

@@ -21,9 +21,9 @@ public class URL {
     private Integer port;
     private String path;
 
-    
+
   //**************************************************************************
-  //** Overloaded Constructor
+  //** Constructor
   //**************************************************************************
   /** Creates a new instance of URL using a java.net.URL */
     
@@ -453,12 +453,112 @@ public class URL {
   //**************************************************************************
   //** setPath
   //**************************************************************************
-  /**  Used to update the path portion of the URL
+  /** Used to update the path portion of the URL. If the supplied path starts
+   *  with "./" or "../", only part of the path will be replaced. Otherwise,
+   *  the entire path will be replaced.
+   *  <p/>
+   *  When supplying a relative path (path starting with "./" or "../"), the
+   *  url parser assumes that directories in the original path are terminated
+   *  with a "/". For example:
+   *  <pre>http://www.example.com/path/</pre>
+   *  If a path is not terminated with a "/", the parser assumes that the last
+   *  "/" separates a path from a file. Example:
+   *  <pre>http://www.example.com/path/file.html</pre>
+   *  For example, if the original url looks like this:
+   *  <pre>http://www.example.com/path/</pre>
+   *  If you provide a relative path like "../index.html", will yield this:
+   *  <pre>http://www.example.com/index.html</pre>
+   *  <p/>
+   *  Note that if the supplied path contains a query string,
+   *  the original query string will be replaced with the new one.
    */
     public void setPath(String path){
-        if (path!=null){
+        if (path==null){
+            path = "";
+        }
+        else {
             path = path.trim();
-            if (!path.startsWith("/")) path = "/" + path;
+
+            if (path.contains("?")){
+                String query = path.substring(path.indexOf("?")+1);
+                path = path.substring(0, path.indexOf("?"));
+                parameters = parseQueryString(query);
+            }
+
+            if (path.contains(";")){ //found jdbc delimiter
+                path = path.substring(0, path.indexOf(";"));
+            }
+
+
+            if (!path.startsWith("/")){
+
+                if (path.startsWith("./") || path.startsWith("../")){
+
+                    String RelPath = path;
+
+
+                  //Remove "./" prefix in the RelPath
+                    if (RelPath.length()>2){
+                        if (RelPath.substring(0,2).equals("./")){
+                            RelPath = RelPath.substring(2,RelPath.length());
+                        }
+                    }
+
+
+
+                  //Build Path
+                    String urlPath = "";
+                    String newPath = "";
+                    if (RelPath.substring(0,1).equals("/")){
+                        newPath = RelPath;
+                    }
+                    else{
+
+                        urlPath = "/";
+                        String dir = "";
+                        String orgPath = getPath();
+                        if (orgPath==null) orgPath = "";
+                        if (orgPath.length()>1 && !orgPath.endsWith("/")){
+                            orgPath = orgPath.substring(0, orgPath.lastIndexOf("/"));
+                        }
+                        String[] arr = orgPath.split("/");
+                        String[] arrRelPath = RelPath.split("/");
+                        for (int i=0; i<=(arr.length-arrRelPath.length); i++){
+                             dir = arr[i];
+                             if (dir.length()>0){
+                                 urlPath += dir + "/";
+                             }
+                        }
+                        
+
+
+                      //This can be cleaned-up a bit...
+                        if (RelPath.substring(0,1).equals("/")){
+                            newPath = RelPath.substring(1,RelPath.length());
+                        }
+                        else if (RelPath.substring(0,2).equals("./")){
+                            newPath = RelPath.substring(2,RelPath.length());
+                        }
+                        else if (RelPath.substring(0,3).equals("../")){
+                            newPath = RelPath.replace("../", "");
+                        }
+                        else{
+                            newPath = RelPath;
+                        }
+                    }
+
+                    //System.out.println("urlPath: " + urlPath);
+                    //System.out.println("newPath: " + newPath);
+
+                    path = urlPath + newPath;
+
+
+                }
+                else{
+                    path = "/" + path;
+                }
+            }
+
         }
         this.path = path;
     }

@@ -608,8 +608,22 @@ public class Request {
 
                     if (useCache && responseCode==304) break;
 
+
+                  //Parse location response header
+                    String location = getResponseHeader("Location");
+                    javaxt.utils.URL newUrl = new javaxt.utils.URL(location);
+                    if (newUrl.getProtocol()==null){
+                        javaxt.utils.URL url = new javaxt.utils.URL(this.url);
+                        url.setPath(location);
+                        this.url = url.toURL();
+                    }
+                    else{
+                        this.url = newUrl.toURL();
+                    }
+
+
+                  //Connect to the new url
                     try{
-                        this.url = new java.net.URL(getResponseHeader("Location"));
                         conn = this.connect(false);
                         parseResponse(conn);
                         numRedirects++;
