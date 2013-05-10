@@ -598,29 +598,32 @@ public class Date implements Comparable {
         cal.setTime(currDate);
         
         int div = 0;
-        if (units.equals("S") || units.toLowerCase().startsWith("sec")){
+        if (units.equals("S") || units.toLowerCase().startsWith("mil")){
             div = cal.MILLISECOND;
-        }        
+        }
+        if (units.equals("s") || units.toLowerCase().startsWith("sec")){
+            div = cal.SECOND;
+        }
         else if(units.equals("m") || units.toLowerCase().startsWith("min")){
             div = cal.MINUTE;
         }
         else if (units.equals("H") || units.toLowerCase().startsWith("h")){
             div = cal.HOUR_OF_DAY;
         }
-        else if (units.equals("d") || units.toLowerCase().startsWith("d")){
+        else if (units.toLowerCase().startsWith("d")){
             div = cal.DAY_OF_YEAR;
         }
-        else if (units.equals("w") || units.toLowerCase().startsWith("w")){
+        else if (units.toLowerCase().startsWith("w")){
             div = cal.WEEK_OF_YEAR;
-        }   
+        }
         else if (units.equals("M") || units.toLowerCase().startsWith("mon")){
             div = cal.MONTH;
-        }           
-        else if (units.equals("y") || units.toLowerCase().startsWith("y")){
+        }
+        else if (units.toLowerCase().startsWith("y")){
             div = cal.YEAR;
-        }   
+        }
         cal.add(div, amount);
-        currDate = cal.getTime();        
+        currDate = cal.getTime();
         return currDate;
     }
 
