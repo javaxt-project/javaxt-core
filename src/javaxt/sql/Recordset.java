@@ -322,31 +322,9 @@ public class Recordset {
             int cols = rsmd.getColumnCount();
             Fields = new Field[cols];
             for (int i=1; i<=cols; i++) {
-                 Field Field = new Field();
-                 Field.Name = rsmd.getColumnName(i);
-                 
-                
-               //Sybase fails on these calls
-                 try{ Field.Table = rsmd.getTableName(i);   } catch(Exception e){}
-                 try{ Field.Schema = rsmd.getSchemaName(i); } catch(Exception e){}
-                 try{ Field.Type = rsmd.getColumnTypeName(i);   } catch(Exception e){}
-                 try{ Field.Class = rsmd.getColumnClassName(i); } catch(Exception e){}
-
-                 if (Field.Table!=null){
-                     if (Field.Table.trim().length()==0) Field.Table = null;
-                 }
-                 if (Field.Schema!=null){
-                     if (Field.Schema.trim().length()==0) Field.Schema = null;
-                 }
-                 if (Field.Type!=null){
-                     if (Field.Type.trim().length()==0) Field.Type = null;
-                 }
-                 if (Field.Class!=null){
-                     if (Field.Class.trim().length()==0) Field.Class = null;
-                 }
-
-                 Fields[i-1] = Field;                 
+                 Fields[i-1] = new Field(i, rsmd);
             }
+            rsmd = null;
             
             x=-1;
             
@@ -383,7 +361,7 @@ public class Recordset {
   //**************************************************************************
   //** Close
   //**************************************************************************  
-  /**  Closes a Recordset freeing up database and jdbc resources.   */
+  /**  Closes the Recordset freeing up database and jdbc resources.   */
     
     public void close(){
         if (State==1){
@@ -395,6 +373,20 @@ public class Recordset {
             catch(java.sql.SQLException e){
             }
         }
+
+        rs = null;
+        stmt = null;
+        driver = null;
+        sqlString = null;
+
+        if (Fields!=null){
+            for (Field f : Fields){
+                f.clear();
+                f = null;
+            }
+            Fields = null;
+        }
+
         endTime = java.util.Calendar.getInstance().getTimeInMillis();
         EllapsedTime = endTime-startTime;
     }
@@ -810,7 +802,7 @@ public class Recordset {
             for (int i=0; i<Fields.length; i++ ) {
                 
                  if (arr.length==3){
-                     if (Fields[i].Name.equalsIgnoreCase(FieldName) && Fields[i].Table.equalsIgnoreCase(arr[1]) && Fields[i].Schema.equalsIgnoreCase(arr[0])){
+                     if (Fields[i].Name.equalsIgnoreCase(FieldName) && Fields[i].Table.equalsIgnoreCase(arr[1]) && Fields[i].getSchema().equalsIgnoreCase(arr[0])){
                          return Fields[i];
                      }
                  }
@@ -1063,66 +1055,82 @@ public class Recordset {
   //**************************************************************************
   //** updateFields
   //**************************************************************************
-  /**  Used to populate the Table and Column attributes for each Field in the 
+  /**  Used to populate the Table and Schema attributes for each Field in the
    *   Fields Array.
    */    
     private void updateFields(){
 
         if (Fields==null) return;
-        
 
-      //Iterate through all the fields and update any 
+        
+     //Check whether anything needs to be updated
+        boolean updateFields = false;
+        for (Field field : Fields){
+            if (field.Table==null){
+                updateFields = true;
+                break;
+            }
+
+            if (field.getSchema()==null && !driver.equals("SQLite")){
+                updateFields = true;
+                break;
+            }
+        }
+        if (!updateFields) return;
+
+
+
+      //Iterate through all the fields and update the Table and Schema attributes
         java.util.Vector<Table> tables = null;
         for (int i=0; i<Fields.length; i++){
-             if (Fields[i].Table==null || Fields[i].Schema==null){
-                 
-                 
-               //Get list of tables found in this database
-                 if (tables==null){
-                     tables = new java.util.Vector<Table>();
-                     String[] selectedTables = new Parser(this.sqlString).getTables();
-                     for (Table table : Database.getTables(Connection)){
 
-                         for (String selectedTable : selectedTables){
-                             if (selectedTable.contains(".")) selectedTable = selectedTable.substring(selectedTable.indexOf("."));
-                             if (selectedTable.equalsIgnoreCase(table.getName())){
-                                 tables.add(table);
-                             }
+           //Get list of tables found in this database
+             if (tables==null){
+                 tables = new java.util.Vector<Table>();
+                 String[] selectedTables = new Parser(sqlString).getTables();
+                 for (Table table : Database.getTables(Connection)){
+
+                     for (String selectedTable : selectedTables){
+                         if (selectedTable.contains(".")) selectedTable = selectedTable.substring(selectedTable.indexOf("."));
+                         if (selectedTable.equalsIgnoreCase(table.getName())){
+                             tables.add(table);
                          }
                      }
                  }
-                 
-               
-                 if (Fields[i].Table==null){                     
-                     
-                   //Update Table and Schema
-                     Column[] columns = getColumns(Fields[i], tables);
-                     if (columns!=null){
-                         Column column = columns[0]; //<-- Need to implement logic to 
-                         Fields[i].Table = column.getTable().getName();
-                         Fields[i].Schema = column.getTable().getSchema();
+             }
+
+
+             if (Fields[i].Table==null){
+
+               //Update Table and Schema
+                 Column[] columns = getColumns(Fields[i], tables);
+                 if (columns!=null){
+                     Column column = columns[0]; //<-- Need to implement logic to
+                     Fields[i].Table = column.getTable().getName();
+                     Fields[i].setSchema(column.getTable().getSchema());
+                 }
+             }
+             else if (Fields[i].getSchema()==null) {
+
+               //Update Schema
+                 java.util.Iterator<Table> it = tables.iterator();
+                 while (it.hasNext()){
+                    Table table = it.next();
+                    if (table.getName().equalsIgnoreCase(Fields[i].Table)){
+                        Fields[i].setSchema(table.getSchema());
+                        break;
                      }
                  }
-                 else{
-                     
-                   //Update Schema
-                     java.util.Iterator<Table> it = tables.iterator();
-                     while (it.hasNext()){
-                        Table table = it.next();
-                        if (table.getName().equalsIgnoreCase(Fields[i].Table)){
-                            Fields[i].Schema = table.getSchema();
-                            break;
-                         }
-                     }
-                     
-                     
-                 }
+
 
              }
         }
 
+        tables.clear();
+        tables = null;
     }
-    
+
+
   //**************************************************************************
   //** getColumns
   //**************************************************************************

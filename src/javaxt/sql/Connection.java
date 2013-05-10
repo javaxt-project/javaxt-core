@@ -116,14 +116,15 @@ public class Connection {
         String username = database.getUserName();
         String password = database.getPassword();
 
-        java.util.Properties properties = new java.util.Properties();
+        java.util.Properties properties = database.getProperties();
+        if (properties==null) properties = new java.util.Properties();
         if (username!=null){
             properties.put("user", username);
             properties.put("password", password);
         }
 
+
         Conn = Driver.connect(url, properties);
-        //Conn = DriverManager.getConnection(url, username, password);
         
 
         isClosed = Conn.isClosed();

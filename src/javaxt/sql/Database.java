@@ -20,7 +20,8 @@ public class Database {
     private String username;
     private String password;
     private Driver driver; 
-    private String props;
+    //private String props;
+    private java.util.Properties properties;
     private String querystring;
     private static final Class<?>[] stringType = { String.class };
     private static final Class<?>[] integerType = { Integer.TYPE };
@@ -134,7 +135,6 @@ public class Database {
 
 
       //Extract additional connection parameters
-        StringBuffer props = null;
         for (int i=1; i<arrConnStr.length; i++) {
 
             String[] arrParams = arrConnStr[i].split("=");
@@ -156,14 +156,13 @@ public class Database {
             }
             else{
               //Extract additional properties
-                if (props==null) props = new StringBuffer();
-                props.append(arrParams[0] + "=" + arrParams[1] + ";");
+                if (properties==null) properties = new java.util.Properties();
+                properties.put(arrParams[0], arrParams[1]);
             }
         }
-        if (props!=null) this.props = props.toString();
     }
-    
-    
+
+
   //**************************************************************************
   //** setName 
   //**************************************************************************
@@ -306,7 +305,13 @@ public class Database {
     }
 
     
+    public void setProperties(java.util.Properties properties){
+        this.properties = properties;
+    }
 
+    public java.util.Properties getProperties(){
+        return properties;
+    }
     
   //**************************************************************************
   //** getConnectionString
@@ -381,14 +386,20 @@ public class Database {
 
 
       //Set properties
-        String properties = "";
-        if (props!=null) properties = ";" + props;
+        StringBuffer props = new StringBuffer();
+        if (properties!=null){
+            java.util.Iterator it = properties.keySet().iterator();
+            while (it.hasNext()){
+                Object key = it.next();
+                Object val = properties.get(key);
+                props.append(";" + key + "=" + val);
+            }
+        }
 
 
 
       //Assemble Connection String
-        return path + server + database + properties;
-
+        return path + server + database; // + props.toString()
     }
     
 
@@ -548,11 +559,12 @@ public class Database {
         try{
             java.util.TreeSet<Table> tables = new java.util.TreeSet<Table>();
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
-            ResultSet rs  = dbmd.getTables(null,null,null,new String[]{"TABLE"});
+            ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"});
             while (rs.next()) {
                 tables.add(new Table(rs, dbmd));  
             }
             rs.close();
+            rs = null;
             return tables.toArray(new Table[tables.size()]);
         }
         catch(Exception e){
