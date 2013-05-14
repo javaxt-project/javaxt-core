@@ -4,7 +4,7 @@ package javaxt.sql;
 //**  Column Class
 //******************************************************************************
 /**
- *   Used to represent a column in a database.
+ *   Used to represent a column in a table.
  *
  ******************************************************************************/
 

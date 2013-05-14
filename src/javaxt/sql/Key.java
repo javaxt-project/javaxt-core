@@ -1,5 +1,13 @@
 package javaxt.sql;
 
+//******************************************************************************
+//**  Key Class
+//******************************************************************************
+/**
+ *   Used to represent a unique primary key or a foreign key in a table.
+ *
+ ******************************************************************************/
+
 public class Key {
 
     protected String Name;
@@ -12,5 +20,4 @@ public class Key {
     public String toString(){
         return Table.getName() + "." + Column;
     }
-    
 }

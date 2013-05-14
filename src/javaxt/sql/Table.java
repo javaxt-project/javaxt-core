@@ -1,19 +1,29 @@
 package javaxt.sql;
-import java.sql.*;
+
+//******************************************************************************
+//**  Table Class
+//******************************************************************************
+/**
+ *   Used to represent a table in the database.
+ *
+ ******************************************************************************/
 
 public class Table implements Comparable {
     
-    private DatabaseMetaData dbmd = null;
-    
+    private java.sql.DatabaseMetaData dbmd = null;
     private String Name;
     private String Description;
     private String Schema;
     private String Catalog;
-    
-    
-    
-    protected Table(ResultSet rs, DatabaseMetaData dbmd){
-        try{            
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Used to instantiate this class. */
+
+    protected Table(java.sql.ResultSet rs, java.sql.DatabaseMetaData dbmd){
+        try{
             Name = rs.getString("TABLE_NAME");
             Description = rs.getString("REMARKS");
             Catalog = rs.getString("TABLE_CAT");
@@ -21,39 +31,37 @@ public class Table implements Comparable {
             this.dbmd = dbmd;
         }
         catch(Exception e){
-            
         }
     }
     
-    
-    
     private Table(){
     }
-    
+
+
+  //**************************************************************************
+  //** getName
+  //**************************************************************************
+  /** Returns the name of this table.
+   */
     public String getName(){return Name;}
     public String getDescription(){return Description;}
     public String getSchema(){return Schema;}
     public String getCatalog(){return Catalog;}
-    
-    
-    
-    
-    
+
+
   //**************************************************************************
   //** getColumns
   //**************************************************************************
-  /** Used to retrieve an array of all the columns found in this table. 
+  /** Returns a list of columns in this table. Returns null if no columns are
+   *  found.
    */
-    
     public Column[] getColumns(){
         try{
-            
-            java.util.Vector columns = new java.util.Vector();
+            java.util.ArrayList<Column> columns = new java.util.ArrayList<Column>();
             Key[] Keys = getPrimaryKeys();
             Key[] FKeys = getForeignKeys();
 
-
-            ResultSet rs = dbmd.getColumns(this.Catalog,this.Schema,this.Name,null);
+            java.sql.ResultSet rs = dbmd.getColumns(Catalog, Schema, Name, null);
             while (rs.next()) {
 
               //Create Column
@@ -78,22 +86,13 @@ public class Table implements Comparable {
                     }
                 }
                 
-              //Add Column to the Vector
+              //Add Column to the Array
                 columns.add(column);
-                
             }
             
             rs.close();
             
-          //Convert the Vector to an Array
-            Column[] array = new Column[columns.size()];
-            for (int i=0; i<array.length; i++){
-                array[i] = (Column) columns.get(i);
-            }
-            
-          //Return the array of columns
-            return array;
-            
+            return columns.toArray(new Column[columns.size()]);
         }
         catch(Exception e){
             return null;
@@ -101,58 +100,42 @@ public class Table implements Comparable {
     }
 
 
-    
-    
   //**************************************************************************
   //** getPrimaryKeys
   //**************************************************************************
-  /** Used to retrieve the primary keys in this table. Usually there is only
+  /** Returns a list of primary keys in this table. Usually there is only
    *  one primary key per table, but some vendors do support multiple keys per 
    *  table.
    */
-    
     public Key[] getPrimaryKeys(){
         try{
-            
-            java.util.Vector keys = new java.util.Vector();
-            
-            ResultSet rs = dbmd.getPrimaryKeys(this.Catalog,this.Schema,this.Name);
+            java.util.ArrayList<Key> keys = new java.util.ArrayList<Key>();
+            java.sql.ResultSet rs = dbmd.getPrimaryKeys(Catalog, Schema, Name);
             while (rs.next()) {
-
                 Key key = new Key();
                 key.Name = rs.getString("COLUMN_NAME");
-
                 keys.add(key);
-
             }            
             rs.close();
-            
-            Key[] array = new Key[keys.size()];
-            for (int i=0; i<array.length; i++){
-                array[i] = (Key) keys.get(i);
-            }
-            return array;
-            
+            rs = null;
+            return keys.toArray(new Key[keys.size()]);
         }
         catch(Exception e){
             return null;
         }
     }
 
-    
+
   //**************************************************************************
   //** getForeignKeys
   //**************************************************************************
-  /** Used to retrieve the foriegn keys found in this table. 
+  /** Returns a list of foreign keys found in this table.
    */
-    
     public Key[] getForeignKeys(){
         try{
-            
-            java.util.Vector keys = new java.util.Vector();
-            ResultSet rs = dbmd.getImportedKeys(this.Catalog,this.Schema,this.Name);
+            java.util.ArrayList<Key> keys = new java.util.ArrayList<Key>();
+            java.sql.ResultSet rs = dbmd.getImportedKeys(Catalog, Schema, Name);
             while (rs.next()) {
-
                 Key Key = new Key();
                 Key.Name = rs.getString("FKCOLUMN_NAME");
                 Key.Table = new Table();
@@ -160,19 +143,11 @@ public class Table implements Comparable {
                 Key.Table.Catalog = rs.getString("PKTABLE_CAT");
                 Key.Table.Schema = rs.getString("PKTABLE_SCHEM");
                 Key.Column = rs.getString("PKCOLUMN_NAME");
-
                 keys.add(Key);
-
             }
             rs.close();
-            
-            
-            Key[] array = new Key[keys.size()];
-            for (int i=0; i<array.length; i++){
-                array[i] = (Key) keys.get(i);
-            }
-            return array;
-            
+            rs = null;
+            return keys.toArray(new Key[keys.size()]);
         }
         catch(Exception e){
             return null;
@@ -184,9 +159,9 @@ public class Table implements Comparable {
   //** toString
   //**************************************************************************
   /**  Returns the table name. */
-    
+
     public String toString(){
-        return this.getName();
+        return getName();
     }
 
     public int hashCode(){
