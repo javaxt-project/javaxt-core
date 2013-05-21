@@ -193,31 +193,48 @@ public class Parser {
     }
 
     
+//  //**************************************************************************
+//  //** addWhere
+//  //**************************************************************************
+//  /** Used to update the where clause in the SQL String. Preserves existing
+//   *  where clause, if one exists, by adding an "AND" statement.
+//   */
+//    public String addWhereStatement(String whereClause){
+//
+//        if (whereClause!=null){
+//            whereClause = whereClause.trim();
+//            if (whereClause.length()>0){
+//                String orgWhere = this.getWhereString();
+//                if (orgWhere==null || orgWhere.trim().length()==0){
+//                    setWhere(whereClause);
+//                }
+//                else{
+//                    setWhere("(" + orgWhere.trim() + ") AND (" + whereClause + ")");
+//                }
+//            }
+//        }
+//
+//        return this.toString();
+//    }
+
+
   //**************************************************************************
-  //** Update Where String
+  //** setWhere
   //**************************************************************************
-  /**  Used to append a where clause to the SQL String. Preserves existing 
-   *   where clause, if one exists, by adding an "AND" join statement.
+  /** Used to update the where clause in the SQL String. The entire where
+   *  clause will be replaced with the given string. The input select clause
+   *  is accepted "AS IS". Returns an updated SQL statement.
    */
-
-    /*
-    public String addWhereClause(String whereClause){
-
-        if (whereClause!=null){
-            if (whereClause.length()>0){
-                String orgWhere = (String) sql.get("WHERE");
-                if (orgWhere==null) sql.put("WHERE", "(" + orgWhere + ") AND (" + whereClause + ")");
-                else{
-                    sql.put("WHERE", whereClause);
-                }
-            }
-        }
-        
+    public String setWhere(String whereClause){
+        if (whereClause==null) whereClause = "";
+        else whereClause = whereClause.trim();
+        sql.put("WHERE", whereClause);
+        this.whereStatements = null;
+        getWhereStatements();
         return this.toString();
     }
-    */
 
-    
+
   //**************************************************************************
   //** toString
   //**************************************************************************
@@ -257,11 +274,12 @@ public class Parser {
    *   "AS IS". Returns an updated SQL statement.
    */
     public String setSelect(String selectClause){
-        if (selectClause!=null){
-            if (selectClause.length()>0){
-                sql.put("SELECT", selectClause);
-            }
-        }
+        if (selectClause==null) selectClause = "*";
+        else selectClause = selectClause.trim();
+        if (selectClause.length()==0) selectClause = "*";
+        sql.put("SELECT", selectClause);
+        selectStatements = null;
+        getSelectStatements();
         return this.toString();
     }
 

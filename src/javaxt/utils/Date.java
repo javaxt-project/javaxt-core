@@ -42,9 +42,13 @@ public class Date implements Comparable {
          "EEE MMM dd HH:mm:ss yyyy",    // Mon Jun 07 13:02:09 1976
          "EEE MMM d HH:mm:ss yyyy",     // Mon Jun 7 13:02:09 1976
 
+         "EEE MMM dd yyyy HH:mm:ss z",  //"Mon Jun 07 2013 00:00:00 GMT-0500 (Eastern Standard Time)"
+
+         "yyyy-MM-dd HH:mm:ss.SSS Z",   // 1976-06-07 13:02:36.000 America/New_York
          "yyyy-MM-dd HH:mm:ss.SSSZ",    // 1976-06-07 01:02:09.000-0500
          "yyyy-MM-dd HH:mm:ss.SSS",     // 1976-06-07 01:02:09.000
 
+         "yyyy-MM-dd HH:mm:ss Z",       // 1976-06-07 13:02:36 America/New_York
          "yyyy-MM-dd HH:mm:ssZ",        // 1976-06-07 13:02:36-0500
          "yyyy-MM-dd HH:mm:ss",         // 1976-06-07 01:02:09
 
@@ -61,7 +65,7 @@ public class Date implements Comparable {
          "dd-MMM-yy h:mm:ss a",         // 07-Jun-76 1:02:09 PM
        //"d-MMM-yy h:mm:ss a",          // 7-Jun-76 1:02:09 PM
 
-
+         "yyyy-MM-dd HH:mm Z",          // 1976-06-07 13:02 America/New_York"
          "yyyy-MM-dd HH:mmZ",           // 1976-06-07T13:02-0500
          "yyyy-MM-dd HH:mm",            // 1976-06-07T13:02
          "yyyy-MM-dd",                  // 1976-06-07
@@ -236,19 +240,63 @@ public class Date implements Comparable {
   /**  Attempts to convert a String to a Date via the user-supplied Format */
     
     private java.util.Date parseDate(String date, String format) throws ParseException {
-
         if (date!=null){
             date = date.trim();
             if (date.length()==0) date = null; 
         }
         if (date==null) throw new ParseException("Date is null.", 0);
         
-        SimpleDateFormat formatter =
-                new SimpleDateFormat(format, currentLocale);
-        if (this.timeZone!=null) formatter.setTimeZone(timeZone);
-        java.util.Date d = formatter.parse(date);
-        this.timeZone = formatter.getTimeZone();
-        return d;
+        SimpleDateFormat formatter = new SimpleDateFormat(format, currentLocale);
+        if (timeZone!=null) formatter.setTimeZone(timeZone);
+        
+        try{
+            java.util.Date d = formatter.parse(date);
+            timeZone = formatter.getTimeZone();
+            return d;
+        }
+        catch(java.text.ParseException e){
+
+          //Parse the error. If it's a time zone issue, try to resolve it.
+            int zIndex = format.toUpperCase().indexOf("Z");
+            if (zIndex>0){
+                int errorOffset = e.getErrorOffset();
+                String tz = null;
+
+
+                if (errorOffset < format.length()){
+
+                  //Check if the parser choked on the timezone format
+                    String ch = format.substring(errorOffset, errorOffset+1);
+                    if (ch.equalsIgnoreCase("Z") && date.length()>errorOffset){
+                        tz = date.substring(errorOffset);
+                        date = date.substring(0, errorOffset-1);
+                        format = format.substring(0, errorOffset-1);
+                    }
+                }
+                else if (errorOffset>format.length()){
+
+                  //Special Case: "Fri Jan 04 2013 00:00:00 GMT-0500 (Eastern Standard Time)"
+                    tz = date.substring(zIndex);
+                    date = date.substring(0, zIndex-1);
+                    format = format.substring(0, zIndex-1);
+                }
+
+                if (tz!=null){
+                    try{
+                        java.util.TimeZone zone = getTimeZone(tz);
+                        if (zone!=null){
+                            timeZone = zone;
+                            formatter = new SimpleDateFormat(format, currentLocale);
+                            formatter.setTimeZone(timeZone);
+                            return formatter.parse(date);
+                        }
+                    }
+                    catch(Exception ex){
+                    }
+                }
+            }
+            throw e;
+        }
     }
 
 
@@ -598,7 +646,7 @@ public class Date implements Comparable {
         cal.setTime(currDate);
         
         int div = 0;
-        if (units.equals("S") || units.toLowerCase().startsWith("mil")){
+        if (units.equals("S") || units.toLowerCase().startsWith("ms") || units.toLowerCase().startsWith("mil")){
             div = cal.MILLISECOND;
         }
         if (units.equals("s") || units.toLowerCase().startsWith("sec")){
@@ -909,17 +957,46 @@ public class Date implements Comparable {
         
 
       //Update the string
-        timezone = timezone.toUpperCase();
-        if (timezone.startsWith("UTC+") || timezone.startsWith("UTC-")){
+        String str = timezone.toUpperCase();
+        if (str.startsWith("UTC+") || str.startsWith("UTC-")){
             timezone = "GMT" + timezone.substring(3);
         }
         else if (( 
-            timezone.startsWith("AMERICA/") || timezone.startsWith("AFRICA/") ||
-            timezone.startsWith("EUROPE/") || timezone.startsWith("ASIA/") ||
-            timezone.startsWith("AUSTRALIA/") || timezone.startsWith("PACIFIC/") ||
-            timezone.startsWith("ATLANTIC/") || timezone.startsWith("INDIAN/")
+            str.startsWith("AMERICA/") || str.startsWith("AFRICA/") ||
+            str.startsWith("EUROPE/") || str.startsWith("ASIA/") ||
+            str.startsWith("AUSTRALIA/") || str.startsWith("PACIFIC/") ||
+            str.startsWith("ATLANTIC/") || str.startsWith("INDIAN/")
             ) && timezone.contains(" ")){
             timezone = timezone.replace(" ", "_");
+        }
+
+
+      //Special case for timezones like "GMT-0500 (Eastern Standard Time)"
+        if (timezone.startsWith("GMT")){
+
+            if (timezone.contains(" ")){
+                timezone = timezone.substring(0, timezone.indexOf(" ")).trim();
+            }
+
+            if (!timezone.contains(":")){
+                int x = 3;
+                str = timezone.substring(x);
+                if (str.startsWith("+") || str.startsWith("-")){
+                    str = str.substring(1);
+                    x++;
+                }
+
+                int y = str.indexOf(" ");
+                if (y==-1) y = str.length();
+
+                str = str.substring(0, y);
+                if (str.length()==4) x = x+2;
+                else x = -1;
+
+                if (x>0){
+                    timezone = timezone.substring(0, x) + ":" + timezone.substring(x);
+                }
+            }
         }
 
         if (timezones.containsKey(timezone)){
