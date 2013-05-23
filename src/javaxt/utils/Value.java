@@ -17,7 +17,7 @@ public class Value {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of Value. */
+  /** Creates a new instance of this class. */
 
     public Value(Object value){
         this.value = value;

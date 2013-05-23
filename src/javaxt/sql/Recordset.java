@@ -5,10 +5,7 @@ import java.sql.SQLException;
 //**  Recordset Class
 //*****************************************************************************/
 /**
- *    Used to query, update, and create new records in a database. It is
- *    intended to simplify many of the complexities and nuances associated
- *    the standard Java/JDBC Resultset. The class is modeled somewhat after
- *    the old Microsoft ADODB Resultset class.
+ *   Used to query and update records in a database.
  *
  ******************************************************************************/
 
@@ -18,6 +15,7 @@ public class Recordset {
     private java.sql.Connection Conn = null;
     private java.sql.Statement stmt = null;
     private int x;
+    private boolean isReadOnly = true;
     private String sqlString = null;
     //private Parser sqlParser = null;
     
@@ -67,24 +65,33 @@ public class Recordset {
     public long QueryResponseTime;
     
    /**
-    * Returns the total ellapsed time between open and close operations. Units 
+    * Returns the total elapsed time between open and close operations. Units 
     * are in milliseconds
     */
     public long EllapsedTime;
     
    /**
-    * Returns the ellapsed time it took to retrieve additional metadata not 
+    * Returns the elapsed time it took to retrieve additional metadata not 
     * correctly supported by the jdbc driver. Units are in milliseconds.
     */
     public long MetadataQueryTime;
     private long startTime, endTime;
-    
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of this class. */
+
+    public Recordset(){}
+
 
   //**************************************************************************
   //** isOpen
   //**************************************************************************
-  /** Used to determing whether the recordset is open. */
-    
+  /** Returns true if the recordset is open. This method is only supported on
+   *  Java 1.6 or higher. Otherwise, the method will return false.
+   */
     public boolean isOpen(){
         if (State!=0) {
             //return !rs.isClosed();
@@ -102,45 +109,44 @@ public class Recordset {
         }
         else return false;
     }
-    
-    private boolean isReadOnly = true;
-    
+
+
+  //**************************************************************************
+  //** isReadOnly
+  //**************************************************************************
+  /** Returns true if records are read-only. */
+
     public boolean isReadOnly(){
         return isReadOnly;
     }
 
 
-    
-  //**************************************************************************
-  //** Creates a new instance of Recordset
-  //**************************************************************************
-  
-    public Recordset(){}
-    
-
-    
   //**************************************************************************
   //** Open
   //**************************************************************************
-  /**  Opens a database element that gives you access to records in a table
-   *   (e.g. the results of a query).
+  /** Used to execute a query and access records in the database. Records
+   *  fetched using this method cannot be updated or deleted and new records
+   *  cannot be inserted into the database.
    *
-   *   @param sql SQL Query
-   *   @param conn An active connection to the database.
+   *  @param sql SQL Query. Example: "SELECT * FROM EMPLOYEE"
+   *  @param conn An active connection to the database.
    */    
     public java.sql.ResultSet open(String sql, Connection conn) throws SQLException {
         return open(sql,conn,true);
     }
-    
+
+
   //**************************************************************************
   //** Open
   //**************************************************************************
-  /**  Opens a database element that gives you access to records in a table
-   *   (e.g. the results of a query).
+  /** Used to execute a query and access records in the database.
    *
-   *   @param sqlString SQL Query
-   *   @param Connection An active connection to the database.
-   *   @param ReadOnly Set whether the database connection is r/o or r/w
+   *  @param sqlString SQL Query. Example: "SELECT * FROM EMPLOYEE"
+   *  @param Connection An active connection to the database.
+   *  @param ReadOnly Set whether the records are read-only. If true, records
+   *  fetched using this method cannot be updated or deleted and new records
+   *  cannot be inserted into the database. If false, records can be updated
+   *  or deleted and new records can be inserted into the database.
    */
     public java.sql.ResultSet open(String sqlString, Connection Connection, boolean ReadOnly) throws SQLException {
 
@@ -327,7 +333,7 @@ public class Recordset {
             rsmd = null;
             
             x=-1;
-            
+
             if (rs!=null){
                 if (rs.next()){
                     
@@ -339,12 +345,12 @@ public class Recordset {
                 }
 
               //Get Additional Metadata
-                long mStart = java.util.Calendar.getInstance().getTimeInMillis();
+                //long mStart = java.util.Calendar.getInstance().getTimeInMillis();
                 //RecordCount = getRecordCount();
-                updateFields();
-                long mEnd = java.util.Calendar.getInstance().getTimeInMillis();
-                MetadataQueryTime = mEnd-mStart;
-                //System.out.println(MetadataQueryTime);
+                //updateFields();
+                //long mEnd = java.util.Calendar.getInstance().getTimeInMillis();
+                //MetadataQueryTime = mEnd-mStart;
+                MetadataQueryTime = 0;
             }
             
             
@@ -504,7 +510,7 @@ public class Recordset {
                   //Special case for PostGIS geometry types...
                     for (int i=0; i<Fields.length; i++ ) { 
                         Object value = null;
-                        if (Fields[i].Value!=null) value = Fields[i].Value.toObject();
+                        value = Fields[i].getValue().toObject();
                         if (value!=null){
                             if (value.getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){                                
                                 Fields[i].Value = new Value(getGeometry(value));
@@ -521,9 +527,10 @@ public class Recordset {
 
                 if (!usePreparedStatement){
                     for (int i=0; i<Fields.length; i++ ) {
-                        String FieldName = Fields[i].Name;
+                        String FieldName = Fields[i].getName();
                         String FieldType = Fields[i].Class;
-                        Value FieldValue = Fields[i].Value;
+                        Value FieldValue = Fields[i].getValue();
+                        if (FieldName==null) continue;
 
                         if (Fields[i].RequiresUpdate){
 
@@ -582,7 +589,7 @@ public class Recordset {
 
                     java.util.ArrayList<Field> fields = new java.util.ArrayList<Field>();
                     for (Field field : Fields){
-                        if (field.RequiresUpdate) fields.add(field);
+                        if (field.getName()!=null && field.RequiresUpdate) fields.add(field);
                     }
                     int numUpdates = fields.size();
 
@@ -703,7 +710,7 @@ public class Recordset {
                         Field field = fields.get(i);
                         String FieldType = field.Class.toLowerCase();
                         if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
-                        Value FieldValue = field.Value;
+                        Value FieldValue = field.getValue();
 
 
                         if (FieldType.indexOf("string")>=0)
@@ -788,37 +795,53 @@ public class Recordset {
 
 
   //**************************************************************************
+  //** getFields
+  //**************************************************************************
+  /** Used to retrieve the an array of fields in the current record.
+   */
+    public Field[] getFields(){
+        return Fields;
+    }
+
+
+  //**************************************************************************
   //** getField
   //************************************************************************** 
   /** Returns a specific field in the array of fields. Returns null if the
    *  field name is not found.
    */
     public Field getField(String FieldName){
-        if (Fields!=null){
-            
-            String[] arr = FieldName.split("\\.");
-            FieldName = arr[arr.length-1];
-            
-            for (int i=0; i<Fields.length; i++ ) {
-                
-                 if (arr.length==3){
-                     if (Fields[i].Name.equalsIgnoreCase(FieldName) && Fields[i].Table.equalsIgnoreCase(arr[1]) && Fields[i].getSchema().equalsIgnoreCase(arr[0])){
-                         return Fields[i];
-                     }
+        if (Fields==null || Fields.length==0) return null;
+
+        if (FieldName==null) return null;
+        FieldName = FieldName.trim();
+        if (FieldName.length()==0) return null;
+        
+        String[] arr = FieldName.split("\\.");
+
+        for (Field field : Fields) {
+
+            String fieldName = field.getName();
+            if (fieldName==null) continue;
+
+            String tableName = field.getTable()==null? "" : field.getTable();
+            String schemaName = field.getSchema()==null? "" : field.getSchema();
+
+            if (arr.length==3){
+                 if (fieldName.equalsIgnoreCase(arr[2]) && tableName.equalsIgnoreCase(arr[1]) && schemaName.equalsIgnoreCase(arr[0])){
+                     return field;
                  }
-                 else if (arr.length==2){
-                     if (Fields[i].Name.equalsIgnoreCase(FieldName) && Fields[i].Table.equalsIgnoreCase(arr[0])){
-                         return Fields[i];
-                     }
-                 }
-                 else{
-                     if (Fields[i].Name.equalsIgnoreCase(FieldName)){
-                         return Fields[i];
-                     }
-                 }
-                 
+            }
+            else if (arr.length==2){
+                if (fieldName.equalsIgnoreCase(arr[1]) && tableName.equalsIgnoreCase(arr[0])){
+                     return field;
+                }
+            }
+            else if (arr.length==1){
+                if (fieldName.equalsIgnoreCase(arr[0])) return field;
             }
         }
+        
         return null;
     }
 
@@ -863,7 +886,7 @@ public class Recordset {
    */
     public Value getValue(int i){
         if (Fields!=null && i<Fields.length){
-            if (Fields[i].Value!=null) return Fields[i].Value;
+            return Fields[i].getValue();
         }
         return new Value(null);
     }
@@ -872,7 +895,18 @@ public class Recordset {
   //**************************************************************************
   //** isDirty
   //**************************************************************************
-  /** Returns true if any of the fields have been modified.
+  /** Returns true if any of the fields have been modified. You can find which
+   *  field has been modified using the Field.isDirty() method. Example:
+   <pre>
+    if (rs.isDirty()){
+        for (javaxt.sql.Field field : rs.getFields()){
+            if (field.isDirty()){
+                String val = field.getValue().toString();
+                System.out.println(field.getName() + ": " + val);
+            }
+        }
+    }
+   </pre>
    */
     public boolean isDirty(){
         for (Field field : Fields){
@@ -889,17 +923,19 @@ public class Recordset {
     public void setValue(String FieldName, Value FieldValue){
         if (State==1){
             for (int i=0; i<Fields.length; i++ ) {
-                 String name = Fields[i].Name;
-                 if (name.equalsIgnoreCase(FieldName)){
-                     if (FieldValue==null) FieldValue = new Value(null);
+                String name = Fields[i].getName();
+                if (name!=null){
+                    if (name.equalsIgnoreCase(FieldName)){
+                        if (FieldValue==null) FieldValue = new Value(null);
 
-                   //Update the Field Value as needed.
-                     if (!Fields[i].getValue().equals(FieldValue)){
-                         Fields[i].Value = FieldValue;
-                         Fields[i].RequiresUpdate = true;
-                     }
-                     break;
-                 }
+                       //Update the Field Value as needed.
+                         if (!Fields[i].getValue().equals(FieldValue)){
+                             Fields[i].Value = FieldValue;
+                             Fields[i].RequiresUpdate = true;
+                         }
+                         break;
+                    }
+                }
             }
         }        
     }
@@ -958,6 +994,17 @@ public class Recordset {
     public void setValue(String FieldName, short FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
+
+
+  //**************************************************************************
+  //** hasNext
+  //**************************************************************************
+  /** Returns true if the recordset has more records.
+   */
+    public boolean hasNext(){
+        return !EOF;
+    }
+
 
   //**************************************************************************
   //** MoveNext
@@ -1055,23 +1102,33 @@ public class Recordset {
   //**************************************************************************
   //** updateFields
   //**************************************************************************
-  /**  Used to populate the Table and Schema attributes for each Field in the
-   *   Fields Array.
+  /** Used to populate the Table and Schema attributes for each Field in the
+   *  Fields Array.
    */    
     private void updateFields(){
 
         if (Fields==null) return;
 
-        
-     //Check whether anything needs to be updated
+
+     //Check whether any of the fields are missing table or schema information
         boolean updateFields = false;
         for (Field field : Fields){
-            if (field.Table==null){
+
+          //Check the field name. If it's missing, then the field is probably
+          //derived from a function. In some cases, it may be trivial to find
+          //the column name (e.g. MIN, MAX, SUM, etc). In other cases, it is 
+          //not (e.g. "SELECT (FIRSTNAME + '||' + LASTNAME) FROM CONTACTS").
+          //In any event, this function cannot currently find table or schema
+          //for a field without a name.
+            String fieldName = field.getName();
+            if (fieldName==null) continue;
+
+            if (field.getTable()==null){
                 updateFields = true;
                 break;
             }
 
-            if (field.getSchema()==null && !driver.equals("SQLite")){
+            if (field.getSchema()==null){
                 updateFields = true;
                 break;
             }
@@ -1079,50 +1136,45 @@ public class Recordset {
         if (!updateFields) return;
 
 
+      //Get selected tables from the SQL
+        String[] selectedTables = new Parser(sqlString).getTables();
+
+
+       //Match selected tables to tables found in this database
+         java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
+         for (Table table : Database.getTables(Connection)){
+             for (String selectedTable : selectedTables){
+                 if (selectedTable.contains(".")) selectedTable = selectedTable.substring(selectedTable.indexOf("."));
+                 if (selectedTable.equalsIgnoreCase(table.getName())){
+                     tables.add(table);
+                 }
+             }
+         }
+
 
       //Iterate through all the fields and update the Table and Schema attributes
-        java.util.Vector<Table> tables = null;
-        for (int i=0; i<Fields.length; i++){
+        for (Field field : Fields){
 
-           //Get list of tables found in this database
-             if (tables==null){
-                 tables = new java.util.Vector<Table>();
-                 String[] selectedTables = new Parser(sqlString).getTables();
-                 for (Table table : Database.getTables(Connection)){
-
-                     for (String selectedTable : selectedTables){
-                         if (selectedTable.contains(".")) selectedTable = selectedTable.substring(selectedTable.indexOf("."));
-                         if (selectedTable.equalsIgnoreCase(table.getName())){
-                             tables.add(table);
-                         }
-                     }
-                 }
-             }
-
-
-             if (Fields[i].Table==null){
+             if (field.getTable()==null){
 
                //Update Table and Schema
-                 Column[] columns = getColumns(Fields[i], tables);
+                 Column[] columns = getColumns(field, tables);
                  if (columns!=null){
                      Column column = columns[0]; //<-- Need to implement logic to
-                     Fields[i].Table = column.getTable().getName();
-                     Fields[i].setSchema(column.getTable().getSchema());
+                     field.setTableName(column.getTable().getName());
+                     field.setSchemaName(column.getTable().getSchema());
                  }
              }
-             else if (Fields[i].getSchema()==null) {
+
+             if (field.getSchema()==null) {
 
                //Update Schema
-                 java.util.Iterator<Table> it = tables.iterator();
-                 while (it.hasNext()){
-                    Table table = it.next();
-                    if (table.getName().equalsIgnoreCase(Fields[i].Table)){
-                        Fields[i].setSchema(table.getSchema());
+                 for (Table table : tables){
+                    if (table.getName().equalsIgnoreCase(field.getTable())){
+                        field.setSchemaName(table.getSchema());
                         break;
                      }
                  }
-
-
              }
         }
 
@@ -1137,48 +1189,36 @@ public class Recordset {
   /**  Used to find a column in the database that corresponds to a given field.
    *   This method is only used when a field/column's parent table is unknown.
    */
-    private Column[] getColumns(Field field, java.util.Vector<Table> tables){
+    private Column[] getColumns(Field field, java.util.ArrayList<Table> tables){
 
-        java.util.Vector matches = new java.util.Vector();
+        java.util.ArrayList<Column> matches = new java.util.ArrayList<Column>();
 
-        java.util.Iterator<Table> it = tables.iterator();
-        while (it.hasNext()){
-            Table table = it.next();
-             for (Column column : table.getColumns()){
-                  if (column.getName().equalsIgnoreCase(field.Name)){
-                      matches.add(column);
-                  }
-             }
+        for (Table table : tables){
+            for (Column column : table.getColumns()){
+                if (column.getName().equalsIgnoreCase(field.getName())){
+                    matches.add(column);
+                }
+            }
         }
 
-        if (matches.size()==0) return null;
-        if (matches.size()==1) return new Column[]{(Column) matches.get(0)};
+        if (matches.isEmpty()) return null;
+        if (matches.size()==1) return new Column[]{matches.get(0)};
         if (matches.size()>1){
 
-            java.util.Vector<Column> columns = new java.util.Vector<Column>();
-            for (int i=0; i<matches.size(); i++){
-                 Column column = (Column) matches.get(i);
-                 if (column.getType().equalsIgnoreCase(field.Type)){
-                     columns.add(column);
-                 }
-            }
-
-            if (columns.size()==0) return null;
-            else{
-                Column[] arr = new Column[columns.size()];
-                for (int i=0; i<arr.length; i++){
-                    arr[i] = columns.get(i);
+            java.util.ArrayList<Column> columns = new java.util.ArrayList<Column>();
+            for (Column column : matches){
+                if (column.getType().equalsIgnoreCase(field.Type)){
+                    columns.add(column);
                 }
-                return arr;
             }
 
+            if (columns.isEmpty()) return null;
+            else return columns.toArray(new Column[columns.size()]);
         }
         return null;
     }
 
 
-
-    
   //**************************************************************************
   //** getRecordCount
   //**************************************************************************
@@ -1210,34 +1250,9 @@ public class Recordset {
             if (numRecords!=null) return numRecords;
             else return -1;
         }
-    }    
-    
-    
-
-  //**************************************************************************
-  //** hasNext
-  //**************************************************************************
-  /**  Returns true if the recordset has more elements.
-   */
-    
-    public boolean hasNext(){
-        return !EOF;
     }
 
-    
-  //**************************************************************************
-  //** getFields
-  //**************************************************************************
-  /**  Used to retrieve the an array of fields (columns) found in the current 
-   *   row.
-   */
-    
-    public Field[] getFields(){
-        return Fields;
-    }
-    
-    
-    
+
     private String getGeometry(Object FieldValue){
         
       //Get geometry type
@@ -1263,7 +1278,6 @@ public class Recordset {
         
         
         return null;
-        
     }
 
 

@@ -543,7 +543,9 @@ public class Date implements Comparable {
   //**************************************************************************
   //** compareTo
   //**************************************************************************
-  /** Used to compare dates. Returns the number of intervals between two dates
+  /** Used to compare dates. Returns the number of intervals between two dates.
+   *  If the given date is in the future, returns a negative value. If the
+   *  given date is in the past, returns a positive value. 
    *  @param units Units of measure (e.g. hours, minutes, seconds, weeks,
    *  months, years, etc.)
    */    
