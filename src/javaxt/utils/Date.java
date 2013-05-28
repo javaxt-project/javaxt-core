@@ -959,15 +959,15 @@ public class Date implements Comparable {
         
 
       //Update the string
-        String str = timezone.toUpperCase();
-        if (str.startsWith("UTC+") || str.startsWith("UTC-")){
+        timezone = timezone.toUpperCase();
+        if (timezone.startsWith("UTC+") || timezone.startsWith("UTC-")){
             timezone = "GMT" + timezone.substring(3);
         }
         else if (( 
-            str.startsWith("AMERICA/") || str.startsWith("AFRICA/") ||
-            str.startsWith("EUROPE/") || str.startsWith("ASIA/") ||
-            str.startsWith("AUSTRALIA/") || str.startsWith("PACIFIC/") ||
-            str.startsWith("ATLANTIC/") || str.startsWith("INDIAN/")
+            timezone.startsWith("AMERICA/") || timezone.startsWith("AFRICA/") ||
+            timezone.startsWith("EUROPE/") || timezone.startsWith("ASIA/") ||
+            timezone.startsWith("AUSTRALIA/") || timezone.startsWith("PACIFIC/") ||
+            timezone.startsWith("ATLANTIC/") || timezone.startsWith("INDIAN/")
             ) && timezone.contains(" ")){
             timezone = timezone.replace(" ", "_");
         }
@@ -982,7 +982,7 @@ public class Date implements Comparable {
 
             if (!timezone.contains(":")){
                 int x = 3;
-                str = timezone.substring(x);
+                String str = timezone.substring(x);
                 if (str.startsWith("+") || str.startsWith("-")){
                     str = str.substring(1);
                     x++;
@@ -1001,9 +1001,10 @@ public class Date implements Comparable {
             }
         }
 
-        if (timezones.containsKey(timezone)){
-            return java.util.TimeZone.getTimeZone(timezones.get(timezone));
-        }
+
+        timezone = timezones.get(timezone);
+        if (timezone!=null) return java.util.TimeZone.getTimeZone(timezone);
+        
 
         return null;
     }

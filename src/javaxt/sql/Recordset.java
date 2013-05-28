@@ -1116,8 +1116,8 @@ public class Recordset {
 
           //Check the field name. If it's missing, then the field is probably
           //derived from a function. In some cases, it may be trivial to find
-          //the column name (e.g. MIN, MAX, SUM, etc). In other cases, it is 
-          //not (e.g. "SELECT (FIRSTNAME + '||' + LASTNAME) FROM CONTACTS").
+          //the column name (e.g. COUNT, SUM, MIN, MAX, etc). In other cases,
+          //it is not so simple (e.g. "SELECT (FIRSTNAME || ' ' || LASTNAME)").
           //In any event, this function cannot currently find table or schema
           //for a field without a name.
             String fieldName = field.getName();
