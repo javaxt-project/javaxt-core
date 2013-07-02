@@ -29,68 +29,102 @@ public class Jar {
     
     private java.io.File file;
     private java.lang.Package Package;
-    
+
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**  Creates a new instance of Jar */
-    
+  /** Creates a new instance of this class using an instance of another class.
+   */
     public Jar(java.lang.Object object){
         this(object.getClass());
     }
-    
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of this class using a Class.
+   */
     public Jar(java.lang.Class Class) {
-        this(Class.getPackage());
-    }
-    
-    public Jar(java.lang.Package Package) {
+        this.Package = Class.getPackage();
+        String path = Class.getName();
+        if (path!=null) path = path.replace((CharSequence)".",(CharSequence)"/") + ".class";
+        java.util.ArrayList<java.net.URL> urls = getResource(path, Class.getClassLoader());
+        if (urls.size()==1){
+            file = getFile(urls.get(0));
+        }
+        /*
+        else if (urls.size()>1){ //Should never happen!
 
-        this.Package = Package;
-        String path = Package.getName().replace((CharSequence)".",(CharSequence)"/");
-        String url = this.getClass().getClassLoader().getResource(path).toString();
-        url = url.replace((CharSequence)" ",(CharSequence)"%20");
-        try{
-            java.net.URI uri = new java.net.URI(url);
-            if (uri.getPath()==null){
-                path = uri.toString();        
-                if (path.startsWith("jar:file:")){
+            for (java.net.URL url : urls){
 
-                  //Update Path and Define Zipped File
-                    path = path.substring(path.indexOf("file:/"));
-                    path = path.substring(0,path.toLowerCase().indexOf(".jar")+4);
-                    
-                    if (path.startsWith("file://")){ //UNC Path
-                        path = "C:/" + path.substring(path.indexOf("file:/")+7);
-                        path = "/" + new URI(path).getPath();
-                    }
-                    else{
-                        path = new URI(path).getPath();
-                    }
-                    this.file = new java.io.File(path);                    
+                java.net.JarURLConnection urlcon = (java.net.JarURLConnection) (url.openConnection());
+                java.util.jar.JarFile jar = urlcon.getJarFile();
+                java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    String entry = entries.nextElement().getName();
+                    //System.out.println(entry);
                 }
             }
-            else{
-                this.file = new java.io.File(uri);
-            }
         }
-        catch(Exception e){
-            e.printStackTrace();
-        }
-        
+        */
     }
 
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of this class using a Package. This method is
+   *  somewhat unreliable if there are multiple jar files that contain the
+   *  same package name. Suggest using the getJars() method instead.
+   */
+    public Jar(java.lang.Package Package) {
+        this.Package = Package;
+        String path = Package.getName().replace((CharSequence)".",(CharSequence)"/");
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        for (java.net.URL url : getResource(path, classLoader)){
+            file = getFile(url);
+            if (file!=null) break;
+        }
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of this class using a path to a jar file or
+   *  directory.
+   */
     public Jar(java.io.File file){
         this.file = file;
     }
-    
-    
+
+
+  //**************************************************************************
+  //** getJars
+  //**************************************************************************
+  /** Returns an array of files or directories associated with a given Package.
+   *  This method should be used instead of new Jar(java.lang.Package).
+   */
+    public static Jar[] getJars(java.lang.Package Package){
+        java.util.ArrayList<Jar> jars = new java.util.ArrayList<Jar>();
+        String path = Package.getName().replace((CharSequence)".",(CharSequence)"/");
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        for (java.net.URL url : getResource(path, classLoader)){
+            java.io.File file = getFile(url);
+            if (file!=null) jars.add(new Jar(file));
+        }
+        return jars.toArray(new Jar[jars.size()]);
+    }
+
+
   //**************************************************************************
   //** getFile
   //**************************************************************************
-  /**  Returns a java.io.File representation of the jar file or directory where 
-   *   the jar file has been extracted.
+  /** Returns a java.io.File representation of the jar file or directory where 
+   *  the jar file has been extracted.
    */
-    
     public java.io.File getFile(){
         return file;
     }
@@ -305,8 +339,111 @@ public class Jar {
     public String toString(){
         return file.toString();
     }
-    
-    
+
+
+  //**************************************************************************
+  //** getResource
+  //**************************************************************************
+  /** Returns the URL associated with a given path in the jar file.
+   *  @param cl ClassLoader used to find the given path/resource. If the 
+   *  ClassLoader is null or fails to find the requested path, an alternate
+   *  ClassLoader is used (e.g. ClassLoader's Parent, ContextClassLoader,
+   *  SystemClassLoader).
+   */
+    private static java.util.ArrayList<java.net.URL> getResource(String path, ClassLoader cl){
+
+        java.util.ArrayList<java.net.URL> arr = new java.util.ArrayList<java.net.URL>();
+        try{
+
+            int x = 0;
+            while (true){
+
+                if (cl==null){
+                    cl = Thread.currentThread().getContextClassLoader();
+                    if (cl==null){
+                        cl = java.lang.ClassLoader.getSystemClassLoader();
+                        if (cl==null){
+                            break; //Throw Exception?
+                        }
+                    }
+                }
+
+
+                java.util.Enumeration<java.net.URL> en = cl.getResources(path);
+                if (en.hasMoreElements()){
+                    while (en.hasMoreElements()){
+                        java.net.URL url = en.nextElement();
+                        arr.add(url);
+                    }
+
+                    break;
+                }
+                else{
+                    if (cl.getParent()!=null && cl.getParent().equals(cl)){
+                        break;
+                    }
+                    cl = cl.getParent();
+                }
+
+
+
+                x++;
+                if (x==50) break;
+            }
+
+
+            String debug = "";
+            debug += "Path: " + path + "\r\n";
+            debug += "ClassLoader: " + cl + "\r\n";
+            for (java.net.URL url : arr){
+                debug += "Resource: " + url + "\r\n";
+            }
+            //System.out.println(debug);
+
+
+        }
+        catch(Exception e){
+            //e.printStackTrace();
+        }
+
+        return arr;
+    }
+
+
+    private static java.io.File getFile(java.net.URL url){
+        if (url!=null)
+        try{
+            java.net.URI uri = new java.net.URI(url.toString().replace((CharSequence)" ",(CharSequence)"%20"));
+            if (uri.getPath()==null){
+                String path = uri.toString();
+                if (path.startsWith("jar:file:")){
+
+                  //Update Path and Define Zipped File
+                    path = path.substring(path.indexOf("file:/"));
+                    path = path.substring(0,path.toLowerCase().indexOf(".jar")+4);
+
+                    if (path.startsWith("file://")){ //UNC Path
+                        path = "C:/" + path.substring(path.indexOf("file:/")+7);
+                        path = "/" + new URI(path).getPath();
+                    }
+                    else{
+                        path = new URI(path).getPath();
+                    }
+                    return new java.io.File(path);
+                }
+            }
+            else{
+                return new java.io.File(uri);
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+
   //**************************************************************************
   //** JAR Entry Class
   //**************************************************************************
