@@ -14,8 +14,7 @@ import java.util.zip.*;
 //******************************************************************************
 /**
  *   Used to find entries in a jar file associated with a given class or 
- *   package. Note that jar files are unzipped when deployed on an app server.
- *   This class is designed to handle both zipped and unzipped jar files.
+ *   package. 
  *
  *   The original motivation behind this class was to support a requirement to 
  *   extract and update config files stored in Java packages. For console apps, 
@@ -391,15 +390,15 @@ public class Jar {
                 if (x==50) break;
             }
 
-
+            /*
             String debug = "";
             debug += "Path: " + path + "\r\n";
             debug += "ClassLoader: " + cl + "\r\n";
             for (java.net.URL url : arr){
                 debug += "Resource: " + url + "\r\n";
             }
-            //System.out.println(debug);
-
+            System.out.println(debug);
+            */
 
         }
         catch(Exception e){
@@ -431,13 +430,18 @@ public class Jar {
                     }
                     return new java.io.File(path);
                 }
+                else if (path.startsWith("jar:http")){
+                    path = path.substring(path.indexOf("http"));
+                    path = path.substring(0,path.toLowerCase().indexOf(".jar")+4);
+                    
+                }
             }
             else{
                 return new java.io.File(uri);
             }
         }
         catch(Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
         }
 
         return null;
