@@ -2211,7 +2211,7 @@ class DirectorySearch implements Runnable {
             if (!directory.equals(root)){
                 items.add(directory);
                 items.notifyAll();
-            }            
+            }
         }
     }
 
@@ -2390,11 +2390,7 @@ class DirectorySearch implements Runnable {
 
               //Add subdirectories to the processing pool and insert files into file array
                 Object[] items = dir.listFiles();
-                if (items==null){
-                    addDirectory(dir);
-                }
-                else{
-                    boolean addedDirectory = false;
+                if (items!=null){
                     for (int i=0; i<items.length; i++){
                         Object obj = items[i];
                         boolean isDirectory = false;
@@ -2412,21 +2408,22 @@ class DirectorySearch implements Runnable {
                         
                         if (accept){
                             
-                            if (isDirectory){    
+                            if (isDirectory){
+
+                              //Add directory to the array and update the pool
+                                Directory d = null;
                                 if (obj instanceof String){
-                                    updatePool(new Directory((String)obj));
+                                    d = (new Directory((String)obj));
                                 }
                                 else if (obj instanceof java.io.File){
-                                    updatePool(new Directory((java.io.File)obj));
+                                    d = (new Directory((java.io.File)obj));
+                                }
+                                if (d!=null){
+                                    addDirectory(d);
+                                    updatePool(d);
                                 }
                             }
                             else{
-
-                             //Add Current Directory to the array
-                                if (!addedDirectory){
-                                    addDirectory(dir);
-                                    addedDirectory = true;
-                                }
 
                              //Add File to the array
                                 if (obj instanceof String){
