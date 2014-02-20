@@ -87,13 +87,7 @@ public class Method {
         java.util.ArrayList<Parameter> parameters = new java.util.ArrayList<Parameter>();
 
         for (Node parameterNode : DOM.getNodes(parameterNodes)){
-            Parameter parameter = new Parameter(parameterNode);
-            parameters.add(parameter);
-
-          //TODO: Need to verify recursion logic here!
-            if (parameter.isComplex()){
-                parameter.Children = getParameters(parameter.getChildNodes());
-            }
+            parameters.add(new Parameter(parameterNode));
         }
 
         if (parameters.isEmpty()){

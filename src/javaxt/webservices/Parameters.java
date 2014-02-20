@@ -5,7 +5,7 @@ import org.w3c.dom.*;
 //**  Parameters Class
 //******************************************************************************
 /**
- *   A convienance class used to represent multiple parameters.
+ *   A convenience class used to represent multiple parameters.
  *
  ******************************************************************************/
 
@@ -38,50 +38,16 @@ public class Parameters {
     }
 
     /** Used to set a parameter value. Use "/" character to separate nodes */
-    public void setValue(String parameterName, String parameterValue){
+    public void setValue(String parameterName, Object parameterValue){
         if (Parameters==null) return;
         Parameter parameter = getParameter(parameterName);
-        if (parameter!=null){
-            if (parameter.getMaxOccurs()>1){
-                //TODO: Create new instance of current parameter in parent and set value
-                //getParent(Parameter);
-                System.out.println("Not Implemented!");
-            }
-            else{
-                parameter.setValue(parameterValue);
-            }
-        }
+        if (parameter!=null) parameter.setValue(parameterValue);
     }
 
-    public void setValue(String parameterName, byte[] bytes){
-        setValue(parameterName, javaxt.utils.Base64.encodeBytes(bytes));
-    }
-
-    public void setValue(String ParameterName, java.util.Date ParameterValue){
-
-      //2003-11-24T00:00:00.0000000-05:00
-        java.text.SimpleDateFormat formatter =
-             new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSSSZ");
-
-        String d = formatter.format(ParameterValue).replace(" ", "T");
-
-        String d1 = d.substring(0,d.length()-2);
-        String d2 = d.substring(d.length()-2);
-        d = d1 + ":" + d2;
-
-        setValue(ParameterName, d);
-
-    }
-
-
-    public String getValue(String ParameterName){
+    public Object getValue(String ParameterName){
         Parameter p = getParameter(ParameterName);
-        if (p!=null){
-            return p.getValue();
-        }
-        return null;
+        return p==null? null : p.getValue();
     }
-
 
     public Parameter getParameter(String ParameterName){
         if (Parameters==null) return null;
@@ -123,10 +89,7 @@ public class Parameters {
     public String toString(){
         if (Parameters!=null){
             xml = new StringBuffer();
-
-            
             getParameters(Parameters);
-            
             return xml.toString();
         }
         else{
@@ -153,7 +116,7 @@ public class Parameters {
                         attr.append(" ");
                         attr.append(parameter.getName());
                         attr.append("=\"");
-                        attr.append(parameter.getValue());
+                        attr.append(javaxt.xml.DOM.escapeXml((String) parameter.getValue()) );
                         attr.append("\"");
                     }
                 }
@@ -178,35 +141,12 @@ public class Parameters {
             //xml.append("<" + parameter.getName());
         }
         else{
-
-            String ParameterName = parameter.getName();
-            xml.append("<" + ParameterName + getAttributes() + ">");
-
             if (parameter.isComplex()){
                 getParameters(parameter.getChildren());
             }
             else{
-                String ParameterValue = parameter.getValue();
-                if (ParameterValue==null) ParameterValue = "";
-
-                /*
-                String[] find = new String[]{"<",">","&","'","\""};
-                String[] replace = new String[]{"&lt;","&gt;","&amp;","&apos;","&quot;"};
-                for (int i=0; i<find.length; i++){
-                     ParameterValue = ParameterValue.replace((CharSequence)find[i], (CharSequence)replace[i]);
-                }
-                */
-
-                if (ParameterValue.trim().length()>0){
-                    if (parameter.getType().equalsIgnoreCase("base64Binary")){
-                        xml.append(ParameterValue);
-                    }
-                    else{
-                        xml.append("<![CDATA[" + ParameterValue + "]]>");
-                    }
-                }
+                xml.append(parameter.toXML(getAttributes()));
             }
-            xml.append("</" + ParameterName + ">");
         }
     }
 
@@ -253,7 +193,7 @@ public class Parameters {
 
                String ParameterName = Parameter.getName();
                String ParameterType = Parameter.getType();
-               String ParameterValue = Parameter.getValue();
+               //String ParameterValue = Parameter.getValue();
 
                boolean isRequired = Parameter.isRequired();
                boolean isComplex = Parameter.isComplex();
@@ -274,7 +214,7 @@ public class Parameters {
                }
 
              //Set Input Name
-               InputName = getParentName(Parameter.ParentNode) + ParameterName;
+               InputName = getParentName(Parameter.getParentNode()) + ParameterName;
 
              //Set Input HTML
                if (ParameterType.equalsIgnoreCase("String")){
@@ -335,7 +275,7 @@ public class Parameters {
                 if (ParameterNode.getNodeType()==1){
                     if (ParameterNode.getNodeName().equals("parameter")){
                         NamedNodeMap attr = ParameterNode.getAttributes();
-                        String ParameterName = javaxt.xml.DOM.getAttributeValue(attr,"name"); //getAttributeValue(attr, "name");
+                        String ParameterName = javaxt.xml.DOM.getAttributeValue(attr,"name");
                         ret = ParameterName + "/" + ret;
                     }
                 }

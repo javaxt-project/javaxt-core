@@ -36,6 +36,7 @@ public class WSDL {
     private String ElementNameSpace = "";
     private java.util.HashMap<String, String> NameSpaces;
     private NodeList Schema;
+    private String HttpProxyServer;
     
     private class Port{
         public String Name;
@@ -59,6 +60,7 @@ public class WSDL {
     }
     
     private class Element{
+        private int id;
         public String Name;
         public String Type;
         public boolean IsNillable = false;
@@ -69,8 +71,22 @@ public class WSDL {
 
         private java.util.ArrayList<Object> children = new java.util.ArrayList<Object>();
 
+        public int hashCode(){
+            return id;
+        }
+
+        public boolean equals(Object obj){
+            if (obj instanceof Element){
+                return id==((Element) obj).id;
+            }
+            else if (obj instanceof Node){
+                return id==new Element((Node) obj).id;
+            }
+            return false;
+        }
 
         public Element(String Name, String Type){
+            id = (Name + "\t" + Type).hashCode();
             this.Name = Name;
             this.Type = stripNameSpace(Type);
             IsComplex = isElementComplex(Type);
@@ -84,6 +100,8 @@ public class WSDL {
 
             Name = DOM.getAttributeValue(attr, "name");
             Type = DOM.getAttributeValue(attr, "type");
+            id = (Name + "\t" + Type).hashCode();
+
             IsNillable = isElementNillable(DOM.getAttributeValue(attr, "nillable"));
             IsComplex = isElementComplex(Type);
             minOccurs = DOM.getAttributeValue(attr, "minOccurs");
@@ -203,46 +221,34 @@ public class WSDL {
   /** Instantiate wsdl parser using a url to a wsdl (java.net.url)
    */
     public WSDL(java.net.URL url){
-        this(new javaxt.http.Request(url).getResponse().getXML(), null, true);
+        this(downloadXML(url, null), null, true, null);
     }
     
     public WSDL(String url){
-        this(new javaxt.http.Request(url).getResponse().getXML(), null, true);
+        this(downloadXML(url, null), null, true, null);
     }
     
     public WSDL(java.net.URL url, String HttpProxyServer){
-        this(new javaxt.http.Request(url).getResponse().getXML(), null, false); //<-- Can't automatically follow imports with a proxy server...
-    }
-
-    public WSDL(java.io.File xml) {
-        this(new javaxt.io.File(xml).getXML(), null, true);
-    }
-
-    public WSDL(java.io.File xml, boolean followImports) {
-        this(new javaxt.io.File(xml).getXML(), null, followImports);
+        this(downloadXML(url, HttpProxyServer), null, true, HttpProxyServer);
     }
 
     public WSDL(Document wsdl) {
-        this(wsdl, null, true);
+        this(wsdl, null, true, null);
     }
 
-    public WSDL(Document wsdl, boolean followImports) {
-        this(wsdl, null, followImports);
-    }
-
-    public WSDL(Document wsdl, Document xsd) {
-        this(wsdl, new Document[]{xsd});
+    public WSDL(Document wsdl, String HttpProxyServer) {
+        this(wsdl, null, true, HttpProxyServer);
     }
 
     public WSDL(Document wsdl, Document[] xsd) {
-        this(wsdl, xsd, false);
+        this(wsdl, xsd, false, null);
     }
 
-    public WSDL(Document wsdl, Document[] xsd, boolean followImports) {
+    private WSDL(Document wsdl, Document[] xsd, boolean followImports, String HttpProxyServer) {
         this.wsdl = wsdl;
         NameSpaces = DOM.getNameSpaces(wsdl);
         ElementNameSpace = getElementNameSpace();
-
+        
         if (xsd==null){
             xsd = new Document[1];
             xsd[0] = wsdl;
@@ -256,7 +262,7 @@ public class WSDL {
             xsd = arr;
         }
 
-
+        this.HttpProxyServer = HttpProxyServer;
         addSchema(xsd, followImports, false);
         parseWSDL();
     }
@@ -930,7 +936,7 @@ public class WSDL {
                             NamedNodeMap attr = importNode.getAttributes();
                             String schemaLocation = DOM.getAttributeValue(attr, "schemaLocation");
                             if (schemaLocation.length()>0){
-                                importSchemas(schemaLocation, auxSchemas);
+                                importSchemas(schemaLocation, auxSchemas, HttpProxyServer);
                             }
                         }
 
@@ -970,14 +976,11 @@ public class WSDL {
    *  @param schemaLocation URL to the XSD file.
    *  @param auxSchemas StringBuffer used to append new schema nodes.
    */
-    private void importSchemas(String schemaLocation, StringBuffer auxSchemas){
+    private void importSchemas(String schemaLocation, StringBuffer auxSchemas, String HttpProxyServer){
 
         if (schemaLocation==null || schemaLocation.length()==0) return;
 
-        javaxt.http.Response response = new javaxt.http.Request(schemaLocation).getResponse();
-        String txt = response.getText();
-
-        Document doc = DOM.createDocument(txt);
+        Document doc = downloadXML(schemaLocation, HttpProxyServer);
         if (doc!=null){
 
 
@@ -992,7 +995,7 @@ public class WSDL {
                     NamedNodeMap attr = node.getAttributes();
                     schemaLocation = DOM.getAttributeValue(attr, "schemaLocation");
                     if (schemaLocation.length()>0){
-                        importSchemas(schemaLocation, auxSchemas);
+                        importSchemas(schemaLocation, auxSchemas, HttpProxyServer);
                     }
                     Node iSchema = node.getParentNode();
                     iSchema.removeChild(node);
@@ -1026,19 +1029,15 @@ public class WSDL {
                 if (elementType.equalsIgnoreCase("element")) {
 
                     java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
-
+                    Element element = new Element(elementNode);
+                    decomposeComplexType(stripNameSpace(element.Name), element);
                     
                     if (!DOM.hasChildren(elementNode)){ //Complex Type!
 
-                        Element element = new Element(elementNode);
-                        decomposeComplexType(stripNameSpace(element.Name), element);
                         elements.add(element);
 
                     }
                     else{ //Simple Type
-
-                        Element element = new Element(elementNode);
-                        decomposeComplexType(stripNameSpace(element.Name), element);
 
                         java.util.Iterator<Object> it = element.children.iterator();
                         while (it.hasNext()){
@@ -1091,7 +1090,11 @@ public class WSDL {
             
             String typeName = DOM.getAttributeValue(node, "name");
             if (typeName.equals(ElementName)){
-                parseComplexNode(node, ElementName, parentElement);
+
+              //Make sure that the node is different from the parent
+                //if (!parentElement.equals(node)){
+                    parseComplexNode(node, ElementName, parentElement);
+                //}
             }
         }
     }
@@ -1107,6 +1110,10 @@ public class WSDL {
             if (!DOM.hasChildren(node)){
 
                 Element Element = new Element(node);
+
+              //Bug fix:
+                if (Element.equals(parentElement)) return;
+
                 if (Element.IsComplex){
                     decomposeComplexType(stripNameSpace(Element.Type), parentElement);
                 }
@@ -1528,6 +1535,19 @@ public class WSDL {
        return null;
     }
 
+
+  /** Used to download an XML file and convert it to a DOM Document. */
+    private static org.w3c.dom.Document downloadXML(java.net.URL url, String HttpProxyServer){
+        javaxt.http.Request request = new javaxt.http.Request(url);
+        if (HttpProxyServer!=null) request.setProxy(HttpProxyServer);
+        return request.getResponse().getXML();
+    }
+
+    private static org.w3c.dom.Document downloadXML(String url, String HttpProxyServer){
+        javaxt.http.Request request = new javaxt.http.Request(url);
+        if (HttpProxyServer!=null) request.setProxy(HttpProxyServer);
+        return request.getResponse().getXML();
+    }
     
 
   //**************************************************************************

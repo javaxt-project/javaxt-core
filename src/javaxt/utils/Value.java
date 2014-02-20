@@ -211,6 +211,16 @@ public class Value {
 
 
   //**************************************************************************
+  //** isArray
+  //**************************************************************************
+  /**  Used to determine whether the value is an array. */
+
+    public boolean isArray(){
+        return value!=null && value.getClass().isArray();
+    }
+
+
+  //**************************************************************************
   //** isNull
   //**************************************************************************
   /**  Used to determine whether the value is null. */

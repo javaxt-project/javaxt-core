@@ -30,14 +30,14 @@ public class SoapResponse {
         
         int status = response.getStatus();
         if (status==200 || status==202 || status==203){
-            body = response.getText("UTF-8");
+            body = response.getText();
             if (body!=null){
 
                 url = response.getURL();
                 headers = response.getHeaders();
 
 
-                //Extract Response
+              //Parse Response
                 Document xml = DOM.createDocument(body);
                 if (xml!=null){
                     try{
@@ -51,7 +51,20 @@ public class SoapResponse {
                                 Response = xml.getElementsByTagName(resultsNode);
                             }
 
+
+                          //Get the content of the results node
                             message = DOM.getNodeValue(Response.item(0));
+
+                            
+                          //Hack to deal with unexpected outputs from DOM.getNodeValue().
+                          //If the response node has children, the method will return an
+                          //xml fragment which will include the resultsNode as the outer node.
+                          //We obvously don't want that so we need to strip out the outer node.
+                            if (DOM.hasChildren(Response.item(0))){
+                                message = message.substring(message.indexOf(">")+1);
+                                message = message.substring(0, message.lastIndexOf("</"));
+                            }
+
                         }
                         else{
                             throw new SoapException(

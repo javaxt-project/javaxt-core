@@ -47,9 +47,9 @@ public class SoapRequest {
                 "xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">" +
               "<soap:Body>");
 
-
       //Add method tag
-        body.append("<" + method.getName() + " xmlns=\"" + service.getNameSpace() + "\">");
+        //body.append("<" + method.getName() + " xmlns=\"" + service.getNameSpace() + "\">");
+        body.append("<ns2:" + method.getName() + " xmlns:ns2=\"" + service.getNameSpace() + "\">");
 
 
       //Insert parameters (inside the method node)
@@ -72,7 +72,8 @@ public class SoapRequest {
                         for (int i=0; i<params.length; i++ ) {
                              String parameterName = params[i].getName();
                              String parameterValue = values[i];
-                             body.append("<" + parameterName + "><![CDATA[" + parameterValue + "]]></" + parameterName + ">");
+                             //body.append("<" + parameterName + "><![CDATA[" + parameterValue + "]]></" + parameterName + ">");
+                             body.append("<" + parameterName + ">" + javaxt.xml.DOM.escapeXml(parameterValue) + "</" + parameterName + ">");
                         }
                     }
                 }
@@ -80,11 +81,12 @@ public class SoapRequest {
         }
 
       //Close tags
-        body.append("</" + method.getName() + ">");
+        //body.append("</" + method.getName() + ">");
+        body.append("</ns2:" + method.getName() + ">");
         body.append("</soap:Body></soap:Envelope>");
 
         this.body = body.toString();
-
+        request.setHeader("Content-Length", body.length()+"");
     }
 
 

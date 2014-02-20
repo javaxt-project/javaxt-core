@@ -75,9 +75,10 @@ public class DOM {
                     encoding = encoding.substring(1);
                 }
 
-                if (encoding.substring(0, 1).equals("\"")){
+                String firstChar = encoding.substring(0, 1);
+                if (firstChar.equals("\"") || firstChar.equals("'")){
                     encoding = encoding.substring(1);
-                    encoding = encoding.substring(0, encoding.indexOf("\"")).trim();
+                    encoding = encoding.substring(0, encoding.indexOf(firstChar)).trim();
                 }
                 else{
                     encoding = encoding.substring(0, encoding.indexOf(" ")).trim();
@@ -478,4 +479,59 @@ public class DOM {
         }
         return nodes.toArray(new Node[nodes.size()]);
     }
+
+
+
+    public final static String ESCAPE_CHARS = "<>&\"\'";
+    public final static java.util.List<String> ESCAPE_STRINGS =
+    java.util.Collections.unmodifiableList(java.util.Arrays.asList(new String[] {
+      "&lt;"
+    , "&gt;"
+    , "&amp;"
+    , "&quot;"
+    , "&apos;"
+    }));
+
+    private static String UNICODE_LOW =  "" + ((char)0x20); //space
+    private static String UNICODE_HIGH = "" + ((char)0x7f);
+
+
+  //**************************************************************************
+  //** escapeXml
+  //**************************************************************************
+  /** Used to encode text data for use in an XML tag or attribute.
+   */
+    public static String escapeXml(String content) {
+        String result = content;
+
+        if ((content != null) && (content.length() > 0)) {
+          boolean modified = false;
+          StringBuilder stringBuilder = new StringBuilder(content.length());
+          for (int i = 0, count = content.length(); i < count; ++i) {
+            String character = content.substring(i, i + 1);
+            int pos = ESCAPE_CHARS.indexOf(character);
+            if (pos > -1) {
+              stringBuilder.append(ESCAPE_STRINGS.get(pos));
+              modified = true;
+            }
+            else {
+              if (    (character.compareTo(UNICODE_LOW) > -1)
+                   && (character.compareTo(UNICODE_HIGH) < 1)
+                 ) {
+                stringBuilder.append(character);
+              }
+              else {
+                stringBuilder.append("&#" + ((int)character.charAt(0)) + ";");
+                modified = true;
+              }
+            }
+          }
+          if (modified) {
+            result = stringBuilder.toString();
+          }
+        }
+
+        return result;
+    }
+
 }
