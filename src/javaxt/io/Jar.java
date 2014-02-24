@@ -181,7 +181,7 @@ public class Jar {
         return null;
     }
 
-    
+
   //**************************************************************************
   //** getVersion
   //**************************************************************************
@@ -219,8 +219,8 @@ public class Jar {
 
         return null;
     }
-    
-    
+
+
   //**************************************************************************
   //** getEntries
   //**************************************************************************
@@ -253,8 +253,8 @@ public class Jar {
         }
         return entries.toArray(new Entry[entries.size()]);
     }
-    
-    
+
+
   //**************************************************************************
   //** getEntry
   //**************************************************************************
@@ -263,8 +263,8 @@ public class Jar {
     public Entry getEntry(String Entry){
         return getEntry(Package.getName(),Entry);
     }
-    
-    
+
+
   //**************************************************************************
   //** getEntry
   //**************************************************************************
@@ -316,7 +316,7 @@ public class Jar {
         return null;
     }
 
-    
+
   //**************************************************************************
   //** getEntries
   //**************************************************************************
@@ -328,8 +328,8 @@ public class Jar {
         ClassName = ClassName.substring(PackageName.length()+1);
         return getEntry(PackageName,ClassName+".class");
     }
-    
-    
+
+
   //**************************************************************************
   //** toString
   //**************************************************************************
@@ -617,9 +617,18 @@ public class Jar {
             catch(Exception e){
             }
         }
-        
-      /** Used to extract the contents to a string. */  
+
+      /** Used to extract the contents to a string. */
         public String getText(){
+            return getText("UTF-8");
+        }
+
+      /** Used to extract the contents to a string. Returns null if the 
+       *  extraction failed.
+       *  @param charsetName Name of the character encoding used to read the
+       *  file. Examples include UTF-8 and ISO-8859-1
+       */
+        public String getText(String charsetName){
             try{
                 if (fileEntry==null){
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -640,7 +649,7 @@ public class Jar {
                     return out.toString();
                 }
                 else{
-                    return new File(fileEntry).getText();
+                    return new File(fileEntry).getText("UTF-8");
                 }
             }
             catch(Exception e){
