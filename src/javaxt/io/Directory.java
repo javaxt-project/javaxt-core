@@ -196,51 +196,42 @@ public class Directory implements Comparable {
     public boolean delete(){
         return Directory.delete();
     }
-    
-    
+
+
   //**************************************************************************
   //** Copy To
   //**************************************************************************
-  /**  Used to copy a directory to another directory */
-    
+  /** Used to copy a directory to another directory. Returns a list of any 
+   *  files that failed to copy.
+   */
     public String[] copyTo(Directory Destination, boolean Overwrite){
-        
-      //Set Local Variables
+
         int source = toString().length();
         String destination = Destination.toString();
-        java.util.Vector vec = new java.util.Vector();
+
+      //Create new folder
+        if (!Destination.exists()) Destination.create();
         
-      //Create Directories
-        Directory[] Directories = getSubDirectories(true);
-        for (int i=0; i<Directories.length; i++){
-             new Directory(destination + Directories[i].toString().substring(source)).create();
+      //Create subdirectories
+        for (Directory dir : getSubDirectories(true)){
+             new Directory(destination + dir.toString().substring(source)).create();
         }
         
-      //Create Files
-        File[] Files = getFiles(true);
-        for (int i=0; i<Files.length; i++){
-             String FilePath = Files[i].toString();
+      //Copy files
+        java.util.ArrayList<String> failures = new java.util.ArrayList<String>();
+        for (File file : getFiles(true)){
+             String FilePath = file.toString();
              File out = new File(destination + FilePath.substring(source));
              
-             boolean CopiedFile = Files[i].copyTo(out,Overwrite);
-             
-             if (CopiedFile==false){
-                 vec.add(FilePath);
-                 //System.out.println(FilePath);
-             }
+             boolean result = file.copyTo(out,Overwrite);
+             if (result==false) failures.add(FilePath);
         }
         
-      //Create Array
-        Object[] arr = vec.toArray();
-        String[] ret = new String[arr.length];
-        for (int i=0; i<ret.length; i++){
-             ret[i] = (String) arr[i];
-        }
-        
-        return ret;
+      //Return list of failed copies
+        return failures.toArray(new String[failures.size()]);
     }
-    
-    
+
+
   //**************************************************************************
   //** Move To
   //**************************************************************************
@@ -1456,9 +1447,18 @@ public class Directory implements Comparable {
             return false;
         }
     }
-    
-   
-    
+
+
+  //**************************************************************************
+  //** clone
+  //**************************************************************************
+  /** Creates a copy of this object. */
+
+    public Directory clone(){
+        return new Directory(this.toString());
+    }
+
+
   //**************************************************************************
   //** getEvents
   //**************************************************************************

@@ -361,7 +361,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Copy File
   //**************************************************************************
-  /**  Used to create a copy of this file.
+  /** Used to create a copy of this file. Returns true if the file was copied
+   *  successfully.
    */
     public boolean copyTo(Directory Destination, boolean Overwrite){
         return copyTo(new File(Destination, getName()), Overwrite);
@@ -371,7 +372,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Copy File
   //**************************************************************************
-  /**  Used to create a copy of this file.
+  /** Used to create a copy of this file. Returns true if the file was copied
+   *  successfully.
    */
     public boolean copyTo(javaxt.io.File Destination, boolean Overwrite){
         
@@ -422,10 +424,12 @@ public class File implements Comparable {
   //**************************************************************************
   //** Rename File
   //**************************************************************************
-  /**  Used to rename a file - existing File Name is replaced with input
-   *   FileName. Note that this method is NOT equivalent to the java.io.File
-   *   "renameTo" method.
-   *   @param FileName The new file name (including the file extension).
+  /** Used to rename the file. The existing file name is replaced with a new
+   *  name. Only the file name is affected. The file path remains unchanged.
+   *  This method is therefore different from the java.io.File "renameTo"
+   *  method. If the operation is successful, returns a handle to the new file.
+   *  Otherwise, the original file is returned.
+   *  @param FileName The new file name (including the file extension).
    */
     public javaxt.io.File rename(String FileName){
         if (FileName!=null){
@@ -434,8 +438,9 @@ public class File implements Comparable {
                 java.io.File File = getFile();
                 if (File!=null) {
                     java.io.File newFile = new java.io.File(getPath() + FileName);
-                    File.renameTo(newFile);
-                    file = newFile;
+                    if (File.renameTo(newFile)){
+                        file = newFile;
+                    }
                 }
             }
         }
@@ -930,6 +935,16 @@ public class File implements Comparable {
             return obj.hashCode()==this.hashCode();
         }
         return false;
+    }
+
+
+  //**************************************************************************
+  //** clone
+  //**************************************************************************
+  /** Creates a copy of this object. */
+
+    public File clone(){
+        return new File(this.toString());
     }
 
 
