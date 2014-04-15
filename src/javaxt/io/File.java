@@ -6,7 +6,7 @@ import java.io.*;
 import java.util.Locale;
 
 //******************************************************************************
-//**  File Class - By Peter Borissow
+//**  File Class
 //******************************************************************************
 /**
  *   Used to represent a single file on a file system. In many ways, this class 
@@ -984,107 +984,138 @@ public class File implements Comparable {
         return true;
 
     }
-    
-    
-    
+
+
   //**************************************************************************
   //** getContentType
   //**************************************************************************
-  /**  Returns the mime type associated with the file extension. This method 
-   *   only covers the most common/popular mime types. The returned mime type
-   *   is NOT authoritative.
+  /** Returns the mime type associated with the file extension found in a
+   *  given file name. This method only covers the most common/popular mime
+   *  types. The returned mime type is NOT authoritative.
+   *  @param file File name (e.g. hello.txt)
+   *  @return Content type (e.g. text/plain)
    */
-    public String getContentType(){
-        
-      //TEXT 
-        if (this.extensionEquals("css")) return "text/css";
-        if (this.extensionEquals("dtd")) return "text/plain";
-        if (this.extensionEquals("htm,html")) return "text/html";
-        if (this.extensionEquals("java")) return "text/plain";
-        if (this.extensionEquals("js")) return "text/javascript";
-        if (this.extensionEquals("txt")) return "text/plain";
-        
-      //IMAGE
-        if (this.extensionEquals("bmp")) return "image/bmp";
-        if (this.extensionEquals("gif")) return "image/gif";
-        if (this.extensionEquals("jp2,j2c,j2k,jpx")) return "image/jp2";
-        if (this.extensionEquals("jpg,jpe,jpeg,jfif,pjpeg,pjp")) return "image/jpeg";
-        if (this.extensionEquals("png")) return "image/png";
-        if (this.extensionEquals("psd")) return "image/x-photoshop";
-        if (this.extensionEquals("rgb")) return "image/x-rgb";
-        if (this.extensionEquals("tif,tiff")) return "image/tiff";
-        if (this.extensionEquals("xbm")) return "image/x-xbitmap";
-        if (this.extensionEquals("xpm")) return "image/x-xpixmap";
-        if (this.extensionEquals("ico")) return "image/vnd.microsoft.icon";
-        
-      //MICROSOFT OFFICE APPLICATIONS
-        if (this.extensionEquals("doc,dot")) return "application/msword";
-        if (this.extensionEquals("xls,xlw,xla,xlc,xlm,xlt,xll")) return "application/vnd.ms-excel";
-        if (this.extensionEquals("ppt,pps,pot")) return "application/vnd.ms-powerpoint";
-        if (this.extensionEquals("mdb")) return "application/x-msaccess";
-        if (this.extensionEquals("mpp")) return "application/vnd.ms-project";
-        if (this.extensionEquals("pub")) return "application/x-mspublisher";
-        if (this.extensionEquals("wmz")) return "application/x-ms-wmz";
-        if (this.extensionEquals("wmd")) return "application/x-ms-wmd";
-        if (this.extensionEquals("one,onetoc2,onetmp,onepkg")) return "application/msonenote";
-        if (this.extensionEquals("docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        if (this.extensionEquals("dotx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.template";
-        if (this.extensionEquals("xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        if (this.extensionEquals("xltx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.template";
-        if (this.extensionEquals("pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-        if (this.extensionEquals("ppsx")) return "application/vnd.openxmlformats-officedocument.presentationml.slideshow";
-        if (this.extensionEquals("potx")) return "application/vnd.openxmlformats-officedocument.presentationml.template";
-        if (this.extensionEquals("sldx")) return "application/vnd.openxmlformats-officedocument.presentationml.slide";
-        
-      //OTHER APPLICATIONS
-        if (this.extensionEquals("ai,eps,ps")) return "application/postscript";
-        if (this.extensionEquals("gz")) return "application/x-gzip";
-        if (this.extensionEquals("pdf")) return "application/pdf";
-        if (this.extensionEquals("xml")) return "application/xml"; //return "text/xml";
-        if (this.extensionEquals("z")) return "application/x-compress";
-        if (this.extensionEquals("zip")) return "application/zip";
-        
-      //AUDIO
-        if (this.extensionEquals("mid,midi")) return "audio/x-midi";
-        if (this.extensionEquals("mp1,mp2,mp3,mpa,mpega")) return "audio/x-mpeg";
-        if (this.extensionEquals("ra,ram")) return "audio/x-pn-realaudio";
-        if (this.extensionEquals("wav")) return "audio/x-wav";
-        if (this.extensionEquals("wma")) return "audio/x-ms-wma";
-        if (this.extensionEquals("wax")) return "audio/x-ms-wax";
-        if (this.extensionEquals("wmv")) return "audio/x-ms-wmv";
-        
-      //VIDEO
-        if (this.extensionEquals("asf,asx")) return "video/x-ms-asf";
-        if (this.extensionEquals("avi")) return "video/msvideo";
-        if (this.extensionEquals("mov")) return "video/quicktime";
-        if (this.extensionEquals("mpe,mpeg,mpg")) return "video/mpeg";
-        if (this.extensionEquals("mpv2")) return "video/mpeg2";
-        if (this.extensionEquals("qt,mov,moov")) return "video/quicktime";
-        
-        if (this.extensionEquals("wvx")) return "video/x-ms-wvx";
-        if (this.extensionEquals("wm")) return "video/x-ms-wm";
-        if (this.extensionEquals("wmx")) return "video/x-ms-wmx"; 
+    public static String getContentType(String file){
 
-        
-      //DEFAULT
+      //Get file extension
+        FileExtension ext = null;
+        if (file!=null){
+            file = file.trim();
+            int x = file.lastIndexOf(".");
+            if (x!=-1) ext = new FileExtension(file.substring(x+1));
+        }
+        if (ext==null) return "application/octet-stream";
+
+
+      //TEXT
+        if (ext.equals("css")) return "text/css";
+        if (ext.equals("dtd")) return "text/plain";
+        if (ext.equals("htm,html")) return "text/html";
+        if (ext.equals("java")) return "text/plain";
+        if (ext.equals("js")) return "text/javascript";
+        if (ext.equals("txt")) return "text/plain";
+
+      //IMAGE
+        if (ext.equals("bmp")) return "image/bmp";
+        if (ext.equals("gif")) return "image/gif";
+        if (ext.equals("jp2,j2c,j2k,jpx")) return "image/jp2";
+        if (ext.equals("jpg,jpe,jpeg,jfif,pjpeg,pjp")) return "image/jpeg";
+        if (ext.equals("png")) return "image/png";
+        if (ext.equals("psd")) return "image/x-photoshop";
+        if (ext.equals("rgb")) return "image/x-rgb";
+        if (ext.equals("tif,tiff")) return "image/tiff";
+        if (ext.equals("xbm")) return "image/x-xbitmap";
+        if (ext.equals("xpm")) return "image/x-xpixmap";
+        if (ext.equals("ico")) return "image/vnd.microsoft.icon";
+
+      //MICROSOFT OFFICE APPLICATIONS
+        if (ext.equals("doc,dot")) return "application/msword";
+        if (ext.equals("xls,xlw,xla,xlc,xlm,xlt,xll")) return "application/vnd.ms-excel";
+        if (ext.equals("ppt,pps,pot")) return "application/vnd.ms-powerpoint";
+        if (ext.equals("mdb")) return "application/x-msaccess";
+        if (ext.equals("mpp")) return "application/vnd.ms-project";
+        if (ext.equals("pub")) return "application/x-mspublisher";
+        if (ext.equals("wmz")) return "application/x-ms-wmz";
+        if (ext.equals("wmd")) return "application/x-ms-wmd";
+        if (ext.equals("one,onetoc2,onetmp,onepkg")) return "application/msonenote";
+        if (ext.equals("docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        if (ext.equals("dotx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.template";
+        if (ext.equals("xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (ext.equals("xltx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.template";
+        if (ext.equals("pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        if (ext.equals("ppsx")) return "application/vnd.openxmlformats-officedocument.presentationml.slideshow";
+        if (ext.equals("potx")) return "application/vnd.openxmlformats-officedocument.presentationml.template";
+        if (ext.equals("sldx")) return "application/vnd.openxmlformats-officedocument.presentationml.slide";
+
+      //OTHER APPLICATIONS
+        if (ext.equals("ai,eps,ps")) return "application/postscript";
+        if (ext.equals("gz")) return "application/x-gzip";
+        if (ext.equals("pdf")) return "application/pdf";
+        if (ext.equals("xml")) return "application/xml"; //return "text/xml";
+        if (ext.equals("z")) return "application/x-compress";
+        if (ext.equals("zip")) return "application/zip";
+
+      //AUDIO
+        if (ext.equals("mid,midi")) return "audio/x-midi";
+        if (ext.equals("mp1,mp2,mp3,mpa,mpega")) return "audio/x-mpeg";
+        if (ext.equals("ra,ram")) return "audio/x-pn-realaudio";
+        if (ext.equals("wav")) return "audio/x-wav";
+        if (ext.equals("wma")) return "audio/x-ms-wma";
+        if (ext.equals("wax")) return "audio/x-ms-wax";
+        if (ext.equals("wmv")) return "audio/x-ms-wmv";
+
+      //VIDEO
+        if (ext.equals("asf,asx")) return "video/x-ms-asf";
+        if (ext.equals("avi")) return "video/msvideo";
+        if (ext.equals("mov")) return "video/quicktime";
+        if (ext.equals("mpe,mpeg,mpg")) return "video/mpeg";
+        if (ext.equals("mpv2")) return "video/mpeg2";
+        if (ext.equals("qt,mov,moov")) return "video/quicktime";
+
+        if (ext.equals("wvx")) return "video/x-ms-wvx";
+        if (ext.equals("wm")) return "video/x-ms-wm";
+        if (ext.equals("wmx")) return "video/x-ms-wmx";
+
         return "application/octet-stream";
     }
-    
-    
-  //**************************************************************************
-  //** extensionEquals
-  //**************************************************************************
-  /**  Used by the getContentType to compare file extensions.
-   *   @param FileExtension Comma Separated List Of File Extensions
-   */
-    private boolean extensionEquals(String FileExtension){
-        String ext = this.getExtension();
-        String[] arr = FileExtension.split(",");
-        for (int i=0; i<arr.length; i++){
-             String str = arr[i].trim();
-             if (str.equalsIgnoreCase(ext)) return true;
+
+    private static class FileExtension {
+        private String ext;
+        public FileExtension(String ext){
+            this.ext = ext.toLowerCase();
         }
-        return false;
+
+      /**
+       *  @param obj Comma Separated List Of File Extensions
+       */
+        public boolean equals(Object obj){
+            if (obj instanceof String){
+
+                String[] arr = ((String) obj).split(",");
+                for (int i=0; i<arr.length; i++){
+                     String str = arr[i].trim().toLowerCase();
+                     if (str.equals(ext)) return true;
+                }
+
+            }
+            return false;
+        }
+
+        public int hashCode(){
+            return ext.hashCode();
+        }
+    }
+
+
+  //**************************************************************************
+  //** getContentType
+  //**************************************************************************
+  /** Returns the mime type associated with the file extension. This method 
+   *  only covers the most common/popular mime types. The returned mime type
+   *  is NOT authoritative.
+   */
+    public String getContentType(){
+        return getContentType(this.getName());
     }
 
 

@@ -646,10 +646,10 @@ public class Jar {
                         }
                     }
                     in.close();
-                    return out.toString();
+                    return out.toString(charsetName);
                 }
                 else{
-                    return new File(fileEntry).getText("UTF-8");
+                    return new File(fileEntry).getText(charsetName);
                 }
             }
             catch(Exception e){

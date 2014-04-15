@@ -15,7 +15,10 @@ import java.util.Iterator;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.NamedNodeMap;
-import com.sun.image.codec.jpeg.*;
+
+//Imports for JPEG
+//import com.sun.image.codec.jpeg.*; //<-- Not always available in newer versions
+import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
 
 //Imports for JP2
 //import javax.media.jai.RenderedOp;
@@ -36,6 +39,11 @@ public class Image {
     private java.util.ArrayList corners = null;
     
     private float outputQuality = 1f; //0.9f; //0.5f;
+
+    private static final boolean useSunCodec = getSunCodec();
+    private static Class JPEGCodec;
+    private static Class JPEGEncodeParam;
+    
     
     private Graphics2D g2d = null;
     
@@ -50,9 +58,9 @@ public class Image {
 
 
   //**************************************************************************
-  //** Creates a new instance of image
+  //** Constructor
   //**************************************************************************
-  /**  Creates a new instance of image using an existing image */
+  /**  Creates a new instance of this class using an existing image */
     
     public Image(String PathToImageFile){
         this(new java.io.File(PathToImageFile));
@@ -106,9 +114,9 @@ public class Image {
 
 
   //**************************************************************************
-  //** Image
+  //** Constructor
   //**************************************************************************
-  /** Used to create a new image from text. 
+  /** Creates a new instance of this class using a block of text.
    *  @param fontName Name of the font you with to use. Note that you can get
    *  a list of available fonts like this:
    <pre>
@@ -226,6 +234,11 @@ public class Image {
                  formats.add("J2K");
                  formats.add("JPX");
              }
+             else if (format.equals("JPEG") || format.equals("JPG")){
+                 formats.add("JPE");
+                 formats.add("JFF");
+                 formats.add(format);
+             }
              else{
                  formats.add(format);
              }
@@ -235,6 +248,26 @@ public class Image {
         inputFormats = formats.toArray(new String[formats.size()]);
         java.util.Collections.sort(java.util.Arrays.asList(inputFormats));
         return inputFormats;
+    }
+
+
+  //**************************************************************************
+  //** getSunCodec
+  //**************************************************************************
+  /** Attempts to load classes from the com.sun.image.codec.jpeg package used
+   *  to compress jpeg images. These classes are marked as deprecated in Java
+   *  1.7 and several distributions of Java no longer include these classes
+   *  (e.g.  "IcedTea" OpenJDK 7). Returns true of the classes are available.
+   */
+    private static boolean getSunCodec(){
+        try{
+            JPEGCodec = Class.forName("com.sun.image.codec.jpeg.JPEGCodec");
+            JPEGEncodeParam = Class.forName("com.sun.image.codec.jpeg.JPEGEncodeParam");
+            return true;
+        }
+        catch(Exception e){
+            return false;
+        }
     }
 
 
@@ -1177,11 +1210,10 @@ public class Image {
    *   creating JPEG images. Applied only when writing the image to a file or 
    *   byte array.
    */
-    
     public void setOutputQuality(double percentage){
         if (percentage>1&&percentage<=100) percentage=percentage/100;
         float q = (float) percentage;
-        if (q==1f) q = 1.2f;
+        if (q==1f && useSunCodec) q = 1.2f;
         if (q>=0f && q<=1.2f) outputQuality = q;
     }
 
@@ -1194,8 +1226,9 @@ public class Image {
     private boolean isJPEG(String FileExtension){
         FileExtension = FileExtension.trim().toLowerCase();
         if (FileExtension.equals("jpg") || 
-            FileExtension.equals("jpeg") || 
-            FileExtension.equals("jpe") ){
+            FileExtension.equals("jpeg") ||
+            FileExtension.equals("jpe") ||
+            FileExtension.equals("jff") ){
             return true;
         }
         return false;
@@ -1220,9 +1253,9 @@ public class Image {
     
     
   //**************************************************************************
-  //** getJPEG
+  //** getJPEGByteArray
   //**************************************************************************
-  /**  Used to create a JPEG compressed byte array. */
+  /** Returns a JPEG compressed byte array. */
     
     private byte[] getJPEGByteArray(float outputQuality) throws IOException {
         if (outputQuality>=0f && outputQuality<=1.2f) {
@@ -1238,13 +1271,63 @@ public class Image {
                 Graphics2D biContext = bi.createGraphics();
                 biContext.drawImage ( bufferedImage, 0, 0, null );
             }
+
+
+
+          //First we will try to compress the image using the com.sun.image.codec.jpeg
+          //package. These classes are marked as deprecated in JDK 1.7 and several
+          //users have reported problems with this method. Instead, we are
+          //supposed to use the JPEGImageWriteParam class. However, I have not
+          //been able to adequatly test the compression quality or find an
+          //anology to the setHorizontalSubsampling and setVerticalSubsampling
+          //methods. Therefore, we will attempt to compress the image using the
+          //com.sun.image.codec.jpeg package. If the compression fails, we will
+          //use the JPEGImageWriteParam.
+            if (useSunCodec){
+
+
+                try{
+
+                  //For Java 1.7 users, we will try to invoke the Sun JPEG Codec using reflection
+                    Object encoder = JPEGCodec.getMethod("createJPEGEncoder", java.io.OutputStream.class).invoke(JPEGCodec, bas);
+                    Object params = JPEGCodec.getMethod("getDefaultJPEGEncodeParam", BufferedImage.class).invoke(JPEGCodec, bi);
+                    params.getClass().getMethod("setQuality", float.class, boolean.class).invoke(params, outputQuality, true);
+                    params.getClass().getMethod("setHorizontalSubsampling", int.class, int.class).invoke(params, 0, 2);
+                    params.getClass().getMethod("setVerticalSubsampling", int.class, int.class).invoke(params, 0, 2);
+                    encoder.getClass().getMethod("encode", BufferedImage.class, JPEGEncodeParam).invoke(encoder, bi, params);
+
+
+                  //Here's the original compression code without reflection
+                    /*
+                    JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(bas);
+                    JPEGEncodeParam params = JPEGCodec.getDefaultJPEGEncodeParam(bi);
+                    params.setQuality(outputQuality, true); //true
+                    params.setHorizontalSubsampling(0,2);
+                    params.setVerticalSubsampling(0,2);
+                    encoder.encode(bi, params);
+                    */
+                }
+                catch(Exception e){
+                    bas.reset();
+                }
+            }
+
+
+          //If the com.sun.image.codec.jpeg package is not found or if the
+          //compression failed, we will use the JPEGImageWriteParam class.
+            if (bas.size()==0){
+
+                if (outputQuality>1f) outputQuality = 1f;
+
+                ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+                JPEGImageWriteParam params = (JPEGImageWriteParam) writer.getDefaultWriteParam();
+                params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                params.setCompressionQuality(outputQuality);
+                writer.setOutput(ImageIO.createImageOutputStream(bas));
+                writer.write(null, new IIOImage(bi, null, null), params);
+            }
+
             
-            JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(bas);
-            JPEGEncodeParam params = JPEGCodec.getDefaultJPEGEncodeParam(bi);
-            params.setQuality(outputQuality, true); //true
-            params.setHorizontalSubsampling(0,2);
-            params.setVerticalSubsampling(0,2);
-            encoder.encode(bi, params);
             bas.flush();
             return bas.toByteArray();
         }
