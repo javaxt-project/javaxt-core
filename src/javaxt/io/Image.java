@@ -471,6 +471,7 @@ public class Image {
             g2d.drawImage(img, x2, y2, null);
             img = in;
             g2d.drawImage(img, x, y, null);
+            g2d.dispose();
             bufferedImage = bi;
         }
         else{
@@ -935,17 +936,15 @@ public class Image {
         AffineTransformOp op = new AffineTransformOp(tx, AffineTransformOp.TYPE_BICUBIC);
         bufferedImage = op.filter(bufferedImage, out);
     }
-    
-    
 
     
   //**************************************************************************
   //** Crop
   //**************************************************************************
   /**  Used to subset or crop an image. */
-    
+
     public void crop(int x, int y, int width, int height){
-        bufferedImage = bufferedImage.getSubimage(x,y,width,height);
+        bufferedImage = getSubimage(x,y,width,height);
     }
 
 
@@ -965,7 +964,110 @@ public class Image {
   /** Returns a copy of a given rectangle. */
 
     public Image copyRect(int x, int y, int width, int height){
-        return new Image(bufferedImage.getSubimage(x,y,width,height));
+        return new Image(getSubimage(x,y,width,height));
+    }
+
+
+  //**************************************************************************
+  //** getSubimage
+  //**************************************************************************
+  /** Returns a copy of a given rectangle. */
+
+    private BufferedImage getSubimage(int x, int y, int width, int height){
+
+        Rectangle rect1 = new Rectangle(0, 0, bufferedImage.getWidth(), bufferedImage.getHeight());
+        Rectangle rect2 = new Rectangle(x, y, width, height);
+
+
+      //If the requested rectangle falls inside the image bounds, simply return
+      //the subimage
+        if (rect1.contains(rect2)){
+            return (bufferedImage.getSubimage(x,y,width,height));
+        }
+        else{ //requested rectangle falls outside the image bounds!
+
+
+
+          //Create buffered image
+            int imageType = bufferedImage.getType();
+            if (imageType == 0 || imageType == 12) {
+                imageType = BufferedImage.TYPE_INT_ARGB;
+            }
+            BufferedImage bi = new BufferedImage(width, height, imageType);
+
+
+          //If the requested rectangle intersects the image bounds, crop the
+          //the source image and insert it into the BufferedImage
+            if (rect1.intersects(rect2)){
+
+                Graphics2D g2d = bi.createGraphics();
+                BufferedImage subImage = null;
+                int X;
+                int Y;
+
+                if (x<0){
+                    int x1 = 0;
+                    int y1;
+                    int h;
+                    int w;
+
+                    if (y<0){
+                        y1 = 0;
+                        h = y+height;
+                        Y = height - h;
+                    }
+                    else{
+                        y1 = y;
+                        h = height;
+                        Y = 0;
+                    }
+
+                    if (h+y1>bufferedImage.getHeight()) h = bufferedImage.getHeight()-y1;
+
+                    w = x+width;
+                    if (w>bufferedImage.getWidth()) w = bufferedImage.getWidth();
+
+
+                    subImage = bufferedImage.getSubimage(x1,y1,w,h);
+
+                    X = width - w;
+                }
+                else{
+                    int x1 = x;
+                    int y1;
+                    int h;
+                    int w;
+
+                    if (y<0){
+                        y1 = 0;
+                        h = y+height;
+                        Y = height - h;
+                    }
+                    else{
+                        y1 = y;
+                        h = height;
+                        Y = 0;
+                    }
+
+                    if (h+y1>bufferedImage.getHeight()) h = bufferedImage.getHeight()-y1;
+
+                    w = width;
+                    if (w+x1>bufferedImage.getWidth()) w = bufferedImage.getWidth()-x1;
+
+                    X = 0;
+
+                    subImage = bufferedImage.getSubimage(x1,y1,w,h);
+                }
+
+
+                g2d.drawImage(subImage, X, Y, null);
+                g2d.dispose();
+
+            }
+
+            return bi;
+        }
+
     }
 
 
