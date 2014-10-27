@@ -961,7 +961,7 @@ public class Image {
   //**************************************************************************
   //** copyRect
   //**************************************************************************
-  /** Returns a copy of a given rectangle. */
+  /** Returns a copy of the image at a given rectangle. */
 
     public Image copyRect(int x, int y, int width, int height){
         return new Image(getSubimage(x,y,width,height));
@@ -971,8 +971,11 @@ public class Image {
   //**************************************************************************
   //** getSubimage
   //**************************************************************************
-  /** Returns a copy of a given rectangle. */
-
+  /** Returns a copy of the image at a given rectangle. In Java 1.6, the
+   *  BufferedImage.getSubimage() throws an exception if the rectangle falls
+   *  outside the image bounds. This method was written to overcome this
+   *  limitation.
+   */
     private BufferedImage getSubimage(int x, int y, int width, int height){
 
         Rectangle rect1 = new Rectangle(0, 0, bufferedImage.getWidth(), bufferedImage.getHeight());
@@ -985,7 +988,6 @@ public class Image {
             return (bufferedImage.getSubimage(x,y,width,height));
         }
         else{ //requested rectangle falls outside the image bounds!
-
 
 
           //Create buffered image
@@ -1067,7 +1069,6 @@ public class Image {
 
             return bi;
         }
-
     }
 
 
@@ -1194,22 +1195,10 @@ public class Image {
    *  the setOutputQuality method.
    */
     public byte[] getByteArray(){
-
-        /*
-        ImageInputStream InputStream = ImageIO.createImageInputStream(bufferedImage);
-        ByteArrayOutputStream bas = new ByteArrayOutputStream();
-        byte[] b = new byte[1024];
-        int x=0;
-        while((x=InputStream.read(b,0,1024))>-1) {
-            bas.write(b,0,x);
-        }
-        bas.close();
-        rgb = bas.toByteArray();
-        */
-
         return getByteArray("jpeg");
     }
-    
+
+
   //**************************************************************************
   //** getByteArray
   //**************************************************************************
