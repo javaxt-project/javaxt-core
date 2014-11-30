@@ -34,8 +34,9 @@ public class Request {
 
     private URLConnection conn = null;
     private Proxy HttpProxy;
-
     private java.net.URL url;
+    private int connectionTimeout = 0;
+    private int readTimeout = 0;
     private boolean useCache = false;
     private int maxRedirects = 5;
     private String username;
@@ -45,7 +46,7 @@ public class Request {
     private HashMap<String, List<String>> RequestProperties = new HashMap<String, List<String>>();
 
   //Http response properties
-    private java.util.Map headers = null;
+    private java.util.Map<String, List<String>> headers = null;
     private String protocol;
     private String version;
     private int responseCode;
@@ -75,6 +76,19 @@ public class Request {
     private boolean validateCertificates = false;
 
 
+    public Request clone(){
+        Request request = new Request(url);
+        request.HttpProxy = HttpProxy;
+        request.connectionTimeout = connectionTimeout;
+        request.readTimeout = readTimeout;
+        request.useCache = useCache;
+        request.maxRedirects = maxRedirects;
+        request.username = username;
+        request.password = password;
+        request.requestHeaders = requestHeaders;
+        request.RequestProperties = RequestProperties;
+        return request;
+    }
 
   //**************************************************************************
   //** Constructor
@@ -246,6 +260,53 @@ public class Request {
 
 
   //**************************************************************************
+  //** setConnectTimeout
+  //**************************************************************************
+  /**
+   */
+    public void setConnectTimeout(int timeout){
+        if (timeout>0) connectionTimeout = timeout;
+    }
+
+
+  //**************************************************************************
+  //** setReadTimeout
+  //**************************************************************************
+  /**
+   */
+    public void setReadTimeout(int timeout){
+        if (readTimeout>0) readTimeout = timeout;
+    }
+
+
+  //**************************************************************************
+  //** ConnectTimeout
+  //**************************************************************************
+  /** Thread used to enforce the connectionTimeout property.
+   */
+    private class ConnectTimeout implements Runnable {
+
+        HttpURLConnection con;
+        public ConnectTimeout(URLConnection con) {
+            this.con = (HttpURLConnection) con;
+        }
+
+        public void run() {
+            try {
+                Thread.sleep(connectionTimeout);
+            } catch (InterruptedException e) {
+
+            }
+
+            if (responseCode==-1){
+                con.disconnect();
+                //System.out.println("** Timer thread forcing to quit connection");
+            }
+        }
+    }
+
+
+  //**************************************************************************
   //** write
   //**************************************************************************
   /**  Used to open an HTTP connection to the URL and POST data to the server.
@@ -294,6 +355,7 @@ public class Request {
    *   @param payload Byte array containing the body of the HTTP request.
    */
     public void write(byte[] payload) {
+        setHeader("Content-Length", payload.length + "");
         if (conn==null) conn = getConnection(true);
 
         try{
@@ -406,6 +468,17 @@ public class Request {
     }
 
 
+    public List<String> getHeader(String key){
+        java.util.Iterator<String> it = RequestProperties.keySet().iterator();
+        while (it.hasNext()){
+            String currKey = it.next();
+            if (key.equalsIgnoreCase(currKey)){
+                return RequestProperties.get(currKey);
+            }
+        }
+        return null;
+    }
+
   //**************************************************************************
   //** setHeader
   //**************************************************************************
@@ -517,6 +590,19 @@ public class Request {
             else{
                 conn = url.openConnection(HttpProxy);
             }
+
+
+          //Set timeouts
+            if (connectionTimeout>0){
+                new Thread(new ConnectTimeout(conn)).start();
+                conn.setConnectTimeout(connectionTimeout);
+            }
+
+            if (readTimeout>0){
+                //new Thread(new ReadTimeout(conn)).start();
+                conn.setReadTimeout(readTimeout);
+            }
+
 
 
           //Disable HTTP redirects
@@ -798,25 +884,27 @@ public class Request {
         if (headers==null) return new String[0];
 
       //Iterate through the headers and find the matching header
-        java.util.List values = new java.util.LinkedList();
-        java.util.Iterator it = headers.keySet().iterator();
+        java.util.ArrayList<String> values = new java.util.ArrayList<String>();
+        java.util.Iterator<String> it = headers.keySet().iterator();
         while(it.hasNext()){
-            String key = (String) it.next();
+            String key = it.next();
             if (key!=null){
                 if (key.equalsIgnoreCase(headerName)){
-                    values = (java.util.List) headers.get(key);
+
+                    java.util.List<String> list = headers.get(key);
+                    java.util.Iterator<String> val = list.iterator();
+                    while (val.hasNext()){
+                        values.add(val.next());
+                    }
+
                 }
             }
         }
 
       //Convert the list into a string array
-        String[] arr = new String[values.size()];
-        for (int i=0; i<values.size(); i++){
-            arr[i] = (String) values.get(i);
-        }
-        return arr;
-
+        return values.toArray(new String[values.size()]);
     }
+    
 
     protected String getResponseHeader(String headerName){
         String[] arr = getResponseHeaders(headerName);
@@ -826,16 +914,30 @@ public class Request {
 
 
   //**************************************************************************
+  //** getProxy
+  //**************************************************************************
+  /** Returns the http proxy address.
+   */
+    public String getProxy(){
+        if (HttpProxy==null) return null;
+        InetSocketAddress sa = (InetSocketAddress) HttpProxy.address();
+        String proxy = sa.toString();
+        if (proxy.startsWith("/") && proxy.length()>1){
+            proxy = proxy.substring(1);
+        }
+        return proxy;
+    }
+
+
+  //**************************************************************************
   //** setProxy
   //**************************************************************************
   /** Used to set the http proxy.
    */
     public Proxy setProxy(String proxyHost, int proxyPort){
-        //if (isProxyAvailable(proxyHost,proxyPort)==true) {
-            SocketAddress proxyAddr = new InetSocketAddress(proxyHost, proxyPort);
-            HttpProxy = new Proxy(Proxy.Type.HTTP, proxyAddr);
-            return HttpProxy;
-        //}
+        SocketAddress proxyAddr = InetSocketAddress.createUnresolved(proxyHost, proxyPort); //new InetSocketAddress(proxyHost, proxyPort);
+        HttpProxy = new Proxy(Proxy.Type.HTTP, proxyAddr);
+        return HttpProxy;
     }
 
 
