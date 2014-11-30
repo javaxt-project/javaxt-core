@@ -406,6 +406,58 @@ public class Image {
 
 
   //**************************************************************************
+  //** getHistogram
+  //**************************************************************************
+  /** Returns an array with 4 histograms: red, green, blue, and average
+    <pre>
+        ArrayList<int[]> histogram = image.getHistogram();
+        int[] red = histogram.get(0);
+        int[] green = histogram.get(1);
+        int[] blue = histogram.get(2);
+        int[] average = histogram.get(3);
+    </pre>
+   */
+    public java.util.ArrayList<int[]> getHistogram(){
+
+      //Create empty histograms
+        int[] red = new int[256];
+        int[] green = new int[256];
+        int[] blue = new int[256];
+        int[] average = new int[256];
+
+        for (int i=0; i<red.length; i++) red[i] = 0;
+        for (int i=0; i<green.length; i++) green[i] = 0;
+        for (int i=0; i<blue.length; i++) blue[i] = 0;
+        for (int i=0; i<average.length; i++) average[i] = 0;
+        
+
+      //Populate the histograms
+        for (int i=0; i<this.getWidth(); i++){
+            for (int j=0; j<this.getHeight(); j++){
+                Color color = this.getColor(i, j);
+                int r = color.getRed();
+                int g = color.getGreen();
+                int b = color.getBlue();
+
+                red[r] = red[r]+1;
+                green[g] = green[g]+1;
+                blue[b] = blue[r]+1;
+
+                int avg = Math.round((r+g+b)/3);
+                average[avg] = average[avg]+1;
+            }
+        }
+
+        java.util.ArrayList<int[]> hist = new java.util.ArrayList<int[]>();
+        hist.add(red);
+        hist.add(green);
+        hist.add(blue);
+        hist.add(average);
+        return hist;
+    }
+
+
+  //**************************************************************************
   //** addImage
   //**************************************************************************
   /**  Used to add an image "overlay" to the existing image at a given 
