@@ -5,23 +5,25 @@ import java.util.concurrent.ConcurrentHashMap;
 //**  Directory Class - By Peter Borissow
 //******************************************************************************
 /**
- *   Used to represent a directory on a file system. In many ways, this class 
- *   is an extension of the java.io.File class. However, unlike the java.io.File 
- *   class, this object provides functions that are relevant and specific to
- *   directories. For example, this class provides a mechanism to move and copy
- *   directories - something not offered by the java.io.File class. In addition,
- *   this class provides a mechanism to retrieve files and folders found in a
- *   directory AND any subdirectories. This is accomplished via a multi-threaded
- *   recursive search. Finally, this class provides a powerful tool to monitor
- *   changes made to the directory (e.g. getEvents).
+ *  Used to represent a directory on a file system. In many ways, this class 
+ *  is an extension of the java.io.File class. However, unlike the java.io.File 
+ *  class, this object provides functions that are relevant and specific to
+ *  directories. For example, this class provides a mechanism to move and copy
+ *  directories - something not offered by the java.io.File class. In addition,
+ *  this class provides a mechanism to retrieve files and folders found in a
+ *  directory AND any subdirectories. This is accomplished via a multi-threaded
+ *  recursive search. Finally, this class provides a powerful tool to monitor
+ *  changes made to the directory (e.g. getEvents).
  *
  ******************************************************************************/
 
 public class Directory implements Comparable {
     
+    private java.io.File file; //<--DO NOT USE DIRECTLY! Use getFile() instead.
+    private String name = "";
+    private String path = "";
 
-    private java.io.File Directory;
-    private boolean useCache = false;
+    //private boolean useCache = false;
     private static List events = new LinkedList();
     private FileSystemWatcher FileSystemWatcher;
     private File.FileAttributes attr;
@@ -31,36 +33,93 @@ public class Directory implements Comparable {
 
     
   //**************************************************************************
-  //** Constructors
+  //** Constructor
   //**************************************************************************   
   /** Creates a new instance of Directory using a path to a directory. */
     
     public Directory(String Path) {
 
+	if (Path==null) throw new NullPointerException();
+        
         if (Path.startsWith("\"") && Path.endsWith("\"")){
             Path = Path.substring(1,Path.length()-1);
         }
-        Directory = new java.io.File(Path);
-        if (Directory.exists() && Directory.isDirectory()==false){
-            Directory = Directory.getParentFile();
-        }
+
+        init(Path);
     }
-    
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
   /** Creates a new instance of Directory using a java.io.File */
+
     public Directory(java.io.File File) {
-        Directory = File;
-        if (Directory.exists() && Directory.isDirectory()==false){
-            Directory = Directory.getParentFile();
+        init(File);
+    }
+
+
+  //**************************************************************************
+  //** init
+  //**************************************************************************
+
+    private void init(java.io.File File){
+
+	if (File==null) throw new NullPointerException();
+
+        if (File.exists() && !File.isDirectory()){
+            File = File.getParentFile();
         }
+
+        attr = null;
+        this.file = File;
+        init(file.getAbsolutePath());
+    }
+
+
+  //**************************************************************************
+  //** init
+  //**************************************************************************
+  /** Used to parse the absolute path to the directory. For performance reasons,
+   *  we do not rely on the java.io.File to determine the path and name
+   *  variables.
+   */
+    private void init(String Path){
+        Path = Path.replace("\\", "/");
+        String[] arr = Path.split("/");
+        if (arr.length>1){
+            name = arr[arr.length-1];
+            path = Path.substring(0, Path.lastIndexOf(name));
+        }
+        else{
+            path = Path;
+        }
+
+        if (path.isEmpty()) path = PathSeparator;
+        else path = path.replace("/", PathSeparator);
+
+        if (!path.endsWith(PathSeparator)) path += PathSeparator;
+    }
+
+
+  //**************************************************************************
+  //** getFile
+  //**************************************************************************
+  /**  Returns the java.io.File representation of this object. */
+
+    private java.io.File getFile(){
+        if (file==null) file = new java.io.File(path + name);
+        return file;
     }
 
 
   //**************************************************************************
   //** getRootDirectories
   //**************************************************************************
-  /** Returns an array of Directories that correspond to the available
-   *  filesystem roots. The array will be empty if there are no filesystem
-   *  roots or if the set of roots could not be determined.
+  /** Returns an array of root directories on the filesystem (e.g. "/" or C:\").
+   *  On Windows, this method will return all mounted drives, including any
+   *  that might have been disconnected. The array will be empty if there are
+   *  no root directories or if the set of roots could not be determined.
    */
     public static Directory[] getRootDirectories(){
 
@@ -129,11 +188,11 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** Exists
   //**************************************************************************
-  /**  Used to determine whether a directory exists on the file system */
+  /** Used to determine whether a directory exists on the file system. */
     
     public boolean exists(){
 
-        String path = Directory.toString();
+        String path = this.path + name;
         
       //Special case for a directory whose path represents a server name (e.g. "\\192.168.0.1")
         if (isWindows && path.startsWith("\\\\")){
@@ -174,17 +233,30 @@ public class Directory implements Comparable {
             }
         }
 
-        return Directory.exists();
+        return getFile().exists();
     }
-    
-    
+
+
+  //**************************************************************************
+  //** isEmpty
+  //**************************************************************************
+  /** Used to determine whether the directory is empty. Returns true if no
+   *  files or directories are present in the current directory.
+   */
+    public boolean isEmpty(){
+        if (!exists()) return true;
+        Object[] files = listFiles(null);
+        return (files==null);
+    }
+
+
   //**************************************************************************
   //** Create Directory
   //**************************************************************************
   /**  Used to create the directory. */
     
     public boolean create(){
-        return Directory.mkdirs();
+        return getFile().mkdirs();
     }
     
     
@@ -194,37 +266,103 @@ public class Directory implements Comparable {
   /**  Used to delete the directory. */
     
     public boolean delete(){
-        return Directory.delete();
+        if (getFile().delete()){
+            attr = null;
+            return true;
+        }
+        else{
+            return false;
+        }
     }
 
 
   //**************************************************************************
   //** Copy To
   //**************************************************************************
-  /** Used to copy a directory to another directory. Returns a list of any 
-   *  files that failed to copy.
+  /** Used to copy a directory to another directory. Preserves the last modified 
+   *  date associated with the source files and directories. Returns a list of
+   *  any files that failed to copy.
    */
     public String[] copyTo(Directory Destination, boolean Overwrite){
+        return copyTo(Destination, null, Overwrite);
+    }
+
+
+  //**************************************************************************
+  //** Copy To
+  //**************************************************************************
+  /** Used to copy a directory to another directory. Provides a filter option 
+   *  to copy specific files (e.g. "*.jpg"). Preserves the last modified date
+   *  associated with the source files and directories. Returns a list of any
+   *  files that failed to copy.
+   *
+   *  @param filter A file filter. You can pass in a java.io.FileFilter, a
+   *  String (e.g. "*.txt"), or an array of Strings (e.g. String[]{"*.txt", "*.doc"}).
+   *  Wildcard filters are supported. Note that the filter is only applied to
+   *  files, not directories.
+   *
+   *  @param Overwrite If true, overwrites any existing files/directories
+   */
+    public String[] copyTo(Directory Destination, Object filter, boolean Overwrite){
 
         int source = toString().length();
         String destination = Destination.toString();
+        java.util.ArrayList<String> failures = new java.util.ArrayList<String>();
+
 
       //Create new folder
         if (!Destination.exists()) Destination.create();
-        
-      //Create subdirectories
-        for (Directory dir : getSubDirectories(true)){
-             new Directory(destination + dir.toString().substring(source)).create();
-        }
-        
-      //Copy files
-        java.util.ArrayList<String> failures = new java.util.ArrayList<String>();
-        for (File file : getFiles(true)){
-             String FilePath = file.toString();
-             File out = new File(destination + FilePath.substring(source));
-             
-             boolean result = file.copyTo(out,Overwrite);
-             if (result==false) failures.add(FilePath);
+
+
+
+      //Initiate search
+        java.util.List results = this.getChildren(true, filter, false);
+        while (true){
+
+            Object item;
+            synchronized (results) {
+
+
+              //Wait for files/directories to be added to the list
+                while (results.isEmpty()) {
+                    try {
+                        results.wait();
+                    }
+                    catch (InterruptedException e) {
+                        break;
+                    }
+                }
+
+              //Grab the next available file/directory from the list. Note that
+              //we are INSIDE the synchronized block! This forces the directory
+              //search to insert only one record at a time. The primary motivation
+              //for this is to ensure that we don't run out of memory when
+              //copying a large number of files/directories.
+                item = results.get(0);
+                if (item!=null){
+
+                    if (item instanceof javaxt.io.File){
+
+                        javaxt.io.File file = (javaxt.io.File) item;
+                        String FilePath = file.toString();
+                        File out = new File(destination + FilePath.substring(source));
+    
+                        boolean success = file.copyTo(out, Overwrite);
+                        if (!success) failures.add(FilePath);
+                    }
+                    else{
+                        javaxt.io.Directory dir = (javaxt.io.Directory) item;
+                        new Directory(destination + dir.toString().substring(source)).create();
+                    }
+
+                }
+                else{
+                    break;
+                }
+
+                results.remove(0);
+                results.notifyAll();
+            }
         }
         
       //Return list of failed copies
@@ -238,16 +376,14 @@ public class Directory implements Comparable {
   /**  Used to move a directory from one directory to another. */
     
     public void moveTo(Directory Destination, boolean Overwrite){
-        if (Overwrite){
-            Directory.renameTo(Destination.toFile());
-        }
-        else{
-            if (Destination.exists()==false){
-                Directory.renameTo(Destination.toFile());
+        if (Overwrite || !Destination.exists()){
+            java.io.File newFile = Destination.toFile();
+            if (getFile().renameTo(newFile)){
+                init(newFile);
             }
         }
     }
-    
+
     
   //**************************************************************************
   //** Rename
@@ -255,30 +391,34 @@ public class Directory implements Comparable {
   /**  Used to rename the directory. */
     
     public void rename(String Name){
-        String path = this.getParentDirectory().getPath() + Name;
-        Directory.renameTo(new java.io.File(path));
+        java.io.File newFile = new java.io.File(path + Name);
+        if (getFile().renameTo(newFile)){
+            init(newFile);
+        }
     }
     
     
   //**************************************************************************
   //** getName
   //**************************************************************************
-  /**  Returns the name of the directory (excludes path). */
+  /**  Returns the name of the directory (excluding the path). */
     
     public String getName(){
-        return Directory.getName(); 
+        return name;
     }
     
     
   //**************************************************************************
   //** getPath
   //**************************************************************************
-  /** Returns the full path to this directory, including the directory name.*/
-    
+  /** Returns the full path to this directory, including the directory name.
+   *  The path includes a system-dependent default name-separator 
+   *  character at the end of the string (e.g. "/" or "\").
+   */
     public String getPath(){
-       String path = Directory.getAbsolutePath();
-       if (path.endsWith(Directory.separator)) return path;
-       else return path + Directory.separator;
+       String path = this.path + name;
+       if (path.endsWith(PathSeparator)) return path;
+       else return path + PathSeparator;
     }
     
     
@@ -289,7 +429,14 @@ public class Directory implements Comparable {
    *  identical to the getLastModifiedTime() method.
    */
     public java.util.Date getDate(){
-        return new javaxt.utils.Date(Directory.lastModified()).getDate();
+        if (file!=null && file.exists()) return new java.util.Date(file.lastModified());
+        File.FileAttributes attr = getFileAttributes();
+        if (attr!=null) return attr.getLastWriteTime();
+        else{
+            java.io.File file = getFile();
+            if (file.exists()) return new java.util.Date(file.lastModified());
+        }
+        return null;
     }
 
 
@@ -298,9 +445,18 @@ public class Directory implements Comparable {
   //**************************************************************************
   /**  Used to set the timestamp of when the directory was last modified.
    */
-    public void setDate(java.util.Date lastModified){
-        long t = lastModified.getTime();
-        if (Directory.lastModified()!=t) Directory.setLastModified(t);
+    public boolean setDate(java.util.Date lastModified){
+        if (lastModified!=null){
+            java.io.File file = getFile();
+            if (file.exists() && file.isDirectory()){
+                long t = lastModified.getTime();
+                if (getDate().getTime()!=t){
+                    attr = null;
+                    return getFile().setLastModified(t);
+                }
+            }
+        }
+        return false;
     }
 
 
@@ -310,7 +466,7 @@ public class Directory implements Comparable {
   /**  Used to retrieve the size of the directory, in bytes. */
     
     public long getSize(){
-        return Directory.length();
+        return getFile().length();
     }
     
   //**************************************************************************
@@ -319,7 +475,7 @@ public class Directory implements Comparable {
   /**  Used to determine whether this Directory is Hidden */
     
     public boolean isHidden(){
-        return Directory.isHidden();
+        return getFile().isHidden();
     }
 
   //**************************************************************************
@@ -439,11 +595,11 @@ public class Directory implements Comparable {
    *  parent directory.
    */
     public Directory getParentDirectory(){
-        if (Directory.getParentFile() != null){
-            return new Directory(Directory.getParentFile());
+        if (name.isEmpty()){
+            return null;
         }
         else{
-            return null;
+            return new Directory(path);
         }
     }
 
@@ -454,7 +610,7 @@ public class Directory implements Comparable {
   /**  Used to retrieve the java.io.File representation by this object. */
 
     public java.io.File toFile(){
-        return Directory;
+        return getFile();
     }
 
 
@@ -472,7 +628,7 @@ public class Directory implements Comparable {
    */    
     public File[] getFiles(Object filter){
 
-        if (Directory.exists()){
+        if (this.exists()){
 
             FileFilter fileFilter = new FileFilter(filter);
             Object[] files = listFiles(fileFilter);
@@ -540,7 +696,7 @@ public class Directory implements Comparable {
    */    
     public File[] getFiles(Object filter, boolean RecursiveSearch){        
 
-        if (Directory.exists()){
+        if (this.exists()){
             if (RecursiveSearch){
 
               //Get list of all the files and folders in the directory
@@ -816,49 +972,46 @@ public class Directory implements Comparable {
                 List items = new LinkedList();
 
 
-                if (useCache==false){
-                    DirectorySearch.deleteCache();
-
-                  //Create a file filter
-                    FileFilter fileFilter = new FileFilter(filter);
+              //Create a file filter
+                FileFilter fileFilter = new FileFilter(filter);
 
 
-                  //Spawn threads used to crawl through the file system
-                    long directoryID = Long.valueOf(java.util.Calendar.getInstance().getTimeInMillis() + "" + new Random().nextInt(100000)).longValue();
-                    int numThreads = 20; //<-- this should be set dynamically and self tuning
-                    DirectorySearch search = new DirectorySearch(fileFilter, items, directoryID, numThreads);
-                    for (int i=0; i<numThreads; i++) {
-                         Thread t = new Thread(search);
-                         t.setName("DirectorySearch_" + directoryID + "-" + i);
-                         t.start();
-                    }
-
-
-                  //Initiate search
-                    DirectorySearch.updatePool(this);
-
-                    if (wait){
-
-                        synchronized (items) {
-                            while (!items.contains(null)) {
-                              try {
-                                  items.wait();
-                              }
-                              catch (InterruptedException e) {
-                                  DirectorySearch.stop();
-                                  Thread.currentThread().interrupt();
-                                  return items;
-                              }
-                            }
-
-                            items.remove(null);
-                            items.notifyAll();
-                        }
-                        
-                        Collections.sort(items, new FileComparer(this));
-                    }
-
+              //Spawn threads used to crawl through the file system
+                long directoryID = Long.valueOf(java.util.Calendar.getInstance().getTimeInMillis() + "" + new Random().nextInt(100000)).longValue();
+                int numThreads = 20; //<-- this should be set dynamically and self tuning
+                DirectorySearch.deleteCache();
+                DirectorySearch search = new DirectorySearch(fileFilter, items, directoryID, numThreads);
+                for (int i=0; i<numThreads; i++) {
+                     Thread t = new Thread(search);
+                     t.setName("DirectorySearch_" + directoryID + "-" + i);
+                     t.start();
                 }
+
+
+              //Initiate search
+                DirectorySearch.updatePool(this);
+
+                if (wait){
+
+                    synchronized (items) {
+                        while (!items.contains(null)) {
+                          try {
+                              items.wait();
+                          }
+                          catch (InterruptedException e) {
+                              DirectorySearch.stop();
+                              Thread.currentThread().interrupt();
+                              return items;
+                          }
+                        }
+
+                        items.remove(null);
+                        items.notifyAll();
+                    }
+
+                    Collections.sort(items, new FileComparer(this));
+                }
+
                 
               //Return list
                 return items;
@@ -1048,7 +1201,7 @@ public class Directory implements Comparable {
         else fileFilter = new FileFilter(filter);
 
 
-        String path = Directory.toString();
+        String path = this.path + name;
         
 
       //Get a list of shared drives on a windows server (e.g. "\\192.168.0.80")
@@ -1110,7 +1263,7 @@ public class Directory implements Comparable {
         }
         else { //UNIX
             
-            java.io.File[] fs = Directory.listFiles();
+            java.io.File[] fs = getFile().listFiles();
             if (fs!=null){
             
                 for (int i=0; i<fs.length; i++){
@@ -1391,18 +1544,6 @@ public class Directory implements Comparable {
             return false;
         }
     }
-
-    
-    
-  //**************************************************************************
-  //** useCache
-  //**************************************************************************
-  /**  Used to specify whether to cache results from a directory search. 
-   *  @deprecated This method is no longer reliable and should not be used.
-   */
-    public void useCache(boolean useCache){
-        this.useCache = useCache;
-    }
     
 
     @Override
@@ -1418,7 +1559,7 @@ public class Directory implements Comparable {
 
     @Override
     public int hashCode(){
-        return this.Directory.hashCode();
+        return getFile().hashCode();
     }
 
     //@Override
@@ -1435,11 +1576,11 @@ public class Directory implements Comparable {
   
     public boolean equals(Object obj){
         if (obj instanceof Directory){
-            return Directory.equals(((Directory) obj).toFile());
+            return getFile().equals(((Directory) obj).toFile());
         }
         else if (obj instanceof java.io.File){
             if (((java.io.File) obj).isDirectory()) 
-                return Directory.equals(obj);
+                return getFile().equals(obj);
             else
                 return false;
         }
