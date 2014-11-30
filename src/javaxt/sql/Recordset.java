@@ -372,11 +372,13 @@ public class Recordset {
     public void close(){
         if (State==1){
             try{
+                executeBatch();
                 rs.close();
                 stmt.close();
                 State = 0;
             }
             catch(java.sql.SQLException e){
+                e.printStackTrace();
             }
         }
 
@@ -482,13 +484,15 @@ public class Recordset {
             }
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** Update
   //**************************************************************************  
-  /** Used to add or update a record in the recordset. */
-
+  /** Used to add or update a record in the recordset. Note that when
+   *  performing batch inserts, the update statements are queued and executed 
+   *  only after the batch size is reached.
+   */
     public void update() throws java.sql.SQLException {
         if (isReadOnly) throw new java.sql.SQLException("Read only!");
         if (State==1){
@@ -702,8 +706,24 @@ public class Recordset {
                         }
                     }
 
+
+                  //Get prepared statement
+                    java.sql.PreparedStatement stmt;
+                    if (batchSize>1){
+                        if (batchedStatements==null) batchedStatements = new java.util.HashMap<String, java.sql.PreparedStatement>();
+                        stmt = batchedStatements.get(sql.toString());
+                        if (stmt==null){
+                            stmt = Conn.prepareStatement(sql.toString());
+                            batchedStatements.put(sql.toString(), stmt);
+                            Conn.setAutoCommit(false);
+                        }
+                    }
+                    else{
+                        stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                    }
+
+
                   //Set values using a prepared statement
-                    java.sql.PreparedStatement stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
                     int id = 1;
                     for (int i=0; i<fields.size(); i++) {
 
@@ -760,20 +780,30 @@ public class Recordset {
                         id++;
                         
                     }
-                    stmt.executeUpdate();
+
+                    if (batchSize==1){
+                        stmt.executeUpdate();
 
 
 
-                    if (InsertOnUpdate){
-                        java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                        if (generatedKeys.next()) {
-                            this.GeneratedKey = new Value(generatedKeys.getString(1));
+                        if (InsertOnUpdate){
+                            java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                            if (generatedKeys.next()) {
+                                this.GeneratedKey = new Value(generatedKeys.getString(1));
+                            }
+                            InsertOnUpdate = false;
                         }
-                        InsertOnUpdate = false;
+
+                    }
+                    else{
+                        stmt.addBatch();
+                        numBatches++;
+                        
+                        if (numBatches==batchSize){
+                            executeBatch();
+                        }
                     }
 
-
-                    //stmt.close();
                 }
             }
             catch(java.sql.SQLException e){
@@ -781,6 +811,53 @@ public class Recordset {
             }
         }
     }
+
+
+    private int numBatches=0;
+    private int batchSize=1;
+    private java.util.HashMap<String, java.sql.PreparedStatement> batchedStatements;
+
+
+  //**************************************************************************
+  //** setBatchSize
+  //**************************************************************************
+  /** Used to set the number of records to insert in a batch. By default, this
+   *  value is set to 1 so that records are inserted one at a time. By setting
+   *  a larger number, more records are inserted at a time which can
+   *  significantly improve performance.
+   */
+    public void setBatchSize(int batchSize){
+        if (batchSize>0) this.batchSize = batchSize;
+    }
+
+    
+    public int getBatchSize(){
+        return batchSize;
+    }
+
+
+  //**************************************************************************
+  //** executeBatch
+  //**************************************************************************
+  /** Returns the total number of rows that were updated.
+   */
+    private int executeBatch() throws java.sql.SQLException{
+        if (batchedStatements==null) return 0;
+        int ttl = 0;
+        java.util.Iterator<String> it = batchedStatements.keySet().iterator();
+        while (it.hasNext()){
+            java.sql.PreparedStatement stmt = batchedStatements.get(it.next());
+
+            int[] rowsUpdated = stmt.executeBatch();
+            if (rowsUpdated.length>0) ttl+=rowsUpdated.length;
+            
+            Conn.commit();
+        }
+        batchedStatements.clear();
+        numBatches = 0;
+        return ttl;
+    }
+
 
   //**************************************************************************
   //** getGeneratedKey

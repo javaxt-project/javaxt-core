@@ -237,7 +237,12 @@ private class PoolConnectionEventListener implements ConnectionEventListener {
 * has not yet been called.
 * @return the number of active connections.
 **/
-public synchronized int getActiveConnections() {
-   return activeConnections; }
+    public synchronized int getActiveConnections() {
+       return activeConnections;
+    }
 
-} // end class MiniConnectionPoolManager
+    public int getMaxConnections(){
+        return maxConnections;
+    }
+
+} 
