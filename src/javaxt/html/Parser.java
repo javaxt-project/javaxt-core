@@ -32,9 +32,13 @@ public class Parser {
     }
 
 
+  //**************************************************************************
+  //** getAbsolutePath
+  //**************************************************************************
+
     public String getAbsolutePath(String RelPath, String url){
         
-      //Check whether RelPath is actually a relative
+      //Check whether RelPath is actually relative
         try{
             new java.net.URL(RelPath);
             return RelPath;
@@ -108,88 +112,6 @@ public class Parser {
         return null;
     }
 
-    
-  //**************************************************************************
-  //** getElementByAttributes
-  //**************************************************************************
-  /** Returns the first HTML Element found in the HTML document with given tag
-   *  name and attribute. Returns null if an element was not found.
-   */
-    public Element getElementByAttributes(String tagName, String attributeName, String attributeValue){
-        
-        String s = html + " ";
-        String c = "";
-        
-        boolean concat = false;
-        int absStart = 0;
-        int absEnd = 0;
-        int numStartTags = 0;
-        int numEndTags = 0;
-         
-         
-        int outerStart = 0;
-        int outerEnd = 0;
-
-         
-         
-        String tag = "";
-        Element Element = null;
-
-        for (int i = 0; i < s.length(); i++){
-              
-            c = s.substring(i,i+1); 
-              
-              
-            if (c.equals("<")){       
-                concat = true;
-                absEnd = i;
-            }
-              
-              
-            if (concat==true){
-                tag += c;
-            } 
-              
-              
-            if (c.equals(">") && concat==true){    
-                concat = false;
-                Element Tag = new Element(tag);
-
-
-                if (Element==null){
-                    if (Tag.getName().equalsIgnoreCase(tagName) && Tag.isStartTag){
-                        if (Tag.getAttributeValue(attributeName).equalsIgnoreCase(attributeValue)){
-
-                            absStart = i+1;
-                            Element = Tag;
-                            outerStart = absStart - tag.length();
-                         }
-                    }
-                }               
-                else { //Find End Tag
-
-                    if (Tag.getName().equalsIgnoreCase(tagName)){
-                        if (Tag.isStartTag == true) numStartTags +=1;
-                        if (Tag.isStartTag == false) numEndTags +=1;
-                    }
-                      
-                    if (numEndTags>=numStartTags){ 
-                        Element.innerHTML = html.substring(absStart,absEnd);
-                        outerEnd = i+1;
-                        Element.outerHTML = html.substring(outerStart,outerEnd);
-                        return Element;
-                    }
-                 }
-                 
-                 
-               //Clear tag variable for the next pass
-                 tag = "";
-
-             }
-        }
-        return null;
-    }
-
 
   //**************************************************************************
   //** getElementByTagName
@@ -212,6 +134,29 @@ public class Parser {
     }
 
 
+
+  //**************************************************************************
+  //** getElementByTagName
+  //**************************************************************************
+  /** Returns an array of HTML Elements found in the HTML document with given
+   *  tag name.
+   */
+    public Element[] getElements(String tagName, String attributeName, String attributeValue){
+        String orgHTML = html;
+        java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
+        Element e = getElementByAttributes(tagName, attributeName, attributeValue);
+        while (e!=null){
+            elements.add(e);
+            html = html.replace(e.outerHTML, "");
+            e = getElementByTagName(tagName);
+        }
+
+        html = orgHTML;
+        return elements.toArray(new Element[elements.size()]);
+    }
+
+
+
   //**************************************************************************
   //** getElementByTagName
   //**************************************************************************
@@ -219,146 +164,150 @@ public class Parser {
    *  name. Returns null if an element was not found.
    */
     public Element getElementByTagName(String tagName){
-        String s = html + " ";
-        String c = "";
-         
-        boolean concat = false;
-        int absStart = 0;
-        int absEnd = 0;
-        int numStartTags = 0;
-        int numEndTags = 0;
-         
-        int outerStart = 0;
-        int outerEnd = 0;
-
-        String tag = "";
-        Element Element = null;
-                 
-        for (int i = 0; i < s.length(); i++){
-              
-            c = s.substring(i,i+1); 
-              
-              
-            if (c.equals("<")){       
-                concat = true;
-                absEnd = i;
-            }
-              
-              
-            if (concat==true){
-                tag += c;
-            } 
-              
-            
-            if (c.equals(">") && concat==true){    
-                concat = false;
-                Element Tag = new Element(tag);
-
-                if (Element==null){
-                    if (Tag.getName().equalsIgnoreCase(tagName) && Tag.isStartTag){
-
-                        absStart = i+1;
-                        Element = Tag;
-                        outerStart = absStart - tag.length();
-                    }
-                }
-                else { //Find End Tag
-                  
-                    if (Tag.getName().equalsIgnoreCase(tagName)){
-                        if (Tag.isStartTag == true) numStartTags +=1;
-                        if (Tag.isStartTag == false) numEndTags +=1;
-                    }
-                      
-                    if (numEndTags>=numStartTags){ 
-                        Element.innerHTML = html.substring(absStart,absEnd);
-                        outerEnd = i+1;
-                        Element.outerHTML = html.substring(outerStart,outerEnd);
-                        return Element;
-                    }
-                }
-
-                 
-               //Clear tag variable for the next pass
-                 tag = "";
-             }
-
-              
-        }
-        return null;
+        return getElementByAttributes(tagName, null, null);
     }
 
 
   //**************************************************************************
   //** getElementByID
   //**************************************************************************
-  /**  Used to extract an html "element" from a larger html document */
-    
+  /** Returns an HTML Element with a given id. Returns null if the element was 
+   *  not found.
+   */
     public Element getElementByID(String id){
+        return getElementByAttributes(null, "id", id);
+    }
+
+
+  //**************************************************************************
+  //** getElementByAttributes
+  //**************************************************************************
+  /** Returns the first HTML Element found in the HTML document with given tag
+   *  name and attribute. Returns null if an element was not found.
+   */
+    public Element getElementByAttributes(String tagName, String attributeName, String attributeValue){
         String s = html + " ";
         String c = "";
-         
-
+        
         boolean concat = false;
         int absStart = 0;
         int absEnd = 0;
         int numStartTags = 0;
         int numEndTags = 0;
          
-         
         int outerStart = 0;
         int outerEnd = 0;
 
-         
-        String tag = "";
+        StringBuffer tag = new StringBuffer();
         Element Element = null;
+
+        boolean insideQuote = false;
+        boolean insideComment = false;
                  
         for (int i = 0; i < s.length(); i++){
-              
+
             c = s.substring(i,i+1); 
-              
-              
-            if (c.equals("<")){       
+
+
+          //If we find the start of an html element, start assembling the tag
+            if (c.equals("<") && !insideQuote && !insideComment){
                 concat = true;
                 absEnd = i;
             }
               
-              
+
+          //Check whether we are inside or outside a quote
+            if (c.equals("\"")) {
+                if (!insideQuote) insideQuote = true;
+                else insideQuote = false;
+            }
+            
+
+          //Check whether we are inside or outside a javascript or css comment
+            if (c.equals("/")) {
+                if (insideComment){
+                    insideComment = (s.substring(i-1,i+1).equals("*/"));
+                }
+                else{
+                    insideComment = (s.substring(i,i+2).equals("/*"));
+                }
+            }
+
+
+
             if (concat==true){
-                tag += c;
-            } 
+                tag.append(c);
+            }
 
 
-            if (c.equals(">") && concat==true){    
+              
+          //If we find the end of an html element, analyze the tag
+            if ((c.equals(">") && !insideQuote && !insideComment) && concat==true){
+
                 concat = false;
-                Element Tag = new Element(tag);
+                Element Tag = new Element(tag.toString());
 
                 if (Element==null){
-                    if (Tag.getAttributeValue("id").equalsIgnoreCase(id)){
+                    if (Tag.isStartTag()){
+                        if (tagName==null || Tag.getName().equalsIgnoreCase(tagName)){ //<--Tag name is null when getElementByID
 
-                        absStart = i+1;
-                        Element = Tag;
-                        outerStart = absStart - tag.length();
+                            if (attributeName==null || Tag.getAttributeValue(attributeName).equalsIgnoreCase(attributeValue)){ //<--Filter by attributes!
+                                absStart = i+1;
+                                Element = Tag;
+                                outerStart = absStart - tag.length();
+
+
+                              //Special case for getElementByID
+                                if (tagName==null) tagName = Tag.getName();
+
+
+                              //Special case for tags that self terminate
+                                if (Tag.isEndTag())  return Element;
+                                
+                            }
+                        }
                     }
                 }
-                else { //Find End Tag
-                  
-                      if (Tag.getName().equalsIgnoreCase(Element.getName())){
-                          if (Tag.isStartTag == true) numStartTags +=1;
-                          if (Tag.isStartTag == false) numEndTags +=1;
-                      }
-                      
-                      if (numEndTags>=numStartTags){ 
-                          Element.innerHTML = html.substring(absStart,absEnd);
-                          outerEnd = i+1;
-                          Element.outerHTML = html.substring(outerStart,outerEnd);
-                          return Element;
-                      }
-                 }
+                else { 
+
+                    if (Tag.getName().equalsIgnoreCase(tagName)){
+
+                        
+                        if (Tag.isStartTag()) numStartTags +=1;
+                        //if (!Tag.isStartTag()) numEndTags +=1;
+                        if (Tag.isEndTag()) numEndTags +=1;
+
+
+                      //This is all new!
+                        boolean foundEnd = false;
+                        if (Tag.isStartTag() && Tag.isEndTag()){
+                            foundEnd = false;
+                        }
+                        else if(!Tag.isStartTag() && Tag.isEndTag()){
+                            foundEnd = (numEndTags>numStartTags);
+                        }
+                        else{
+                            foundEnd = (numEndTags>=numStartTags);
+                        }
+
+
+
+                        if (foundEnd){ // if (numEndTags>=numStartTags){
+                            Element.innerHTML = html.substring(absStart,absEnd);
+                            outerEnd = i+1;
+                            Element.outerHTML = html.substring(outerStart,outerEnd);
+                            return Element;
+                        }
+                    }
+
+
+                }
 
                  
-               //Clear tag variable for the next pass
-                 tag = "";
-             }
+              //Clear tag variable for the next pass
+                tag = new StringBuffer();
+            }
+
               
         }
         return null;
@@ -366,61 +315,28 @@ public class Parser {
 
 
   //**************************************************************************
-  //** getImageLink
+  //** getImageLinks
   //**************************************************************************
-  /**  Used to extract an image link from a block of html */
-    
-    public String[] getImageLinks(String html){
-        
-        String s = html + " ";
-        String c = "";
-        boolean concat = false;
-        String tag = "";
+  /** Returns a list of links to images. The links may include relative paths.
+   *  Use the getAbsolutePath method to resolve the relative paths to a fully
+   *  qualified url.
+   */
+    public String[] getImageLinks(){
         java.util.ArrayList<String> links = new java.util.ArrayList<String>();
-
-        for (int i = 0; i < s.length(); i++){
-              
-            c = s.substring(i,i+1); 
-              
-              
-            if (c.equals("<")){       
-                concat = true;
-            }
-
-
-            if (concat==true){
-                tag += c;
-            } 
-              
-              
-            if (c.equals(">") && concat==true){    
-                concat = false;
-                  
-                  
-                Element e = new Element(tag);
-                if (e.getName().equalsIgnoreCase("img")){
-                    links.add(e.getAttributeValue("src"));
-                }
-
-                tag = "";
-            }
+        for (Element img : getElementsByTagName("img")){
+            String src = img.getAttributeValue("src");
+            if (src.length()>0) links.add(src);
         }
-        
-        if (links.size()>0){
-            return links.toArray(new String[links.size()]);
-        }
-        else{
-            return null;
-        }
+        return links.toArray(new String[links.size()]);
     }
 
-   
+
   //**************************************************************************
   //** stripHTMLTags
   //**************************************************************************
   /**  Used to remove any html tags from a block of text */
     
-    public String stripHTMLTags(String html){
+    public static String stripHTMLTags(String html){
         
         String s = html + " ";
         String c = "";
@@ -451,6 +367,9 @@ public class Parser {
              }
    
         }
-        return html.trim();
+
+        //html = html.replaceAll("\\s+"," ");
+        
+        return html.replace("&nbsp;", " ").trim();
     }
 }

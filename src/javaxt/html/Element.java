@@ -8,7 +8,8 @@ public class Element {
 
     protected String innerHTML;
     protected String outerHTML;
-    protected boolean isStartTag = true;
+    private boolean isStartTag;
+    private boolean isEndTag;
 
     private String tag;
     private String[] arr;
@@ -17,14 +18,28 @@ public class Element {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-
-    public Element(String html){
-        //this.html = html;
+  /**
+   *  @param html HTML used to define a tag (e.g. &lt;div id="1"&gt;)
+   */
+    protected Element(String html){
         
         tag = html;
-        if (tag.indexOf("</")==0){
+
+        if (tag.startsWith("</")){
             isStartTag = false;
+            isEndTag = true;
         }
+        else{
+            isStartTag = true;
+            if (tag.endsWith("/>")){
+                isEndTag = true;
+            }
+            else{
+                isEndTag = false;
+            }
+        }
+
+
         tag = tag.replace("</","");
         tag = tag.replace("<","");
         tag = tag.replace("/>","");
@@ -35,6 +50,15 @@ public class Element {
         arr = tag.split(" ");
 
         tagName = arr[0];
+    }
+
+
+    public boolean isStartTag(){
+        return isStartTag;
+    }
+
+    public boolean isEndTag(){
+        return isEndTag;
     }
 
   //**************************************************************************
@@ -171,6 +195,70 @@ public class Element {
     }
 
 
+
+  //**************************************************************************
+  //** getElementByTagName
+  //**************************************************************************
+  /** Returns an array of HTML Elements with given tag name.
+   */
+    public Element[] getElementsByTagName(String tagName){
+        return new Parser(innerHTML).getElementsByTagName(tagName);
+    }
+
+
+  //**************************************************************************
+  //** getElementByTagName
+  //**************************************************************************
+  /** Returns the first HTML Element with given tag name. Returns null if an
+   *  element was not found.
+   */
+    public Element getElementByTagName(String tagName){
+        return getElementByAttributes(tagName, null, null);
+    }
+
+
+  //**************************************************************************
+  //** getElementByID
+  //**************************************************************************
+  /** Returns an HTML Element with given a id. Returns null if the element was
+   *  not found.
+   */
+    public Element getElementByID(String id){
+        return getElementByAttributes(null, "id", id);
+    }
+
+
+    public Element[] getElements(String tagName, String attributeName, String attributeValue){
+        return new Parser(innerHTML).getElements(tagName, attributeName, attributeValue);
+    }
+
+
+  //**************************************************************************
+  //** getElementByAttributes
+  //**************************************************************************
+  /** Returns the first HTML Element with given tag name and attribute. Returns
+   *  null if an element was not found.
+   */
+    public Element getElementByAttributes(String tagName, String attributeName, String attributeValue){
+        return new Parser(innerHTML).getElementByAttributes(tagName, attributeName, attributeValue);
+    }
+
+    public String stripHTMLTags(){
+        return Parser.stripHTMLTags(innerHTML);
+    }
+
+
+  //**************************************************************************
+  //** getImageLinks
+  //**************************************************************************
+  /** Returns a list of links to images. The links may include relative paths.
+   *  Use the getAbsolutePath method to resolve the relative paths to a fully
+   *  qualified url.
+   */
+    public String[] getImageLinks(){
+        return new Parser(innerHTML).getImageLinks();
+    }
+    
     public String toString(){
         return outerHTML;
     }
