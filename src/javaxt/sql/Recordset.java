@@ -322,7 +322,7 @@ public class Recordset {
         QueryResponseTime = endTime-startTime;
 
         try{
-            
+
           //Create Fields 
             java.sql.ResultSetMetaData rsmd = rs.getMetaData();
             int cols = rsmd.getColumnCount();
@@ -457,30 +457,16 @@ public class Recordset {
   //**************************************************************************
   //** AddNew
   //**************************************************************************
-  /**  Used to prepare the driver to insert new records to the database. Used
-   *   in conjunction with the update method.
+  /** Used to prepare the driver to insert new records to the database. Used
+   *  in conjunction with the update method.
    */    
     public void addNew(){
         if (State==1){
-            try{
-
-              //DB2 and Xerial's SQLite JDBC driver don't seem to support
-              //moveToInsertRow or insertRow so we'll have to create an SQL
-              //Insert statement instead.
-                if (driver.equals("DB2") || driver.equals("SQLite")){
-                }
-                else{ //for all other cases...
-                    rs.moveToInsertRow();
-                }
-                InsertOnUpdate = true;
-                for (int i=1; i<=Fields.length; i++) {
-                    Field Field = Fields[i-1];
-                    Field.Value = null;
-                    Field.RequiresUpdate = false;
-                }
-            }
-            catch(Exception e){
-                System.err.println("AddNew ERROR: " + e.toString());
+            InsertOnUpdate = true;
+            for (int i=1; i<=Fields.length; i++) {
+                Field Field = Fields[i-1];
+                Field.Value = null;
+                Field.RequiresUpdate = false;
             }
         }
     }
@@ -489,328 +475,435 @@ public class Recordset {
   //**************************************************************************
   //** Update
   //**************************************************************************  
-  /** Used to add or update a record in the recordset. Note that when
-   *  performing batch inserts, the update statements are queued and executed 
+  /** Used to add or update a record in a table. Note that inserts can be
+   *  batched using the setBatch() method to improve performance. When
+   *  performing batch inserts, the update statements are queued and executed
    *  only after the batch size is reached.
    */
     public void update() throws java.sql.SQLException {
         if (isReadOnly) throw new java.sql.SQLException("Read only!");
-        if (State==1){
-            if (!isDirty()) return;
-            try{
+        if (State!=1) throw new java.sql.SQLException("Recordset is closed!");
+        if (!isDirty()) return;
 
 
-              //Determine whether to use a prepared statement or a resultset 
-              //when adding or updating records.
-                boolean usePreparedStatement = false;
-                if (driver.equals("DB2") || driver.equals("SQLite") ){
-                    usePreparedStatement = true;
-                }
-                else if(driver.equals("PostgreSQL")){
+      //Determine whether to use a prepared statement or a resultset when
+      //adding or updating records.
+        boolean usePreparedStatement = false;
+        if (driver.equals("DB2") || driver.equals("SQLite") ){
+            usePreparedStatement = true;
+        }
+        else if(driver.equals("PostgreSQL")){
 
-                  //PostGIS doesn't support JDBC inserts either...
-                    usePreparedStatement = true;
+          //PostGIS doesn't support JDBC inserts either...
+            usePreparedStatement = true;
+        }
 
-                  //Special case for PostGIS geometry types...
-                    for (int i=0; i<Fields.length; i++ ) { 
-                        Object value = null;
-                        value = Fields[i].getValue().toObject();
-                        if (value!=null){
-                            if (value.getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){                                
-                                Fields[i].Value = new Value(getGeometry(value));
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-              //Force inserts to use prepared statements so we can get auto-generated keys
-                if (InsertOnUpdate) usePreparedStatement = true;
+      //Force inserts to use prepared statements so we can get auto-generated keys
+        if (InsertOnUpdate) usePreparedStatement = true;
 
 
-
-                if (!usePreparedStatement){
-                    for (int i=0; i<Fields.length; i++ ) {
-                        String FieldName = Fields[i].getName();
-                        String FieldType = Fields[i].Class;
-                        Value FieldValue = Fields[i].getValue();
-                        if (FieldName==null) continue;
-
-                        if (Fields[i].RequiresUpdate){
-
-                            FieldType = FieldType.toLowerCase();
-                            if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
-
-                            if (FieldType.indexOf("string")>=0)
-                            rs.updateString(FieldName, FieldValue.toString());
-
-                            else if(FieldType.indexOf("int")>=0)
-                            rs.updateInt(FieldName, FieldValue.toInteger());
-
-                            else if (FieldType.indexOf("short")>=0)
-                            rs.updateShort(FieldName, FieldValue.toShort());
-
-                            else if (FieldType.indexOf("long")>=0)
-                            rs.updateLong(FieldName, FieldValue.toLong());
-
-                            else if (FieldType.indexOf("double")>=0)
-                            rs.updateDouble(FieldName, FieldValue.toDouble());
-
-                            else if (FieldType.indexOf("float")>=0)
-                            rs.updateDouble(FieldName, FieldValue.toFloat());
-
-                            else if (FieldType.indexOf("decimal")>=0)
-                            rs.updateBigDecimal(FieldName, FieldValue.toBigDecimal());
-
-                            else if (FieldType.indexOf("timestamp")>=0)
-                            rs.updateTimestamp(FieldName, FieldValue.toTimeStamp());
-
-                            else if (FieldType.indexOf("date")>=0)
-                            rs.updateDate(FieldName, new java.sql.Date(FieldValue.toDate().getTime()));
-
-                            else if (FieldType.indexOf("bool")>=0)
-                            rs.updateBoolean(FieldName, FieldValue.toBoolean() );
-
-                            else if (FieldType.indexOf("object")>=0)
-                            rs.updateObject(FieldName, FieldValue.toObject());
-
-                            //else System.out.println(i + " " + Fields[i].Name + " " + FieldType);
+      //Generate list of fields that require updates
+        java.util.ArrayList<Field> fields = new java.util.ArrayList<Field>();
+        for (Field field : Fields){
+            if (field.getName()!=null && field.RequiresUpdate) fields.add(field);
+        }
+        int numUpdates = fields.size();
 
 
-                            if (FieldValue!=null && !FieldValue.isNull()){
-                                if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
-                                    rs.updateObject(FieldName, getGeometry(FieldValue));
-                                }
-                            }
+      //Insert/Update record
+        if (!usePreparedStatement){ //use resultset to update records
 
-                        }
-
-                    }
-
-                    rs.updateRow();
-                }
-                else {
-
-                    java.util.ArrayList<Field> fields = new java.util.ArrayList<Field>();
-                    for (Field field : Fields){
-                        if (field.getName()!=null && field.RequiresUpdate) fields.add(field);
-                    }
-                    int numUpdates = fields.size();
-
-                    
-                    String tableName = Fields[0].getTable();
-                    if (tableName.contains(" ")) tableName = "[" + tableName + "]";
-
-                  //Construct a SQL insert/update statement
-                    StringBuffer sql = new StringBuffer();
-                    if (InsertOnUpdate){
-                        sql.append("INSERT INTO " + tableName + " (");
-                        for (int i=0; i<numUpdates; i++){
-                            String colName = fields.get(i).getName();
-                            if (colName.contains(" ")) colName = "[" + colName + "]";
-                            sql.append(colName);
-                            if (numUpdates>1 && i<numUpdates-1){
-                                sql.append(",");
-                            }
-                        }
-                        sql.append(") VALUES (");
-                        for (int i=0; i<numUpdates; i++){
-                            sql.append("?");
-                            if (numUpdates>1 && i<numUpdates-1){
-                                sql.append(",");
-                            }
-                        }
-                        sql.append(")");
-                    }
-                    else{
-                        sql.append("UPDATE " + tableName + " SET ");
-                        for (int i=0; i<numUpdates; i++){
-                            String colName = fields.get(i).getName();
-                            if (colName.contains(" ")) colName = "[" + colName + "]";
-                            sql.append(colName);
-                            sql.append("=?");
-                            if (numUpdates>1 && i<numUpdates-1){
-                                sql.append(", ");
-                            }
-                        }
-
-                      //Find primary key for the table. This slows things down
-                      //quite a bit but we need it for the "where" clause.
-                        java.util.ArrayList<Field> keys = new java.util.ArrayList<Field>();
-                        try{
-                            java.sql.DatabaseMetaData dbmd = Conn.getMetaData();                            
-                            java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
-                            if (r2.next()) {
-                                Key[] arr = new Table(r2, dbmd).getPrimaryKeys();
-                                if (arr!=null){
-                                    for (int i=0; i<arr.length; i++){
-                                        Key key = arr[i];
-                                        Field field = getField(key.getName());
-                                        if (field!=null) keys.add(field);
-                                    }
-                                }
-                            }
-                            r2.close();
-                        }
-                        catch(Exception e){
-                        }
-
-                      //Build the where clause
-                        if (!keys.isEmpty()){
-                            sql.append(" WHERE ");
-                            for (int i=0; i<keys.size(); i++){
-                                Field field = keys.get(i);
-                                fields.add(field);
-                                if (i>0) sql.append(" AND ");
-                                String colName = field.getName();
-                                if (colName.contains(" ")) colName = "[" + colName + "]";
-                                sql.append(colName); sql.append("=?");
-                            }
-                        }
-                        else{
-
-                          //Since we don't have any keys, use the original where clause
-                            String where = new Parser(this.sqlString).getWhereString();
-                            if (where!=null){
-                                sql.append(" WHERE "); sql.append(where);
-                            }
-
-                          //Find how many records will be affected by this update
-                            java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + " WHERE " + (where==null?"":where));
-                            int numRecords = r2.getInt(1);
-                            r2.close();
+          //Move cursor as needed
+            if (InsertOnUpdate) rs.moveToInsertRow();
 
 
-                          //Warn user that there might be a problem with the update
-                            if (numRecords>1){
-                                StringBuffer msg = new StringBuffer();
-                                msg.append("WARNING: Updating " + tableName + " table without a unique key.\r\n");
-                                msg.append("Multiple rows may be affected with this update.\r\n");
-                                try{ int x = 1/0; } catch(Exception e){
-                                    java.io.ByteArrayOutputStream bas = new java.io.ByteArrayOutputStream();
-                                    java.io.PrintStream s = new java.io.PrintStream(bas, true);
-                                    e.printStackTrace(s);
-                                    s.close();
-                                    boolean append = false;
-                                    for (String line : bas.toString().split("\n")){
-                                        if (append){
-                                            msg.append("\t");
-                                            msg.append(line.trim());
-                                            msg.append("\r\n");
-                                        }
-                                        if (!append && line.contains(this.getClass().getCanonicalName())) append = true;
-                                    }
-                                    System.err.println(msg);
-                                }
-                            }
-                        }
-                    }
+          //Iterate through the dirty fields and update as needed
+            for (Field field : fields) {
+                String FieldName = field.getName();
+                String FieldType = field.Class;
+                Value FieldValue = field.getValue();
 
 
-                  //Get prepared statement
-                    java.sql.PreparedStatement stmt;
-                    if (batchSize>1){
-                        if (batchedStatements==null) batchedStatements = new java.util.HashMap<String, java.sql.PreparedStatement>();
-                        stmt = batchedStatements.get(sql.toString());
-                        if (stmt==null){
-                            stmt = Conn.prepareStatement(sql.toString());
-                            batchedStatements.put(sql.toString(), stmt);
-                            Conn.setAutoCommit(false);
-                        }
-                    }
-                    else{
-                        stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
-                    }
 
-
-                  //Set values using a prepared statement
-                    int id = 1;
-                    for (int i=0; i<fields.size(); i++) {
-
-                        Field field = fields.get(i);
-                        String FieldType = field.Class.toLowerCase();
-                        if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
-                        Value FieldValue = field.getValue();
-
-
-                        if (FieldType.indexOf("string")>=0)
-                        stmt.setString(id, FieldValue.toString());
-
-                        else if(FieldType.indexOf("int")>=0)
-                        stmt.setInt(id, FieldValue.toInteger());
-
-                        else if (FieldType.indexOf("short")>=0)
-                        stmt.setShort(id, FieldValue.toShort());
-
-                        else if (FieldType.indexOf("long")>=0)
-                        stmt.setLong(id, FieldValue.toLong());
-
-                        else if (FieldType.indexOf("double")>=0)
-                        stmt.setDouble(id, FieldValue.toDouble());
-
-                        else if (FieldType.indexOf("float")>=0)
-                        stmt.setFloat(id, FieldValue.toFloat());
-
-                        else if (FieldType.indexOf("decimal")>=0)
-                        stmt.setBigDecimal(id, FieldValue.toBigDecimal());
-
-                        else if (FieldType.indexOf("timestamp")>=0)
-                        stmt.setTimestamp(id, FieldValue.toTimeStamp());
-
-                        else if (FieldType.indexOf("date")>=0)
-                        stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
-
-                        else if (FieldType.indexOf("bool")>=0)
-                        stmt.setBoolean(id, FieldValue.toBoolean() );
-
-                        else if (FieldType.indexOf("object")>=0)
-                        stmt.setObject(id, FieldValue.toObject());
-
-                        //else System.out.println(i + " " + field.Name + " " + FieldType);
-
-                        if (FieldValue!=null){
+              //Special case for geometry types
+                if (FieldValue!=null){
+                    Object value = field.getValue().toObject();
+                    String packageName = value.getClass().getPackage().getName();
+                    if (packageName.startsWith("javaxt.geospatial.geometry") ||
+                        packageName.startsWith("com.vividsolutions.jts.geom")){
+                        String STGeomFromText = getSTGeomFromText(field);
+                        int srid = 4326; //getSRID();
+                        if (packageName.startsWith("com.vividsolutions.jts.geom")){
                             try{
-                                if (FieldValue.toObject().getClass().getPackage().getName().startsWith("javaxt.geospatial.geometry")){
-                                    stmt.setObject(id, getGeometry(FieldValue));
+                                java.lang.reflect.Method method = value.getClass().getMethod("getSRID");
+                                if (method!=null){
+                                    Object obj = method.invoke(value, null);
+                                    if (obj!=null){
+                                        srid = (Integer) obj;
+                                        if (srid==0) srid = 4326;
+                                    }
                                 }
                             }
-                            catch(Exception e){}
-                        }
-
-                        id++;
-                        
-                    }
-
-                    if (batchSize==1){
-                        stmt.executeUpdate();
-
-
-
-                        if (InsertOnUpdate){
-                            java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                            if (generatedKeys.next()) {
-                                this.GeneratedKey = new Value(generatedKeys.getString(1));
+                            catch(Exception e){
                             }
-                            InsertOnUpdate = false;
                         }
-
+                        rs.updateObject(FieldName, STGeomFromText + "('" + value.toString() + "'," + srid + ")");
+                        continue;
                     }
-                    else{
-                        stmt.addBatch();
-                        numBatches++;
-                        
-                        if (numBatches==batchSize){
-                            executeBatch();
+                }
+
+
+
+
+                FieldType = FieldType.toLowerCase();
+                if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
+
+                if (FieldType.indexOf("string")>=0)
+                rs.updateString(FieldName, FieldValue.toString());
+
+                else if(FieldType.indexOf("int")>=0)
+                rs.updateInt(FieldName, FieldValue.toInteger());
+
+                else if (FieldType.indexOf("short")>=0)
+                rs.updateShort(FieldName, FieldValue.toShort());
+
+                else if (FieldType.indexOf("long")>=0)
+                rs.updateLong(FieldName, FieldValue.toLong());
+
+                else if (FieldType.indexOf("double")>=0)
+                rs.updateDouble(FieldName, FieldValue.toDouble());
+
+                else if (FieldType.indexOf("float")>=0)
+                rs.updateDouble(FieldName, FieldValue.toFloat());
+
+                else if (FieldType.indexOf("decimal")>=0)
+                rs.updateBigDecimal(FieldName, FieldValue.toBigDecimal());
+
+                else if (FieldType.indexOf("timestamp")>=0)
+                rs.updateTimestamp(FieldName, FieldValue.toTimeStamp());
+
+                else if (FieldType.indexOf("date")>=0)
+                rs.updateDate(FieldName, new java.sql.Date(FieldValue.toDate().getTime()));
+
+                else if (FieldType.indexOf("bool")>=0)
+                rs.updateBoolean(FieldName, FieldValue.toBoolean() );
+
+                else if (FieldType.indexOf("object")>=0)
+                rs.updateObject(FieldName, FieldValue.toObject());
+
+
+                //else System.out.println(i + " " + Fields[i].getName() + " " + FieldType);
+            }
+
+
+          //Update!
+            rs.updateRow();
+
+        }
+        else { //use prepared statement
+
+
+          //Get table name
+            String tableName = Fields[0].getTable();
+            if (tableName==null){
+                updateFields();
+                tableName = Fields[0].getTable();
+            }
+            if (tableName.contains(" ")) tableName = "[" + tableName + "]";
+
+
+          //Construct a SQL insert/update statement
+            StringBuffer sql = new StringBuffer();
+            if (InsertOnUpdate){
+                sql.append("INSERT INTO " + tableName + " (");
+                for (int i=0; i<numUpdates; i++){
+                    String colName = fields.get(i).getName();
+                    if (colName.contains(" ")) colName = "[" + colName + "]";
+                    sql.append(colName);
+                    if (numUpdates>1 && i<numUpdates-1){
+                        sql.append(",");
+                    }
+                }
+                sql.append(") VALUES (");
+                for (int i=0; i<numUpdates; i++){
+                    if (i>0) sql.append(",");
+                    sql.append(getQ(fields.get(i)));
+                }
+                sql.append(")");
+            }
+            else{
+                sql.append("UPDATE " + tableName + " SET ");
+                for (int i=0; i<numUpdates; i++){
+                    String colName = fields.get(i).getName();
+                    if (colName.contains(" ")) colName = "[" + colName + "]";
+                    sql.append(colName);
+                    sql.append("=");
+                    sql.append(getQ(fields.get(i)));
+                    if (numUpdates>1 && i<numUpdates-1){
+                        sql.append(", ");
+                    }
+                }
+
+              //Find primary key for the table. This slows things down
+              //quite a bit but we need it for the "where" clause.
+                java.util.ArrayList<Field> keys = new java.util.ArrayList<Field>();
+                try{
+                    java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
+                    java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
+                    if (r2.next()) {
+                        Key[] arr = new Table(r2, dbmd).getPrimaryKeys();
+                        if (arr!=null){
+                            for (int i=0; i<arr.length; i++){
+                                Key key = arr[i];
+                                Field field = getField(key.getName());
+                                if (field!=null) keys.add(field);
+                            }
                         }
                     }
+                    r2.close();
+                }
+                catch(Exception e){
+                }
 
+              //Build the where clause
+                if (!keys.isEmpty()){
+                    sql.append(" WHERE ");
+                    for (int i=0; i<keys.size(); i++){
+                        Field field = keys.get(i);
+                        fields.add(field);
+                        if (i>0) sql.append(" AND ");
+                        String colName = field.getName();
+                        if (colName.contains(" ")) colName = "[" + colName + "]";
+                        sql.append(colName); sql.append("=?");
+                    }
+                }
+                else{
+
+                  //Since we don't have any keys, use the original where clause
+                    String where = new Parser(this.sqlString).getWhereString();
+                    if (where!=null){
+                        sql.append(" WHERE "); sql.append(where);
+                    }
+
+                  //Find how many records will be affected by this update
+                    java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + " WHERE " + (where==null?"":where));
+                    int numRecords = r2.getInt(1);
+                    r2.close();
+
+
+                  //Warn user that there might be a problem with the update
+                    if (numRecords>1){
+                        StringBuffer msg = new StringBuffer();
+                        msg.append("WARNING: Updating " + tableName + " table without a unique key.\r\n");
+                        msg.append("Multiple rows may be affected with this update.\r\n");
+                        try{ int x = 1/0; } catch(Exception e){
+                            java.io.ByteArrayOutputStream bas = new java.io.ByteArrayOutputStream();
+                            java.io.PrintStream s = new java.io.PrintStream(bas, true);
+                            e.printStackTrace(s);
+                            s.close();
+                            boolean append = false;
+                            for (String line : bas.toString().split("\n")){
+                                if (append){
+                                    msg.append("\t");
+                                    msg.append(line.trim());
+                                    msg.append("\r\n");
+                                }
+                                if (!append && line.contains(this.getClass().getCanonicalName())) append = true;
+                            }
+                            System.err.println(msg);
+                        }
+                    }
                 }
             }
-            catch(java.sql.SQLException e){
-                throw e;
+
+
+          //Get prepared statement
+            java.sql.PreparedStatement stmt;
+            if (batchSize>1){
+                if (batchedStatements==null) batchedStatements = new java.util.HashMap<String, java.sql.PreparedStatement>();
+                stmt = batchedStatements.get(sql.toString());
+                if (stmt==null){
+                    stmt = Conn.prepareStatement(sql.toString());
+                    batchedStatements.put(sql.toString(), stmt);
+                    Conn.setAutoCommit(false);
+                }
             }
+            else{
+                stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+            }
+
+
+          //Set values using a prepared statement
+            int id = 1;
+            for (int i=0; i<fields.size(); i++) {
+
+                Field field = fields.get(i);
+                String FieldType = field.Class.toLowerCase();
+                if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
+                Value FieldValue = field.getValue();
+
+
+                if (FieldType.indexOf("string")>=0)
+                stmt.setString(id, FieldValue.toString());
+
+                else if(FieldType.indexOf("int")>=0)
+                stmt.setInt(id, FieldValue.toInteger());
+
+                else if (FieldType.indexOf("short")>=0)
+                stmt.setShort(id, FieldValue.toShort());
+
+                else if (FieldType.indexOf("long")>=0)
+                stmt.setLong(id, FieldValue.toLong());
+
+                else if (FieldType.indexOf("double")>=0)
+                stmt.setDouble(id, FieldValue.toDouble());
+
+                else if (FieldType.indexOf("float")>=0)
+                stmt.setFloat(id, FieldValue.toFloat());
+
+                else if (FieldType.indexOf("decimal")>=0)
+                stmt.setBigDecimal(id, FieldValue.toBigDecimal());
+
+                else if (FieldType.indexOf("timestamp")>=0)
+                stmt.setTimestamp(id, FieldValue.toTimeStamp());
+
+                else if (FieldType.indexOf("date")>=0)
+                stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
+
+                else if (FieldType.indexOf("bool")>=0)
+                stmt.setBoolean(id, FieldValue.toBoolean() );
+
+                else if (FieldType.indexOf("object")>=0)
+                stmt.setObject(id, FieldValue.toObject());
+
+                //else System.out.println(i + " " + field.Name + " " + FieldType);
+
+
+                id++;
+            }
+
+
+          //Update
+            if (batchSize==1){
+                stmt.executeUpdate();
+
+
+                if (InsertOnUpdate){
+                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                    if (generatedKeys.next()) {
+                        this.GeneratedKey = new Value(generatedKeys.getString(1));
+                    }
+                    InsertOnUpdate = false;
+                }
+
+            }
+            else{
+                stmt.addBatch();
+                numBatches++;
+
+                if (numBatches==batchSize){
+                    executeBatch();
+                }
+            }
+
         }
     }
+
+
+  //**************************************************************************
+  //** getQ
+  //**************************************************************************
+  /** Returns an SQL fragment used to generate prepared statements. Typically,
+   *  this method simply returns a "?". However, if the value for the field
+   *  contains a function, or contains a spatial data type, additional
+   *  processing is required to generate a valid SQL statement.
+   */
+    private String getQ(Field field){
+
+        if (field==null || field.getValue().isNull()) return "?";
+        
+        
+      //Find out what kind of data we're dealing with
+        Object value = field.getValue().toObject();
+        String packageName = value.getClass().getPackage().getName();
+
+
+      //TODO: Parse out any functions
+        /*
+        'NOW()';
+        'LAST_DAY(DATE_ADD(CURDATE(), INTERVAL 1 MONTH))';
+        'LAST_DAY(CURDATE())';
+         */
+        
+
+
+      //Special case for geometry types
+        if (packageName.startsWith("javaxt.geospatial.geometry")){
+            String STGeomFromText = getSTGeomFromText(field);
+            field.Value = new Value(value.toString());
+            field.Class = "java.lang.String";
+            return STGeomFromText + "(?,4326)";
+        }
+        else if (packageName.startsWith("com.vividsolutions.jts.geom")){
+            String STGeomFromText = getSTGeomFromText(field);
+            field.Value = new Value(value.toString());
+            field.Class = "java.lang.String";
+            int srid = 4326; //getSRID();
+            try{
+                java.lang.reflect.Method method = value.getClass().getMethod("getSRID");
+                if (method!=null){
+                    Object obj = method.invoke(value, null);
+                    if (obj!=null){
+                        srid = (Integer) obj;
+                        if (srid==0) srid = 4326;
+                    }
+                }
+            }
+            catch(Exception e){
+            }
+            return STGeomFromText + "(?," + srid + ")";
+        }
+        
+
+
+        return "?";
+    }
+
+
+  //**************************************************************************
+  //** getSTGeomFromText
+  //**************************************************************************
+  /** Returns a vendor-specific STGeomFromText fragment for inserting/updating
+   *  geometry data.
+   */
+    private String getSTGeomFromText(Field field){
+        if (driver.equals("SQLServer")){
+            String geo = field.Class.toLowerCase();
+            if (!geo.equals("geometry") && !geo.equals("geography")){
+                geo = null;
+                try{
+                    Recordset rs = new Recordset();
+                    rs.open("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
+                            "WHERE TABLE_NAME='" + field.getTable() + "' AND COLUMN_NAME='" + field.getName() + "'",
+                    Connection);
+                    geo = rs.getValue(0).toString();
+                    rs.close();
+                }
+                catch(SQLException e){
+                    //e.printStackTrace();
+                }
+                if (geo==null) geo = "geometry";
+                else geo = geo.toLowerCase();
+            }
+            return geo + "::STGeomFromText"; //geometry vs geography
+        }
+        else if (driver.equals("DB2")){
+            return "db2GSE.ST_GeomFromText";
+        }
+        
+        return "ST_GeomFromText"; //PostgreSQL
+    }
+
 
 
     private int numBatches=0;
@@ -1328,35 +1421,6 @@ public class Recordset {
             else return -1;
         }
     }
-
-
-    private String getGeometry(Object FieldValue){
-        
-      //Get geometry type
-        String geometryType = FieldValue.getClass().getCanonicalName().toString();
-        geometryType = geometryType.substring(geometryType.lastIndexOf(".")+1).trim().toUpperCase();
-
-
-        if (driver.equals("PostgreSQL")){
-            return "ST_GeomFromText('" + FieldValue.toString() + "', 4326)";
-        }
-        else if (driver.equals("SQLServer")){
-            return "STGeomFromText('" + FieldValue.toString() + "', 4326)";
-        }
-        else if (driver.equals("DB2")){
-            if (geometryType.equals("LINE")){
-                String line = FieldValue.toString().toUpperCase().replace("LINESTRING","LINE");
-                return "db2GSE.ST_LINE('" + line + "', 2000000000)";
-            }
-            else{
-                return "db2GSE.ST_" + geometryType + "('" + FieldValue.toString() + "', 2000000000)";
-            }
-        }
-        
-        
-        return null;
-    }
-
 
 
   //**************************************************************************
