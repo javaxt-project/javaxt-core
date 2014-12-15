@@ -66,7 +66,8 @@ public class Response {
   //**************************************************************************
   //** getHeader
   //**************************************************************************
-  /** Returns the value of a given key in the HTTP header.
+  /** Returns the value of a given key in the HTTP header. Returns null if the
+   *  header is not found in the response.
    *  @param headerName A String specifying the header name (e.g. "Content-Encoding")
    */
     public String getHeader(String headerName){

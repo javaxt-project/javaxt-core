@@ -146,16 +146,21 @@ public class Request {
     
     private void initHeaders(){
         this.setUseCache(false);
+        this.setHeader("Accept", "*/*");
         this.setHeader("Accept-Encoding", "gzip,deflate");
         this.setHeader("Accept-Charset", "ISO-8859-1,utf-8;q=0.7,*;q=0.7");
-        this.setHeader("User-Agent", "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.10)");
+        //this.setHeader("User-Agent", "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.10)"); //windows xp
+        this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:33.0) Gecko/20100101 Firefox/33.0"); //windows 7
+        //this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0"); //windows 8
     }
 
 
   //**************************************************************************
   //** getURL
   //**************************************************************************
-  /**  Used to return the URL used to instantiate this class.
+  /** Used to return the URL used to make the request. Note that the URL
+   *  may be different from the URL used to invoke this class if the request
+   *  encounters a redirect. See setNumRedirects() for more information.
    */
     public java.net.URL getURL(){
         return url;

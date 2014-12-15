@@ -94,7 +94,7 @@ public class Element {
         }
         catch(Exception e){
             try{
-               return getAttributeValue2(attributeName);
+               return getAttributeValue2(tag, attributeName);
             }
             catch(Exception ex){
                return "";
@@ -106,7 +106,7 @@ public class Element {
 
 
 
-    private String getAttributeValue2(String attributeName){
+    private String getAttributeValue2(String tag, String attributeName){
 
         tag = tag.trim();
 

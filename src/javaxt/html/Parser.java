@@ -36,7 +36,7 @@ public class Parser {
   //** getAbsolutePath
   //**************************************************************************
 
-    public String getAbsolutePath(String RelPath, String url){
+    public static String getAbsolutePath(String RelPath, String url){
         
       //Check whether RelPath is actually relative
         try{
@@ -125,7 +125,10 @@ public class Parser {
         Element e = getElementByTagName(tagName);
         while (e!=null){
             elements.add(e);
-            html = html.replace(e.outerHTML, "");
+            int idx = html.indexOf(e.outerHTML);
+            String a = html.substring(0, idx);
+            String b = html.substring(idx+e.outerHTML.length());
+            html = a + b;
             e = getElementByTagName(tagName);
         }
         
@@ -147,8 +150,11 @@ public class Parser {
         Element e = getElementByAttributes(tagName, attributeName, attributeValue);
         while (e!=null){
             elements.add(e);
-            html = html.replace(e.outerHTML, "");
-            e = getElementByTagName(tagName);
+            int idx = html.indexOf(e.outerHTML);
+            String a = html.substring(0, idx);
+            String b = html.substring(idx+e.outerHTML.length());
+            html = a + b;
+            e = getElementByAttributes(tagName, attributeName, attributeValue);
         }
 
         html = orgHTML;

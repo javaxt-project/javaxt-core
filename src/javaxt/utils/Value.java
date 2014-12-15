@@ -37,7 +37,7 @@ public class Value {
     public Integer toInteger(){
         if (value==null) return null;
         try{
-            return Integer.valueOf(value+"");
+            return Integer.valueOf(prepNumber(value+""));
         }
         catch(Exception e){
             return null;
@@ -54,7 +54,7 @@ public class Value {
     public Short toShort(){
         if (value==null) return null;
         try{
-            return Short.valueOf(value+"");
+            return Short.valueOf(prepNumber(value+""));
         }
         catch(Exception e){
             return null;
@@ -71,7 +71,7 @@ public class Value {
     public Double toDouble(){
         if (value==null) return null;
         try{
-            return Double.valueOf(value+"");
+            return Double.valueOf(prepNumber(value+""));
         }
         catch(Exception e){
             return null;
@@ -88,7 +88,7 @@ public class Value {
     public Long toLong(){
         if (value==null) return null;
         try{
-            return Long.valueOf(value+"");
+            return Long.valueOf(prepNumber(value+""));
         }
         catch(Exception e){
             return null;
@@ -122,7 +122,7 @@ public class Value {
     public Float toFloat(){
         if (value==null) return null;
         try{
-            return Float.valueOf(value+"");
+            return Float.valueOf(prepNumber(value+""));
         }
         catch(Exception e){
             return null;
@@ -257,5 +257,15 @@ public class Value {
             if (value==null) return false;
         }
         return obj.equals(value);
+    }
+
+
+    
+    private String prepNumber(String value){
+        value = value.trim();
+        if (value.startsWith("$")) value = value.substring(1).trim();
+        else if (value.endsWith("%")) value = value = value.substring(0, value.length()-1);
+        value = value.replace(",", "");
+        return value;
     }
 }

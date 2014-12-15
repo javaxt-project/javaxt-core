@@ -486,22 +486,6 @@ public class Recordset {
         if (!isDirty()) return;
 
 
-      //Determine whether to use a prepared statement or a resultset when
-      //adding or updating records.
-        boolean usePreparedStatement = false;
-        if (driver.equals("DB2") || driver.equals("SQLite") ){
-            usePreparedStatement = true;
-        }
-        else if(driver.equals("PostgreSQL")){
-
-          //PostGIS doesn't support JDBC inserts either...
-            usePreparedStatement = true;
-        }
-
-      //Force inserts to use prepared statements so we can get auto-generated keys
-        if (InsertOnUpdate) usePreparedStatement = true;
-
-
       //Generate list of fields that require updates
         java.util.ArrayList<Field> fields = new java.util.ArrayList<Field>();
         for (Field field : Fields){
@@ -510,302 +494,245 @@ public class Recordset {
         int numUpdates = fields.size();
 
 
-      //Insert/Update record
-        if (!usePreparedStatement){ //use resultset to update records
-
-          //Move cursor as needed
-            if (InsertOnUpdate) rs.moveToInsertRow();
-
-
-          //Iterate through the dirty fields and update as needed
-            for (Field field : fields) {
-                String FieldName = field.getName();
-                String FieldType = field.Class;
-                Value FieldValue = field.getValue();
-
-
-
-              //Special case for geometry types
-                if (FieldValue!=null){
-                    Object value = field.getValue().toObject();
-                    String packageName = value.getClass().getPackage().getName();
-                    if (packageName.startsWith("javaxt.geospatial.geometry") ||
-                        packageName.startsWith("com.vividsolutions.jts.geom")){
-                        String STGeomFromText = getSTGeomFromText(field);
-                        int srid = 4326; //getSRID();
-                        if (packageName.startsWith("com.vividsolutions.jts.geom")){
-                            try{
-                                java.lang.reflect.Method method = value.getClass().getMethod("getSRID");
-                                if (method!=null){
-                                    Object obj = method.invoke(value, null);
-                                    if (obj!=null){
-                                        srid = (Integer) obj;
-                                        if (srid==0) srid = 4326;
-                                    }
-                                }
-                            }
-                            catch(Exception e){
-                            }
-                        }
-                        rs.updateObject(FieldName, STGeomFromText + "('" + value.toString() + "'," + srid + ")");
-                        continue;
-                    }
-                }
-
-
-
-
-                FieldType = FieldType.toLowerCase();
-                if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
-
-                if (FieldType.indexOf("string")>=0)
-                rs.updateString(FieldName, FieldValue.toString());
-
-                else if(FieldType.indexOf("int")>=0)
-                rs.updateInt(FieldName, FieldValue.toInteger());
-
-                else if (FieldType.indexOf("short")>=0)
-                rs.updateShort(FieldName, FieldValue.toShort());
-
-                else if (FieldType.indexOf("long")>=0)
-                rs.updateLong(FieldName, FieldValue.toLong());
-
-                else if (FieldType.indexOf("double")>=0)
-                rs.updateDouble(FieldName, FieldValue.toDouble());
-
-                else if (FieldType.indexOf("float")>=0)
-                rs.updateDouble(FieldName, FieldValue.toFloat());
-
-                else if (FieldType.indexOf("decimal")>=0)
-                rs.updateBigDecimal(FieldName, FieldValue.toBigDecimal());
-
-                else if (FieldType.indexOf("timestamp")>=0)
-                rs.updateTimestamp(FieldName, FieldValue.toTimeStamp());
-
-                else if (FieldType.indexOf("date")>=0)
-                rs.updateDate(FieldName, new java.sql.Date(FieldValue.toDate().getTime()));
-
-                else if (FieldType.indexOf("bool")>=0)
-                rs.updateBoolean(FieldName, FieldValue.toBoolean() );
-
-                else if (FieldType.indexOf("object")>=0)
-                rs.updateObject(FieldName, FieldValue.toObject());
-
-
-                //else System.out.println(i + " " + Fields[i].getName() + " " + FieldType);
-            }
-
-
-          //Update!
-            rs.updateRow();
-
+      //Get table name
+        String tableName = Fields[0].getTable();
+        if (tableName==null){
+            updateFields();
+            tableName = Fields[0].getTable();
         }
-        else { //use prepared statement
+        if (tableName.contains(" ")) tableName = "[" + tableName + "]";
 
 
-          //Get table name
-            String tableName = Fields[0].getTable();
-            if (tableName==null){
-                updateFields();
-                tableName = Fields[0].getTable();
+      //Construct a SQL insert/update statement
+        StringBuffer sql = new StringBuffer();
+        if (InsertOnUpdate){
+            sql.append("INSERT INTO " + tableName + " (");
+            for (int i=0; i<numUpdates; i++){
+                String colName = fields.get(i).getName();
+                if (colName.contains(" ")) colName = "[" + colName + "]";
+                sql.append(colName);
+                if (numUpdates>1 && i<numUpdates-1){
+                    sql.append(",");
+                }
             }
-            if (tableName.contains(" ")) tableName = "[" + tableName + "]";
+            sql.append(") VALUES (");
+            for (int i=0; i<numUpdates; i++){
+                if (i>0) sql.append(",");
+                sql.append(getQ(fields.get(i)));
+            }
+            sql.append(")");
+        }
+        else{
+            sql.append("UPDATE " + tableName + " SET ");
+            for (int i=0; i<numUpdates; i++){
+                String colName = fields.get(i).getName();
+                if (colName.contains(" ")) colName = "[" + colName + "]";
+                sql.append(colName);
+                sql.append("=");
+                sql.append(getQ(fields.get(i)));
+                if (numUpdates>1 && i<numUpdates-1){
+                    sql.append(", ");
+                }
+            }
 
-
-          //Construct a SQL insert/update statement
-            StringBuffer sql = new StringBuffer();
-            if (InsertOnUpdate){
-                sql.append("INSERT INTO " + tableName + " (");
-                for (int i=0; i<numUpdates; i++){
-                    String colName = fields.get(i).getName();
-                    if (colName.contains(" ")) colName = "[" + colName + "]";
-                    sql.append(colName);
-                    if (numUpdates>1 && i<numUpdates-1){
-                        sql.append(",");
+          //Find primary key for the table. This slows things down
+          //quite a bit but we need it for the "where" clause.
+            java.util.ArrayList<Field> keys = new java.util.ArrayList<Field>();
+            try{
+                java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
+                java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
+                if (r2.next()) {
+                    Key[] arr = new Table(r2, dbmd).getPrimaryKeys();
+                    if (arr!=null){
+                        for (int i=0; i<arr.length; i++){
+                            Key key = arr[i];
+                            Field field = getField(key.getName());
+                            if (field!=null) keys.add(field);
+                        }
                     }
                 }
-                sql.append(") VALUES (");
-                for (int i=0; i<numUpdates; i++){
-                    if (i>0) sql.append(",");
-                    sql.append(getQ(fields.get(i)));
+                r2.close();
+            }
+            catch(Exception e){
+            }
+
+          //Build the where clause
+            if (!keys.isEmpty()){
+                sql.append(" WHERE ");
+                for (int i=0; i<keys.size(); i++){
+                    Field field = keys.get(i);
+                    fields.add(field);
+                    if (i>0) sql.append(" AND ");
+                    String colName = field.getName();
+                    if (colName.contains(" ")) colName = "[" + colName + "]";
+                    sql.append(colName); sql.append("=?");
                 }
-                sql.append(")");
             }
             else{
-                sql.append("UPDATE " + tableName + " SET ");
-                for (int i=0; i<numUpdates; i++){
-                    String colName = fields.get(i).getName();
-                    if (colName.contains(" ")) colName = "[" + colName + "]";
-                    sql.append(colName);
-                    sql.append("=");
-                    sql.append(getQ(fields.get(i)));
-                    if (numUpdates>1 && i<numUpdates-1){
-                        sql.append(", ");
-                    }
+
+              //Since we don't have any keys, use the original where clause
+                String where = new Parser(this.sqlString).getWhereString();
+                if (where!=null){
+                    sql.append(" WHERE "); sql.append(where);
                 }
 
-              //Find primary key for the table. This slows things down
-              //quite a bit but we need it for the "where" clause.
-                java.util.ArrayList<Field> keys = new java.util.ArrayList<Field>();
-                try{
-                    java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
-                    java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
-                    if (r2.next()) {
-                        Key[] arr = new Table(r2, dbmd).getPrimaryKeys();
-                        if (arr!=null){
-                            for (int i=0; i<arr.length; i++){
-                                Key key = arr[i];
-                                Field field = getField(key.getName());
-                                if (field!=null) keys.add(field);
+              //Find how many records will be affected by this update
+                java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + " WHERE " + (where==null?"":where));
+                int numRecords = r2.getInt(1);
+                r2.close();
+
+
+              //Warn user that there might be a problem with the update
+                if (numRecords>1){
+                    StringBuffer msg = new StringBuffer();
+                    msg.append("WARNING: Updating " + tableName + " table without a unique key.\r\n");
+                    msg.append("Multiple rows may be affected with this update.\r\n");
+                    try{ int x = 1/0; } catch(Exception e){
+                        java.io.ByteArrayOutputStream bas = new java.io.ByteArrayOutputStream();
+                        java.io.PrintStream s = new java.io.PrintStream(bas, true);
+                        e.printStackTrace(s);
+                        s.close();
+                        boolean append = false;
+                        for (String line : bas.toString().split("\n")){
+                            if (append){
+                                msg.append("\t");
+                                msg.append(line.trim());
+                                msg.append("\r\n");
                             }
+                            if (!append && line.contains(this.getClass().getCanonicalName())) append = true;
                         }
+                        System.err.println(msg);
                     }
-                    r2.close();
                 }
-                catch(Exception e){
-                }
+            }
+        }
 
-              //Build the where clause
-                if (!keys.isEmpty()){
-                    sql.append(" WHERE ");
-                    for (int i=0; i<keys.size(); i++){
-                        Field field = keys.get(i);
-                        fields.add(field);
-                        if (i>0) sql.append(" AND ");
-                        String colName = field.getName();
-                        if (colName.contains(" ")) colName = "[" + colName + "]";
-                        sql.append(colName); sql.append("=?");
+
+      //Get prepared statement
+        java.sql.PreparedStatement stmt;
+        if (batchSize>1){
+            if (batchedStatements==null) batchedStatements = new java.util.HashMap<String, java.sql.PreparedStatement>();
+            stmt = batchedStatements.get(sql.toString());
+            if (stmt==null){
+                stmt = Conn.prepareStatement(sql.toString());
+                batchedStatements.put(sql.toString(), stmt);
+                Conn.setAutoCommit(false);
+            }
+        }
+        else{
+            stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+        }
+
+
+      //Set values using a prepared statement
+        int id = 1;
+        for (int i=0; i<fields.size(); i++) {
+
+            Field field = fields.get(i);
+            String FieldType = field.Class.toLowerCase();
+            if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
+            Value FieldValue = field.getValue();
+
+
+
+          //Special case for SQL Functions
+            if (FieldValue.toObject() instanceof Function){
+                Function function = (Function) FieldValue.toObject();
+                if (function.hasValues()){
+                    for (Object obj : function.getValues()){
+                        stmt.setObject(id, obj);
+                        id++;
                     }
                 }
                 else{
-
-                  //Since we don't have any keys, use the original where clause
-                    String where = new Parser(this.sqlString).getWhereString();
-                    if (where!=null){
-                        sql.append(" WHERE "); sql.append(where);
-                    }
-
-                  //Find how many records will be affected by this update
-                    java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + " WHERE " + (where==null?"":where));
-                    int numRecords = r2.getInt(1);
-                    r2.close();
-
-
-                  //Warn user that there might be a problem with the update
-                    if (numRecords>1){
-                        StringBuffer msg = new StringBuffer();
-                        msg.append("WARNING: Updating " + tableName + " table without a unique key.\r\n");
-                        msg.append("Multiple rows may be affected with this update.\r\n");
-                        try{ int x = 1/0; } catch(Exception e){
-                            java.io.ByteArrayOutputStream bas = new java.io.ByteArrayOutputStream();
-                            java.io.PrintStream s = new java.io.PrintStream(bas, true);
-                            e.printStackTrace(s);
-                            s.close();
-                            boolean append = false;
-                            for (String line : bas.toString().split("\n")){
-                                if (append){
-                                    msg.append("\t");
-                                    msg.append(line.trim());
-                                    msg.append("\r\n");
-                                }
-                                if (!append && line.contains(this.getClass().getCanonicalName())) append = true;
-                            }
-                            System.err.println(msg);
-                        }
-                    }
+                    //Do nothing!
                 }
+                continue; //Prevent the id from incrementing
             }
 
 
-          //Get prepared statement
-            java.sql.PreparedStatement stmt;
-            if (batchSize>1){
-                if (batchedStatements==null) batchedStatements = new java.util.HashMap<String, java.sql.PreparedStatement>();
-                stmt = batchedStatements.get(sql.toString());
-                if (stmt==null){
-                    stmt = Conn.prepareStatement(sql.toString());
-                    batchedStatements.put(sql.toString(), stmt);
-                    Conn.setAutoCommit(false);
+            if (FieldType.indexOf("string") >= 0)
+            stmt.setString(id, FieldValue.toString());
+
+            else if (FieldType.indexOf("int")>=0){
+                Integer val = FieldValue.toInteger();
+                if (val==null) stmt.setNull(id, java.sql.Types.INTEGER);
+                else stmt.setInt(id, val);
+            }
+
+            else if (FieldType.indexOf("short")>=0){
+                Short val = FieldValue.toShort();
+                if (val==null) stmt.setNull(id, java.sql.Types.SMALLINT);
+                else stmt.setShort(id, val);
+            }
+
+            else if (FieldType.indexOf("long")>=0){
+                Long val = FieldValue.toLong();
+                if (val==null) stmt.setNull(id, java.sql.Types.BIGINT);
+                else stmt.setLong(id, val);
+            }
+
+            else if (FieldType.indexOf("double")>=0){
+                Double val = FieldValue.toDouble();
+                if (val==null) stmt.setNull(id, java.sql.Types.DOUBLE);
+                else stmt.setDouble(id, val);
+            }
+
+            else if (FieldType.indexOf("float")>=0){
+                Float val = FieldValue.toFloat();
+                if (val==null) stmt.setNull(id, java.sql.Types.FLOAT);
+                else stmt.setFloat(id, val);
+            }
+
+            else if (FieldType.indexOf("bool")>=0){
+                Boolean val = FieldValue.toBoolean();
+                if (val==null) stmt.setNull(id, java.sql.Types.BIT);
+                else stmt.setBoolean(id, val);
+            }
+
+            else if (FieldType.indexOf("decimal")>=0)
+            stmt.setBigDecimal(id, FieldValue.toBigDecimal());
+
+            else if (FieldType.indexOf("timestamp")>=0)
+            stmt.setTimestamp(id, FieldValue.toTimeStamp());
+
+            else if (FieldType.indexOf("date")>=0)
+            stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
+
+            else if (FieldType.indexOf("object")>=0)
+            stmt.setObject(id, FieldValue.toObject());
+
+            else if (FieldType.indexOf("map")>=0) //PostgreSQL HStore
+            stmt.setObject(id, FieldValue.toString(), java.sql.Types.OTHER);
+
+            //else System.out.println(i + " " + field.Name + " " + FieldType);
+
+
+            id++;
+        }
+
+
+      //Update
+        if (batchSize==1){
+            stmt.executeUpdate();
+
+
+            if (InsertOnUpdate){
+                java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    this.GeneratedKey = new Value(generatedKeys.getString(1));
                 }
-            }
-            else{
-                stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                InsertOnUpdate = false;
             }
 
+        }
+        else{
+            stmt.addBatch();
+            numBatches++;
 
-          //Set values using a prepared statement
-            int id = 1;
-            for (int i=0; i<fields.size(); i++) {
-
-                Field field = fields.get(i);
-                String FieldType = field.Class.toLowerCase();
-                if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
-                Value FieldValue = field.getValue();
-
-
-                if (FieldType.indexOf("string")>=0)
-                stmt.setString(id, FieldValue.toString());
-
-                else if(FieldType.indexOf("int")>=0)
-                stmt.setInt(id, FieldValue.toInteger());
-
-                else if (FieldType.indexOf("short")>=0)
-                stmt.setShort(id, FieldValue.toShort());
-
-                else if (FieldType.indexOf("long")>=0)
-                stmt.setLong(id, FieldValue.toLong());
-
-                else if (FieldType.indexOf("double")>=0)
-                stmt.setDouble(id, FieldValue.toDouble());
-
-                else if (FieldType.indexOf("float")>=0)
-                stmt.setFloat(id, FieldValue.toFloat());
-
-                else if (FieldType.indexOf("decimal")>=0)
-                stmt.setBigDecimal(id, FieldValue.toBigDecimal());
-
-                else if (FieldType.indexOf("timestamp")>=0)
-                stmt.setTimestamp(id, FieldValue.toTimeStamp());
-
-                else if (FieldType.indexOf("date")>=0)
-                stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
-
-                else if (FieldType.indexOf("bool")>=0)
-                stmt.setBoolean(id, FieldValue.toBoolean() );
-
-                else if (FieldType.indexOf("object")>=0)
-                stmt.setObject(id, FieldValue.toObject());
-
-                //else System.out.println(i + " " + field.Name + " " + FieldType);
-
-
-                id++;
+            if (numBatches==batchSize){
+                executeBatch();
             }
-
-
-          //Update
-            if (batchSize==1){
-                stmt.executeUpdate();
-
-
-                if (InsertOnUpdate){
-                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                    if (generatedKeys.next()) {
-                        this.GeneratedKey = new Value(generatedKeys.getString(1));
-                    }
-                    InsertOnUpdate = false;
-                }
-
-            }
-            else{
-                stmt.addBatch();
-                numBatches++;
-
-                if (numBatches==batchSize){
-                    executeBatch();
-                }
-            }
-
         }
     }
 
@@ -825,19 +752,18 @@ public class Recordset {
         
       //Find out what kind of data we're dealing with
         Object value = field.getValue().toObject();
-        String packageName = value.getClass().getPackage().getName();
 
 
-      //TODO: Parse out any functions
-        /*
-        'NOW()';
-        'LAST_DAY(DATE_ADD(CURDATE(), INTERVAL 1 MONTH))';
-        'LAST_DAY(CURDATE())';
-         */
-        
+      //Special case for SQL Functions
+        if (value instanceof Function){
+            Function function = (Function) value;
+            return function.getFunction();
+        }
+
 
 
       //Special case for geometry types
+        String packageName = value.getClass().getPackage().getName();
         if (packageName.startsWith("javaxt.geospatial.geometry")){
             String STGeomFromText = getSTGeomFromText(field);
             field.Value = new Value(value.toString());
@@ -1107,7 +1033,7 @@ public class Recordset {
                     }
                 }
             }
-        }        
+        }
     }
 
 
