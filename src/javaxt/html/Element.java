@@ -45,6 +45,8 @@ public class Element {
         tag = tag.replace("/>","");
         tag = tag.replace(">","");
         //tag = AddQuotes(tag);
+
+        tag = tag.replaceAll("\\s+"," ").trim();
         tag = tag.trim();
 
         arr = tag.split(" ");

@@ -268,13 +268,17 @@ public class Parser {
 
 
                               //Special case for tags that self terminate
-                                if (Tag.isEndTag())  return Element;
+                                if (Tag.isEndTag()){
+                                    //Element.innerHTML = null;
+                                    Element.outerHTML = tag.toString();
+                                    return Element;
+                                }
                                 
                             }
                         }
                     }
                 }
-                else { 
+                else {
 
                     if (Tag.getName().equalsIgnoreCase(tagName)){
 
