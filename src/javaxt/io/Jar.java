@@ -107,8 +107,12 @@ public class Jar {
    *  This method should be used instead of new Jar(java.lang.Package).
    */
     public static Jar[] getJars(java.lang.Package Package){
+        return getJars(Package.getName());
+    }
+
+    public static Jar[] getJars(String packageName){
         java.util.ArrayList<Jar> jars = new java.util.ArrayList<Jar>();
-        String path = Package.getName().replace((CharSequence)".",(CharSequence)"/");
+        String path = packageName.replace((CharSequence)".",(CharSequence)"/");
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         for (java.net.URL url : getResource(path, classLoader)){
             java.io.File file = getFile(url);
@@ -116,7 +120,6 @@ public class Jar {
         }
         return jars.toArray(new Jar[jars.size()]);
     }
-
 
   //**************************************************************************
   //** getFile
@@ -467,7 +470,11 @@ public class Jar {
         private Entry(java.io.File fileEntry){
             this.fileEntry = fileEntry;
         }
-        
+
+        public String getName(){
+            if (fileEntry==null) return zipEntry.getName();
+            else return fileEntry.getName();
+        }
 
         public java.util.Date getDate(){
             if (fileEntry==null) return new java.util.Date(zipEntry.getTime());
@@ -659,7 +666,7 @@ public class Jar {
         }
         
         public String toString(){
-            return getText();
+            return getName();
         }
     }
 }

@@ -407,14 +407,35 @@ public class File implements Comparable {
   //**************************************************************************
   //** Move File
   //**************************************************************************
-  /**  Used to move the file to a different directory. */
-    
+  /** Used to move the file to a different directory. If the operation is
+   *  successful, returns a handle to the new file. Otherwise, the original
+   *  file is returned.
+   */
     public javaxt.io.File moveTo(Directory Destination){
-        java.io.File File = getFile();
-        java.io.File Dir = Destination.toFile();
-        Dir.mkdirs();
-        java.io.File newFile = new java.io.File(Dir, File.getName());
-        if (File.renameTo(newFile)){
+        return moveTo(new javaxt.io.File(Destination, getName()), true);
+    }
+
+  //**************************************************************************
+  //** Move File
+  //**************************************************************************
+  /** Used to move the file to a different location. If the operation is
+   *  successful, returns a handle to the new file. Otherwise, the original
+   *  file is returned.
+   */
+    public javaxt.io.File moveTo(javaxt.io.File Destination, boolean Overwrite){
+        if (Destination.exists()){
+            if (Overwrite){
+                Destination.delete();
+            }
+            else{
+                return this;
+            }
+        }
+
+        java.io.File oldFile = getFile();
+        java.io.File newFile = Destination.toFile();
+        newFile.getParentFile().mkdirs();
+        if (oldFile.renameTo(newFile)){
             attr = null;
             file = newFile;
             init(file.getAbsolutePath());
