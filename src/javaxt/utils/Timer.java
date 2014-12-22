@@ -89,6 +89,14 @@ public class Timer {
     }
 
 
+    public void cancel(){
+        scheduler.shutdown();
+    }
+
+    public boolean initialized(){
+        return scheduler.task!=null;
+    }
+
   //**************************************************************************
   //** Scheduler Class
   //**************************************************************************
