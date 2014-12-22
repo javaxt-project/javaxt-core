@@ -43,8 +43,9 @@ public class DOM {
   //**************************************************************************
   //** createDocument
   //**************************************************************************
-  /**  Used to create a DOM document from a java.io.File. */ 
-    
+  /** Used to create a DOM document from a java.io.File. Returns null if the
+   *  file cannot be serialized to XML.
+   */
     public static Document createDocument(java.io.File file){
         if (file.exists()==false) return null;
         try{
@@ -60,9 +61,12 @@ public class DOM {
   //**************************************************************************
   //** createDocument
   //**************************************************************************
-  /**  Used to create a DOM document from a String. */ 
-    
+  /** Used to create a DOM document from a String. Returns null if the string
+   *  is invalid.
+   */
     public static Document createDocument(String xml){
+        if (xml==null) return null;
+
         xml = xml.trim();
         String encoding = "UTF-8";
         
