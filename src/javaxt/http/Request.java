@@ -35,6 +35,7 @@ public class Request {
     private URLConnection conn = null;
     private Proxy HttpProxy;
     private java.net.URL url;
+    private java.net.URL orgURL;
     private int connectionTimeout = 0;
     private int readTimeout = 0;
     private boolean useCache = false;
@@ -77,7 +78,7 @@ public class Request {
 
 
     public Request clone(){
-        Request request = new Request(url);
+        Request request = new Request(orgURL);
         request.HttpProxy = HttpProxy;
         request.connectionTimeout = connectionTimeout;
         request.readTimeout = readTimeout;
@@ -107,13 +108,7 @@ public class Request {
    *  @param httpProxy Proxy server
    */
     public Request(String url, String httpProxy) {
-        try{
-            this.url = new java.net.URL(url);
-            setProxy(httpProxy);
-            initHeaders();
-        }
-        catch (Exception e) {
-        }
+        this(getURL(url), httpProxy);
     }
 
 
@@ -134,11 +129,20 @@ public class Request {
    *  @param httpProxy Proxy server
    */
     public Request(java.net.URL url, String httpProxy){
-        this.url = url;
+        this.url = orgURL = url;
         setProxy(httpProxy);
         initHeaders();
     }
 
+
+    private static java.net.URL getURL(String url){
+        try{
+            return new java.net.URL(url);
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
 
   //**************************************************************************
   //** initHeaders
@@ -155,15 +159,34 @@ public class Request {
     }
 
 
+    public void setURL(java.net.URL url){
+        this.url = url;
+        this.orgURL = url;
+    }
+
   //**************************************************************************
   //** getURL
   //**************************************************************************
-  /** Used to return the URL used to make the request. Note that the URL
-   *  may be different from the URL used to invoke this class if the request
+  /** Returns the URL used to make the request. Note that the URL may be
+   *  different from the URL used to invoke this class if the request
    *  encounters a redirect. See setNumRedirects() for more information.
+   *  Use the getInitialURL() to get the original URL used to instantiate this
+   *  class.
    */
     public java.net.URL getURL(){
         return url;
+    }
+
+
+  //**************************************************************************
+  //** getInitialURL
+  //**************************************************************************
+  /** Returns the URL used to instantiate this class. This URL may be 
+   *  different from the URL used to execute the request. See getURL() for  
+   *  more information.
+   */
+    public java.net.URL getInitialURL(){
+        return orgURL;
     }
 
 
@@ -1024,7 +1047,7 @@ public class Request {
         StringBuffer out = new StringBuffer();
         //System.out.println("Request Header");
         //System.out.println("------------------------------------------------");
-
+out.append(url + "\r\n");
         java.util.Map<String,List<String>> requestHeaders = getRequestHeaders();
         if (requestHeaders!=null){
             java.util.Iterator it = requestHeaders.keySet().iterator();
