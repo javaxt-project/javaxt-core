@@ -21,6 +21,7 @@ public class Recordset {
     
     private Connection Connection = null;
     private Driver driver = null;
+    private boolean autoCommit = true;
 
     private Value GeneratedKey;
 
@@ -164,8 +165,9 @@ public class Recordset {
         if (Connection.isClosed()) throw new java.sql.SQLException("Connection is closed.");
 
 
-        startTime = java.util.Calendar.getInstance().getTimeInMillis();
+        startTime = System.currentTimeMillis();
         Conn = Connection.getConnection();
+        autoCommit = Conn.getAutoCommit();
 
 
       //Wrap table and column names in quotes (Special Case for PostgreSQL)
@@ -206,10 +208,23 @@ public class Recordset {
               //Otherwise it will fetch back all the records at once
                 if (fetchSize!=null) Conn.setAutoCommit(false);
 
+
               //DB2 and SQLite only support forward cursors
                 if (driver.equals("DB2") || driver.equals("SQLite")){
                     stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY, rs.CONCUR_READ_ONLY);
                 }
+
+
+                else if (driver.equals("PostgreSQL")){
+                    if (fetchSize!=null){
+                        stmt = Conn.createStatement(rs.TYPE_FORWARD_ONLY, rs.CONCUR_READ_ONLY, rs.FETCH_FORWARD);
+                    }
+                    else{
+                        stmt = Conn.createStatement(rs.TYPE_SCROLL_INSENSITIVE, rs.CONCUR_READ_ONLY);
+                    }
+                    
+                }
+
 
               //Default Connection
                 else{
@@ -318,7 +333,7 @@ public class Recordset {
         }
 
 
-        endTime = java.util.Calendar.getInstance().getTimeInMillis();
+        endTime = System.currentTimeMillis();
         QueryResponseTime = endTime-startTime;
 
         try{
@@ -382,6 +397,14 @@ public class Recordset {
             }
         }
 
+
+      //Restore autoCommit setting
+        try{
+            Conn.setAutoCommit(autoCommit);
+        }
+        catch(Exception e){}
+
+
         rs = null;
         stmt = null;
         driver = null;
@@ -395,7 +418,7 @@ public class Recordset {
             Fields = null;
         }
 
-        endTime = java.util.Calendar.getInstance().getTimeInMillis();
+        endTime = System.currentTimeMillis();
         EllapsedTime = endTime-startTime;
     }
 

@@ -108,6 +108,7 @@ public class Date implements Comparable {
   /** Creates a new instance of date using supplied java.util.Date */
     
     public Date(java.util.Date date){
+        if (date==null) throw new IllegalArgumentException("Date is null.");
         currDate = date;
     }
     
@@ -118,6 +119,7 @@ public class Date implements Comparable {
   /** Creates a new instance of date using supplied java.util.Calendar */
     
     public Date(Calendar calendar){
+        if (calendar==null) throw new IllegalArgumentException("Calendar is null.");
         currDate = calendar.getTime();
     }
     

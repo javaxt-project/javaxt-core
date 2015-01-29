@@ -232,6 +232,8 @@ public class Response {
    */
     public ByteArrayOutputStream getBytes(boolean deflate){
 
+        if (request.readTimeout>0) new Thread(new ReadTimeout(conn)).start();
+
         InputStream inputStream = this.getInputStream();
         ByteArrayOutputStream bas = new ByteArrayOutputStream();
         String encoding = this.getHeader("Content-Encoding");
@@ -254,7 +256,7 @@ public class Response {
 
                 try { gzipInputStream.close(); } catch (Exception e){}
                 try { bas.close(); } catch (Exception e){}
-
+done = true;
 
                 return bas;
 
@@ -282,12 +284,36 @@ public class Response {
 
             try { inputStream.close(); } catch (Exception e){}
             try { bas.close(); } catch (Exception e){}
-
+done = true;
             return bas;
 
 
         }
         return null;
+    }
+
+
+private boolean done = false;
+
+    private class ReadTimeout implements Runnable {
+
+        HttpURLConnection con;
+        public ReadTimeout(URLConnection con) {
+            this.con = (HttpURLConnection) con;
+        }
+
+        public void run() {
+            try {
+                Thread.sleep(request.readTimeout);
+            } catch (InterruptedException e) {
+
+            }
+
+            if (done==false){
+                con.disconnect();
+                //System.out.println("** Timer thread forcing to quit connection");
+            }
+        }
     }
 
 

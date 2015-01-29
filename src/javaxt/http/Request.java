@@ -37,7 +37,7 @@ public class Request {
     private java.net.URL url;
     private java.net.URL orgURL;
     private int connectionTimeout = 0;
-    private int readTimeout = 0;
+    protected int readTimeout = 0;
     private boolean useCache = false;
     private int maxRedirects = 5;
     private String username;
