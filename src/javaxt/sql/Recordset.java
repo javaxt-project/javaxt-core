@@ -385,12 +385,14 @@ public class Recordset {
   /**  Closes the Recordset freeing up database and jdbc resources.   */
     
     public void close(){
+
         if (State==1){
             try{
                 executeBatch();
                 rs.close();
                 stmt.close();
                 State = 0;
+                Conn.setAutoCommit(autoCommit);
             }
             catch(java.sql.SQLException e){
                 e.printStackTrace();
@@ -398,11 +400,7 @@ public class Recordset {
         }
 
 
-      //Restore autoCommit setting
-        try{
-            Conn.setAutoCommit(autoCommit);
-        }
-        catch(Exception e){}
+
 
 
         rs = null;
@@ -892,8 +890,10 @@ public class Recordset {
 
             int[] rowsUpdated = stmt.executeBatch();
             if (rowsUpdated.length>0) ttl+=rowsUpdated.length;
-            
-            Conn.commit();
+
+            if (Conn.getAutoCommit()==false){
+                Conn.commit();
+            }
         }
         batchedStatements.clear();
         numBatches = 0;
@@ -1155,10 +1155,12 @@ public class Recordset {
                 }
             }
             catch(Exception e){
+                EOF = true;
+                return false;
                 //System.out.println("ERROR MoveNext: " + e.toString());
             }
         }        
-        return false;
+        //return false;
     }
 
 
@@ -1372,14 +1374,14 @@ public class Recordset {
     }
 
 
-  //**************************************************************************
-  //** Finalize
-  //**************************************************************************
-  /** Method *should* be called by Java garbage collector once this class is
-   *  disposed.
-   */
-    protected void finalize() throws Throwable {
-       close();
-       super.finalize();
-    }
+//  //**************************************************************************
+//  //** Finalize
+//  //**************************************************************************
+//  /** Method *should* be called by Java garbage collector once this class is
+//   *  disposed.
+//   */
+//    protected void finalize() throws Throwable {
+//       close();
+//       super.finalize();
+//    }
 }

@@ -22,8 +22,29 @@ public class Value extends javaxt.utils.Value {
     }
 
     public java.sql.Timestamp toTimeStamp(){
-        javaxt.utils.Date date = toDate();
-        if (date==null) return null;
-        else return new java.sql.Timestamp(date.getDate().getTime());
+        Object obj = super.toObject();
+        if (obj!=null){
+            if (obj instanceof java.sql.Timestamp){
+                return (java.sql.Timestamp) obj;
+            }
+            else{
+                javaxt.utils.Date date = toDate();
+                return new java.sql.Timestamp(date.getDate().getTime());
+            }
+        }
+        return null;
+    }
+
+    public Object toArray(){
+        Object obj = super.toObject();
+        if (obj!=null){
+            try{
+                return ((java.sql.Array) obj).getArray();
+            }
+            catch(Exception e){
+            }
+        }
+
+        return null;
     }
 }

@@ -137,13 +137,26 @@ public class Value {
    *  converting the value to a Date or if the value is null.
    */
     public javaxt.utils.Date toDate(){
-        if (value==null) return null;
-        try{
-            return new javaxt.utils.Date(value.toString());
+        if (value!=null){
+            if (value instanceof java.sql.Timestamp){
+                java.sql.Timestamp ts = (java.sql.Timestamp) value;
+                return new javaxt.utils.Date(ts.getTime());
+            }
+            else if (value instanceof java.util.Date){
+                return new javaxt.utils.Date((java.util.Date) value);
+            }
+            else if (value instanceof java.util.Calendar){
+                return new javaxt.utils.Date((java.util.Calendar) value);
+            }
+            else{
+                try{
+                    return new javaxt.utils.Date(value.toString());
+                }
+                catch(Exception e){
+                }
+            }
         }
-        catch(Exception e){
-            return null;
-        }
+        return null;
     }
 
     
