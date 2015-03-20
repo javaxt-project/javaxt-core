@@ -290,7 +290,7 @@ public class Request {
   //**************************************************************************
   //** setConnectTimeout
   //**************************************************************************
-  /**
+  /** Connection timeout in milliseconds
    */
     public void setConnectTimeout(int timeout){
         if (timeout>0) connectionTimeout = timeout;
@@ -300,7 +300,7 @@ public class Request {
   //**************************************************************************
   //** setReadTimeout
   //**************************************************************************
-  /**
+  /** Read timeout in milliseconds.
    */
     public void setReadTimeout(int timeout){
         if (readTimeout>0) readTimeout = timeout;

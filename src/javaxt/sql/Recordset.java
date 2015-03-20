@@ -228,31 +228,22 @@ public class Recordset {
 
               //Default Connection
                 else{
-                    stmt = Conn.createStatement(rs.TYPE_SCROLL_INSENSITIVE, rs.CONCUR_READ_ONLY);
+                    try{
+                        stmt = Conn.createStatement(rs.TYPE_SCROLL_INSENSITIVE, rs.CONCUR_READ_ONLY);
+                    }
+                    catch(SQLException e){
+                        stmt = Conn.createStatement();
+                    }
                 }
 
                 if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                 rs = stmt.executeQuery(sqlString);
                 State = 1;
             }
-            catch(Exception e){
+            catch(SQLException e){
                 //System.out.println("ERROR Open RecordSet: " + e.toString());
+                throw e;
             }
-            if (State!=1){
-                try{
-                    if (fetchSize!=null) Conn.setAutoCommit(false);
-                    stmt = Conn.createStatement();
-                    if (fetchSize!=null) stmt.setFetchSize(fetchSize);
-                    rs = stmt.executeQuery(sqlString);
-                    State = 1;
-
-                }
-                catch(SQLException e){
-                    //System.out.println("ERROR Open RecordSet: " + e.toString());
-                    throw e;
-                }
-            }
-
         }
 
       //Read-Write Connection
@@ -279,8 +270,6 @@ public class Recordset {
 
               //DB2 Connection
                 else if (driver.equals("DB2")){
-                    //System.out.println("WARNING: DB2 JDBC Driver does not currently support the insertRow() method. " +
-                    //                   "Will attempt to execute an SQL insert statement instead.");
                     try{
                         if (fetchSize!=null) Conn.setAutoCommit(false);
                         stmt = Conn.createStatement(rs.TYPE_SCROLL_SENSITIVE,rs.CONCUR_UPDATABLE);
@@ -386,23 +375,28 @@ public class Recordset {
     
     public void close(){
 
-        if (State==1){
-            try{
-                executeBatch();
-                rs.close();
-                stmt.close();
-                State = 0;
-                Conn.setAutoCommit(autoCommit);
-            }
-            catch(java.sql.SQLException e){
-                e.printStackTrace();
-            }
+
+      //Close recordset
+        try{
+            if (State==1) executeBatch();
+            if (rs!=null) rs.close();
+            if (stmt!=null) stmt.close();
+        }
+        catch(SQLException e){
+            e.printStackTrace();
         }
 
 
+      //Reset autocommit
+        try{
+            Conn.setAutoCommit(autoCommit);
+        }
+        catch(java.sql.SQLException e){
+            e.printStackTrace();
+        }
 
 
-
+        State = 0;
         rs = null;
         stmt = null;
         driver = null;
@@ -881,7 +875,7 @@ public class Recordset {
   //**************************************************************************
   /** Returns the total number of rows that were updated.
    */
-    private int executeBatch() throws java.sql.SQLException{
+    private int executeBatch() throws java.sql.SQLException {
         if (batchedStatements==null) return 0;
         int ttl = 0;
         java.util.Iterator<String> it = batchedStatements.keySet().iterator();

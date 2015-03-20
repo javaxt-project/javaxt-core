@@ -1,6 +1,7 @@
 package javaxt.sql;
 import java.sql.ResultSet;
 import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 import javax.sql.ConnectionPoolDataSource;
 
 //******************************************************************************
@@ -23,6 +24,7 @@ public class Database {
     //private String props;
     private java.util.Properties properties;
     private String querystring;
+    private ConnectionPoolDataSource ConnectionPoolDataSource;
     private static final Class<?>[] stringType = { String.class };
     private static final Class<?>[] integerType = { Integer.TYPE };
 
@@ -409,23 +411,39 @@ public class Database {
   /** Used to open a connection to the database. Note the the connection will
    *  need to be closed afterwards.
    */     
-    public Connection getConnection() throws java.sql.SQLException {
+    public Connection getConnection() throws SQLException {
         Connection connection = new Connection();
         connection.open(this);
         return connection;
     }
+
     
+  //**************************************************************************
+  //** setConnectionPoolDataSource
+  //**************************************************************************
+  /** Used to set the ConnectionPoolDataSource for the database. Typically,
+   *  the getConnectionPoolDataSource() method is used to create a
+   *  ConnectionPoolDataSource. This method allows you to specify a different
+   *  ConnectionPoolDataSource.
+   */
+    public void setConnectionPoolDataSource(ConnectionPoolDataSource dataSource){
+        this.ConnectionPoolDataSource = dataSource;
+    }
+
 
   //**************************************************************************
   //** getConnectionPoolDataSource
   //**************************************************************************
-  /**  Used to instantiate a ConnectionPoolDataSource for the database. The
-   *   ConnectionPoolDataSource is typically used to create a JDBC Connection
-   *   Pool.
+  /** Used to instantiate a ConnectionPoolDataSource for the database. The
+   *  ConnectionPoolDataSource is typically used to create a JDBC Connection
+   *  Pool.
    */
-    public ConnectionPoolDataSource getConnectionPoolDataSource() throws java.sql.SQLException {
+    public ConnectionPoolDataSource getConnectionPoolDataSource() throws SQLException {
 
-        if (driver==null) throw new java.sql.SQLException(
+        if (ConnectionPoolDataSource!=null) return ConnectionPoolDataSource;
+
+
+        if (driver==null) throw new SQLException(
             "Failed to create a ConnectionPoolDataSource. Please specify a driver.");
 
         String className = null;
@@ -538,15 +556,16 @@ public class Database {
                         if (method!=null) method.invoke(instance, new Object[] { parameter });
                     }
                 }
-                return (ConnectionPoolDataSource) instance;
+                ConnectionPoolDataSource = (ConnectionPoolDataSource) instance;
+                return ConnectionPoolDataSource;
             }
             catch(Exception e){
-                throw new java.sql.SQLException("Failed to instantiate the ConnectionPoolDataSource.", e);
+                throw new SQLException("Failed to instantiate the ConnectionPoolDataSource.", e);
             }
 
         }
 
-        throw new java.sql.SQLException("Failed to find a suitable ConnectionPoolDataSource.");
+        throw new SQLException("Failed to find a suitable ConnectionPoolDataSource.");
     }
 
 
