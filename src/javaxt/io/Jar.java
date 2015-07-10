@@ -279,7 +279,8 @@ public class Jar {
    *  (e.g. "Jar.class").
    */
     public Entry getEntry(String Package, String Entry){
-        
+
+        ZipInputStream in = null;
         try{
             
             if (file.isDirectory()){
@@ -299,7 +300,7 @@ public class Jar {
 
 
               //Find entry in the jar file
-                ZipInputStream in = new ZipInputStream(new FileInputStream(file));
+                in = new ZipInputStream(new FileInputStream(file));
                 ZipEntry zipEntry = null;
                 while((zipEntry = in.getNextEntry())!=null){
                     if (zipEntry.getName().equalsIgnoreCase(Entry)){
@@ -313,6 +314,10 @@ public class Jar {
             }
         }
         catch(Exception e){
+            if (in!=null){
+                try{ in.close(); }
+                catch(Exception ex){}
+            }
             //e.printStackTrace();
         }
         
@@ -495,12 +500,22 @@ public class Jar {
             return fileEntry;
         }
 
+        public long getSize(){
+            if (fileEntry==null){
+                return zipEntry.getSize();
+            }
+            else{
+                return fileEntry.length();
+            }
+        }
+        
 
         public byte[] getBytes(){
+            ZipFile zip = null;
             try{
-                ZipFile zip = new ZipFile(file);
+                
                 if (fileEntry==null){
-                    
+                    zip = new ZipFile(file);
                     java.io.DataInputStream is = new java.io.DataInputStream(zip.getInputStream(zipEntry));
 
                     int bufferSize = 1024;
@@ -516,16 +531,14 @@ public class Jar {
                     return bas.toByteArray();
                 }
                 else{
-                    byte[] b = new byte[(int)fileEntry.length()];
-                    java.io.DataInputStream is = new java.io.DataInputStream(new FileInputStream(fileEntry));
-                    is.readFully(b, 0, b.length);
-                    is.close();
-                    zip.close();
-                    return b;
+                    return new javaxt.io.File(fileEntry).getBytes().toByteArray();
                 }
             }
             catch(Exception e){
-                e.printStackTrace();
+                if (zip!=null){
+                    try{ zip.close(); }
+                    catch(Exception ex){}
+                }
                 return null;
             }
         }

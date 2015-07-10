@@ -297,6 +297,7 @@ public class Parser {
                             foundEnd = (numEndTags>numStartTags);
                         }
                         else{
+                            //System.out.println(numEndTags + " vs " + numStartTags);
                             foundEnd = (numEndTags>=numStartTags);
                         }
 
@@ -318,8 +319,18 @@ public class Parser {
                 tag = new StringBuffer();
             }
 
-              
+
         }
+
+
+      //Last ditch effort!
+        if (Element!=null){
+            if (Element.getOuterHTML()==null){
+                Element.outerHTML = Element.getTag();
+            }
+            return Element;
+        }
+
         return null;
     }
 

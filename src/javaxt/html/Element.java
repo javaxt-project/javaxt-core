@@ -4,7 +4,7 @@ import javaxt.xml.DOM;
 public class Element {
 
     private String tagName;
-    //private String html;
+    private String tagHTML;
 
     protected String innerHTML;
     protected String outerHTML;
@@ -21,9 +21,10 @@ public class Element {
   /**
    *  @param html HTML used to define a tag (e.g. &lt;div id="1"&gt;)
    */
-    protected Element(String html){
-        
-        tag = html;
+    protected Element(String tagHTML){
+        this.tagHTML = tagHTML;
+
+        tag = tagHTML;
 
         if (tag.startsWith("</")){
             isStartTag = false;
@@ -70,6 +71,10 @@ public class Element {
 
     public String getName(){
         return tagName;
+    }
+
+    protected String getTag(){
+        return tagHTML;
     }
     
     public String getInnerHTML(){

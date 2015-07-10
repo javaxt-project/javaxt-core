@@ -79,7 +79,14 @@ public class Date implements Comparable {
          "M/d/yy h:mm:ss a",            // 6/7/1976 1:02:09 PM
          "M/d/yy h:mm a",               // 6/7/1976 1:02 PM
 
+         "MM/dd/yy HH:mm:ss Z",         // 06/07/1976 13:02:09 America/New_York
+         "MM/dd/yy HH:mm:ss",           // 06/07/1976 13:02:09
+         "MM/dd/yy HH:mm Z",            // 06/07/1976 13:02 America/New_York
+         "MM/dd/yy HH:mm",              // 06/07/1976 13:02
+
+         "MM/dd/yyyy HH:mm:ss Z",       // 06/07/1976 13:02:09 America/New_York
          "MM/dd/yyyy HH:mm:ss",         // 06/07/1976 13:02:09
+         "MM/dd/yyyy HH:mm Z",          // 06/07/1976 13:02 America/New_York
          "MM/dd/yyyy HH:mm",            // 06/07/1976 13:02
 
          "M/d/yy",                      // 6/7/76
@@ -1181,6 +1188,9 @@ public class Date implements Comparable {
         for (String[] pair : kvp) {
             timezones.put(pair[0].toUpperCase(), pair[2]);
             timezones.put(pair[1].toUpperCase(), pair[2]);
+
+            String nk = pair[0].toUpperCase().substring(pair[0].indexOf(" ")+1);
+            if (!timezones.containsKey(nk)) timezones.put(nk, pair[2]);
         }
     }
 }

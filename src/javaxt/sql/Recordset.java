@@ -729,7 +729,28 @@ public class Recordset {
 
       //Update
         if (batchSize==1){
-            stmt.executeUpdate();
+            try{
+                stmt.executeUpdate();
+            }
+            catch(SQLException e){
+
+                StringBuffer err = new StringBuffer();
+                err.append("Error executing update:\n");
+                err.append(sql.toString());
+                err.append("\n");
+                //err.append("\n  Values:\n");
+                for (int i=0; i<fields.size(); i++) {
+                    if (i>0) err.append("\n");
+                    Field field = fields.get(i);
+                    err.append("  - " + field.getName() + ": ");
+                    String val = field.getValue().toString();
+                    if (val!=null && val.length()>100) val = val.substring(0, 100) + "...";
+                    err.append(val);
+                }
+
+                e.setNextException(new SQLException(err.toString()));
+                throw e;
+            }
 
 
             if (InsertOnUpdate){
@@ -778,7 +799,8 @@ public class Recordset {
 
 
       //Special case for geometry types
-        String packageName = value.getClass().getPackage().getName();
+        java.lang.Package _package = value.getClass().getPackage();
+        String packageName = _package==null ? "" : _package.getName();
         if (packageName.startsWith("javaxt.geospatial.geometry")){
             String STGeomFromText = getSTGeomFromText(field);
             field.Value = new Value(value.toString());
