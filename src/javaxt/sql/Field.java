@@ -30,6 +30,25 @@ public class Field {
          try{ Schema = getValue(rsmd.getSchemaName(i)); } catch(Exception e){}
          try{ Type = getValue(rsmd.getColumnTypeName(i)); } catch(Exception e){}
          try{ Class = getValue(rsmd.getColumnClassName(i)); } catch(Exception e){}
+
+         
+       //Special case. Discovered that the column name was returning a 
+       //table prefix when performing a union quiries with SQLite
+         if (Name!=null && Name.contains(".")){
+            String[] arr = Name.split("\\.");
+            if (arr.length==3){
+                Name = arr[2];
+                Table = arr[1];
+                Schema = arr[0];
+            }
+            else if (arr.length==2){
+                Name = arr[1];
+                Table = arr[0];
+            }
+            else if (arr.length==1){
+                Name = arr[0];
+            }
+         }
     }
 
 

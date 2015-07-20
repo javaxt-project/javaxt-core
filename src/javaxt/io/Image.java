@@ -1514,7 +1514,7 @@ public class Image {
   //** hasColor
   //**************************************************************************
   /** Used to determine whether a given pixel has a color value. Returns false
-   *  if the pixel is white or transparent.
+   *  if the pixel matches the input color or is transparent.
    */
     private boolean hasColor(int pixel, int red, int green, int blue){
 
