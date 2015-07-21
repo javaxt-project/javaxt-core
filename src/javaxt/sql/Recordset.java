@@ -591,12 +591,25 @@ public class Recordset {
                     sql.append(" WHERE "); sql.append(where);
                 }
 
+
               //Find how many records will be affected by this update
+                int numRecords;
                 java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + " WHERE " + (where==null?"":where));
-                int numRecords = r2.getInt(1);
+                try{
+                    numRecords = r2.getInt(1);
+                }
+                catch(Exception e){
+                    try{
+                        r2.first(); //SQLServer needs this!
+                        numRecords = r2.getInt(1);
+                    }
+                    catch(Exception ex){
+                        numRecords = Integer.MAX_VALUE;
+                    }
+                }
                 r2.close();
 
-
+                
               //Warn user that there might be a problem with the update
                 if (numRecords>1){
                     StringBuffer msg = new StringBuffer();
