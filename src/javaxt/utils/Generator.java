@@ -14,7 +14,6 @@ import java.util.NoSuchElementException;
  *   {@link yield(T)} to return values one at a time.
  *
  *   @author Adrian Kuhn &lt;akuhn(at)iam.unibe.ch&gt;
- *   @see http://smallwiki.unibe.ch/adriankuhn/yield4java/
  *
  ******************************************************************************/
 
