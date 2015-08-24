@@ -16,7 +16,7 @@ import java.util.HashMap;
 public class Date implements Comparable {
     
     private Locale currentLocale = Locale.getDefault();
-    private java.util.TimeZone timeZone;
+    private java.util.TimeZone timeZone = Calendar.getInstance().getTimeZone();
     private java.util.Date currDate;
     
  
@@ -128,6 +128,7 @@ public class Date implements Comparable {
     public Date(Calendar calendar){
         if (calendar==null) throw new IllegalArgumentException("Calendar is null.");
         currDate = calendar.getTime();
+        timeZone = calendar.getTimeZone();
     }
     
     
@@ -343,24 +344,23 @@ public class Date implements Comparable {
     public void setTimeZone(java.util.TimeZone timeZone, boolean preserveTimeStamp){
 
         if (timeZone==null) return;
+        
 
         if (preserveTimeStamp){
-            
-            String z1 = FormatDate(currDate, "z");
-
-            SimpleDateFormat dateFormat = new SimpleDateFormat("z", currentLocale);
-            dateFormat.setTimeZone(timeZone);
-            String z2 = dateFormat.format(currDate);
-
-            String d = FormatDate(currDate, "yyyy-MM-dd HH:mm:ss.SSS z").replace(z1, z2);
-            try{
-                currDate = parseDate(d, "yyyy-MM-dd HH:mm:ss.SSS z");
-            }
-            catch(ParseException e){}
+            Calendar cal = Calendar.getInstance(timeZone, currentLocale);
+            cal.set(Calendar.YEAR, this.getYear());
+            cal.set(Calendar.MONTH, this.getMonth()-1);
+            cal.set(Calendar.DAY_OF_MONTH, this.getDay());
+            cal.set(Calendar.HOUR_OF_DAY, this.getHour());
+            cal.set(Calendar.MINUTE, this.getMinute());
+            cal.set(Calendar.SECOND, this.getSecond());
+            cal.set(Calendar.MILLISECOND, this.getMilliSecond());
+            currDate = cal.getTime();
         }
-        else{
-            this.timeZone = timeZone;
-        }
+
+
+      //Do this last! Otherwise the getHour(), getMinute(), etc will be off...
+        this.timeZone = timeZone;
     }
 
 
@@ -383,8 +383,7 @@ public class Date implements Comparable {
    *  and formatting dates.
    */
     public void setTimeZone(java.util.TimeZone timeZone){
-        if (timeZone==null) return;
-        this.timeZone = timeZone;
+        setTimeZone(timeZone, false);
     }
 
 
@@ -395,12 +394,12 @@ public class Date implements Comparable {
    *  and formatting dates.
    */
     public java.util.TimeZone getTimeZone(){
-        return this.timeZone;
+        return timeZone;
     }
 
 
     public int hashCode(){
-        return this.currDate.hashCode();
+        return currDate.hashCode();
     }
 
 
@@ -410,7 +409,7 @@ public class Date implements Comparable {
   /** Returns the current date as a String in the following format:
    *  "EEE MMM dd HH:mm:ss z yyyy"
    */
-    public String toString(){      
+    public String toString(){
         return toString("EEE MMM dd HH:mm:ss z yyyy");
     }
 
@@ -424,9 +423,8 @@ public class Date implements Comparable {
    *  java.text.SimpleDateFormat class for more information.
    */
     public String toString(String format){
-        SimpleDateFormat currFormatter = 
-            new SimpleDateFormat(format, currentLocale);
-        if (timeZone!=null) currFormatter.setTimeZone(timeZone);
+        SimpleDateFormat currFormatter = new SimpleDateFormat(format, currentLocale);
+        currFormatter.setTimeZone(timeZone==null ? Calendar.getInstance().getTimeZone() : timeZone);
         return currFormatter.format(currDate);
     }
 
@@ -506,9 +504,7 @@ public class Date implements Comparable {
    *  affect the original.
    */
     public Date clone(){
-        Date d = new Date(currDate.getTime());
-        d.setTimeZone(this.getTimeZone());
-        return d;
+        return new Date(getCalendar());
     }
 
 
