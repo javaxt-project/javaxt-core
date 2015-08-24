@@ -31,7 +31,12 @@ public class Parameter {
   //**************************************************************************
   /** Instantiates this class using a "Parameter" node from an SSD.
    */
-    protected Parameter(Node ParameterNode){
+    protected Parameter(Node ParameterNode) throws InstantiationException {
+
+        if (!ParameterNode.getNodeName().equalsIgnoreCase("parameter")){
+            throw new InstantiationException(DOM.getText(ParameterNode));
+        }
+
         this.parentNode = ParameterNode.getParentNode();
 
         NamedNodeMap attr = ParameterNode.getAttributes();
@@ -40,6 +45,9 @@ public class Parameter {
         IsAttribute = bool(DOM.getAttributeValue(attr, "isattribute"));
         IsNillable = bool(DOM.getAttributeValue(attr, "isnillable"));
 
+        if (name.length()==0){
+            throw new InstantiationException(DOM.getText(ParameterNode));
+        }
 
 
       //Get min occurances
@@ -70,7 +78,17 @@ public class Parameter {
       //Get children
         java.util.ArrayList<Parameter> params = new java.util.ArrayList<Parameter>();
         for (Node node : DOM.getNodes(ParameterNode.getChildNodes())){
-            params.add(new Parameter(node));
+
+            if (node.getNodeName().equalsIgnoreCase("parameter")){
+                try{
+                    params.add(new Parameter(node));
+                }
+                catch(InstantiationException e){
+                    e.printStackTrace();
+                }
+            }
+
+            //params.add(new Parameter(node));
         }
         if (!params.isEmpty()){
             children = params.toArray(new Parameter[params.size()]);
@@ -252,7 +270,14 @@ public class Parameter {
   /** Returns the parameter name and value as an XML fragment suitable for a
    *  SOAP request.
    */
-    protected String toXML(String attributes){
+    protected String toXML(String attributes, String ns){
+        
+        if (ns!=null) ns = ns.trim();
+        else ns = "";
+
+        String name = this.name;
+        if (ns.length()>0) name = ns + ":" + name;
+
 
         StringBuffer xml = new StringBuffer();
 
@@ -290,30 +315,32 @@ public class Parameter {
         else{
             xml.append("<" + name + attributes + ">");
 
-            if (value instanceof String){
-                if (!isComplex()){
-                    //xml.append("<![CDATA[" + Value + "]]>");
-                    xml.append(javaxt.xml.DOM.escapeXml((String) value));
+            if (value!=null){
+                if (value instanceof String){
+                    if (!isComplex()){
+                        //xml.append("<![CDATA[" + Value + "]]>");
+                        xml.append(javaxt.xml.DOM.escapeXml((String) value));
+                    }
+                    else{ //xml fragment?
+                        xml.append((String) value);
+                    }
                 }
-                else{ //xml fragment?
-                    xml.append((String) value);
+                else if (value instanceof java.util.Date){
+                    java.util.Date date = (java.util.Date) value;
+
+                  //2003-11-24T00:00:00.0000000-05:00
+                    java.text.SimpleDateFormat formatter =
+                         new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSSSZ");
+
+                    String d = formatter.format(date).replace(" ", "T");
+
+                    String d1 = d.substring(0,d.length()-2);
+                    String d2 = d.substring(d.length()-2);
+                    xml.append(d1 + ":" + d2);
                 }
-            }
-            else if (value instanceof java.util.Date){
-                java.util.Date date = (java.util.Date) value;
-
-              //2003-11-24T00:00:00.0000000-05:00
-                java.text.SimpleDateFormat formatter =
-                     new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSSSZ");
-
-                String d = formatter.format(date).replace(" ", "T");
-
-                String d1 = d.substring(0,d.length()-2);
-                String d2 = d.substring(d.length()-2);
-                xml.append(d1 + ":" + d2);
-            }
-            else {
-                xml.append(value);
+                else {
+                    xml.append(value);
+                }
             }
             xml.append("</" + name + ">");
         }

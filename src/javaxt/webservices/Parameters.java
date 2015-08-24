@@ -84,12 +84,15 @@ public class Parameters {
     }
 
 
-
-
     public String toString(){
+        return toString(null);
+    }
+
+
+    public String toString(String ns){
         if (Parameters!=null){
             xml = new StringBuffer();
-            getParameters(Parameters);
+            getParameters(Parameters, ns);
             return xml.toString();
         }
         else{
@@ -126,26 +129,26 @@ public class Parameters {
     }
 
 
-    private void getParameters(Parameter[] Parameters){
+    private void getParameters(Parameter[] Parameters, String ns){
         if (Parameters!=null){
             for (int i=0; i<Parameters.length; i++){
                  Parameter Parameter = Parameters[i];
-                 getParameter(Parameter);
+                 getParameter(Parameter, ns);
             }
         }
     }
 
-    private void getParameter(Parameter parameter){
+    private void getParameter(Parameter parameter, String ns){
 
         if (parameter.IsAttribute){
             //xml.append("<" + parameter.getName());
         }
         else{
             if (parameter.isComplex()){
-                getParameters(parameter.getChildren());
+                getParameters(parameter.getChildren(), ns);
             }
             else{
-                xml.append(parameter.toXML(getAttributes()));
+                xml.append(parameter.toXML(getAttributes(), ns));
             }
         }
     }

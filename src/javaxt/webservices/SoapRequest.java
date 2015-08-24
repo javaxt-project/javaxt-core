@@ -39,6 +39,7 @@ public class SoapRequest {
 
 
       //Create body
+        String ns = "ns2";
         StringBuffer body = new StringBuffer();
         body.append("<?xml version=\"1.0\" encoding=\"utf-8\" ?>" +
               "<soap:Envelope " +
@@ -49,18 +50,19 @@ public class SoapRequest {
 
       //Add method tag
         //body.append("<" + method.getName() + " xmlns=\"" + service.getNameSpace() + "\">");
-        body.append("<ns2:" + method.getName() + " xmlns:ns2=\"" + service.getNameSpace() + "\">");
+        body.append("<" + ns + ":" + method.getName() + " xmlns:" + ns + "=\"" + service.getNameSpace() + "\">");
 
 
       //Insert parameters (inside the method node)
         if (parameters!=null){
             if (method.getParameters().getArray()!=null){
                 if (parameters instanceof Parameters){
-                    body.append(parameters.toString());
+                    body.append(((Parameters) parameters).toString(ns));
                 }
                 if (parameters instanceof Parameter){
-                    method.getParameters().setValue((Parameter)parameters);
-                    body.append(method.getParameters().toString());
+                    Parameters params = method.getParameters();
+                    params.setValue((Parameter)parameters);
+                    body.append(params.toString(ns));
                 }
                 else if (parameters instanceof String){
                     body.append(parameters); //assumes parameters is a correctly formatted xml fragment
@@ -73,7 +75,9 @@ public class SoapRequest {
                              String parameterName = params[i].getName();
                              String parameterValue = values[i];
                              //body.append("<" + parameterName + "><![CDATA[" + parameterValue + "]]></" + parameterName + ">");
-                             body.append("<" + parameterName + ">" + javaxt.xml.DOM.escapeXml(parameterValue) + "</" + parameterName + ">");
+                             body.append("<" + ns + ":" + parameterName + ">");
+                             body.append(javaxt.xml.DOM.escapeXml(parameterValue));
+                             body.append("</" + ns + ":" + parameterName + ">");
                         }
                     }
                 }
@@ -82,7 +86,7 @@ public class SoapRequest {
 
       //Close tags
         //body.append("</" + method.getName() + ">");
-        body.append("</ns2:" + method.getName() + ">");
+        body.append("</" + ns + ":" + method.getName() + ">");
         body.append("</soap:Body></soap:Envelope>");
 
         this.body = body.toString();
@@ -187,6 +191,16 @@ public class SoapRequest {
 
 
   //**************************************************************************
+  //** getBody
+  //**************************************************************************
+  /** Returns the raw XML sent to the web service.
+   */
+    public String getBody(){
+        return body;
+    }
+
+
+  //**************************************************************************
   //** getResponse
   //**************************************************************************
   /** Used to execute the web service method specified in the constructor and
@@ -196,6 +210,5 @@ public class SoapRequest {
         request.write(body);
         return new SoapResponse(request.getResponse(), resultsNode);
     }
-
 
 }

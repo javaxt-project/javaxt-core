@@ -87,7 +87,14 @@ public class Method {
         java.util.ArrayList<Parameter> parameters = new java.util.ArrayList<Parameter>();
 
         for (Node parameterNode : DOM.getNodes(parameterNodes)){
-            parameters.add(new Parameter(parameterNode));
+            if (parameterNode.getNodeName().equalsIgnoreCase("parameter")){
+                try{
+                    parameters.add(new Parameter(parameterNode));
+                }
+                catch(InstantiationException e){
+                    e.printStackTrace();
+                }
+            }
         }
 
         if (parameters.isEmpty()){
