@@ -26,7 +26,29 @@ public class Recordset {
     private Value GeneratedKey;
 
 
-
+    private static final String[] resKeywords = new String[]{
+        "ADD","ADMIN","ALL","ALTER","AND","ANY","AS","AT","AVG","BEGIN","BETWEEN",
+        "BIGINT","BIT_LENGTH","BLOB","BOTH","BY","CASE","CAST","CHAR","CHAR_LENGTH",
+        "CHARACTER","CHARACTER_LENGTH","CHECK","CLOSE","COLLATE","COLUMN","COMMIT",
+        "CONNECT","CONSTRAINT","COUNT","CREATE","CROSS","CURRENT","CURRENT_CONNECTION",
+        "CURRENT_DATE","CURRENT_ROLE","CURRENT_TIME","CURRENT_TIMESTAMP",
+        "CURRENT_TRANSACTION","CURRENT_USER","CURSOR","DATE","DAY","DEC","DECIMAL",
+        "DECLARE","DEFAULT","DELETE","DISCONNECT","DISTINCT","DOUBLE","DROP","ELSE",
+        "END","ESCAPE","EXECUTE","EXISTS","EXTERNAL","EXTRACT","FETCH","FILTER",
+        "FLOAT","FOR","FOREIGN","FROM","FULL","FUNCTION","GDSCODE","GLOBAL","GRANT",
+        "GROUP","HAVING","HOUR","IN","INDEX","INNER","INSENSITIVE","INSERT","INT",
+        "INTEGER","INTO","IS","JOIN","LEADING","LEFT","LIKE","LONG","LOWER","MAX",
+        "MAXIMUM_SEGMENT","MERGE","MIN","MINUTE","MONTH","NATIONAL","NATURAL","NCHAR",
+        "NO","NOT","NULL","NUMERIC","OCTET_LENGTH","OF","ON","ONLY","OPEN","OR",
+        "ORDER","OUTER","PARAMETER","PLAN","POSITION","POST_EVENT","PRECISION",
+        "PRIMARY","PROCEDURE","RDB$DB_KEY","REAL","RECORD_VERSION","RECREATE",
+        "RECURSIVE","REFERENCES","RELEASE","RETURNING_VALUES","RETURNS","REVOKE",
+        "RIGHT","ROLLBACK","ROW_COUNT","ROWS","SAVEPOINT","SECOND","SELECT","SENSITIVE",
+        "SET","SIMILAR","SMALLINT","SOME","SQLCODE","SQLSTATE","START","SUM","TABLE",
+        "THEN","TIME","TIMESTAMP","TO","TRAILING","TRIGGER","TRIM","UNION","UNIQUE",
+        "UPDATE","UPPER","USER","USING","VALUE","VALUES","VARCHAR","VARIABLE","VARYING",
+        "VIEW","WHEN","WHERE","WHILE","WITH","YEAR"
+    };
 
    /**
     * Returns a value that describes if the Recordset object is open, closed, 
@@ -523,8 +545,7 @@ public class Recordset {
         if (InsertOnUpdate){
             sql.append("INSERT INTO " + tableName + " (");
             for (int i=0; i<numUpdates; i++){
-                String colName = fields.get(i).getName();
-                if (colName.contains(" ")) colName = "[" + colName + "]";
+                String colName = escape(fields.get(i).getName());
                 sql.append(colName);
                 if (numUpdates>1 && i<numUpdates-1){
                     sql.append(",");
@@ -540,8 +561,7 @@ public class Recordset {
         else{
             sql.append("UPDATE " + tableName + " SET ");
             for (int i=0; i<numUpdates; i++){
-                String colName = fields.get(i).getName();
-                if (colName.contains(" ")) colName = "[" + colName + "]";
+                String colName = escape(fields.get(i).getName());
                 sql.append(colName);
                 sql.append("=");
                 sql.append(getQ(fields.get(i)));
@@ -578,8 +598,7 @@ public class Recordset {
                     Field field = keys.get(i);
                     fields.add(field);
                     if (i>0) sql.append(" AND ");
-                    String colName = field.getName();
-                    if (colName.contains(" ")) colName = "[" + colName + "]";
+                    String colName = escape(field.getName());
                     sql.append(colName); sql.append("=?");
                 }
             }
@@ -733,7 +752,10 @@ public class Recordset {
             else if (FieldType.indexOf("map")>=0) //PostgreSQL HStore
             stmt.setObject(id, FieldValue.toString(), java.sql.Types.OTHER);
 
-            //else System.out.println(i + " " + field.Name + " " + FieldType);
+            else{
+                //System.out.println(i + " " + field.getName() + " " + FieldType);
+                stmt.setObject(id, FieldValue.toObject());
+            }
 
 
             id++;
@@ -783,6 +805,24 @@ public class Recordset {
                 executeBatch();
             }
         }
+    }
+
+
+  //**************************************************************************
+  //** escape
+  //**************************************************************************
+    
+    private String escape(String colName){
+        if (colName.contains(" ")) colName = "[" + colName + "]";
+        if (driver.equals("Firebird")){
+            for (String keyWord : resKeywords){
+                if (colName.equals(keyWord)){
+                    colName = "\"" + colName + "\"";
+                    break;
+                }
+            }
+        }
+        return colName;
     }
 
 

@@ -1214,12 +1214,13 @@ public class Parser {
 
       //Assemble SQL
         StringBuffer sql = new StringBuffer();
-        sql.append("SELECT " + selectClause + " FROM " + fromClause);
+        sql.append("SELECT "); sql.append(selectClause);
+        sql.append(" FROM "); sql.append(fromClause);
 
-        if (whereClause!=null) sql.append(" WHERE " + whereClause);
-        if (orderByClause!=null) sql.append(" ORDER BY " + orderByClause);
-        if (groupByClause!=null) sql.append(" GROUP BY " + groupByClause);
-        if (havingClause!=null) sql.append(" HAVING " + havingClause);
+        if (whereClause!=null)  { sql.append(" WHERE "); sql.append(whereClause); }
+        if (orderByClause!=null){ sql.append(" ORDER BY "); sql.append(orderByClause); }
+        if (groupByClause!=null){ sql.append(" GROUP BY "); sql.append(groupByClause); }
+        if (havingClause!=null) { sql.append(" HAVING "); sql.append(havingClause); }
 
 
         return sql.toString();
@@ -1234,7 +1235,7 @@ public class Parser {
     private String addQuotes(java.util.HashSet exposedElements, String sqlFragment){
 
         if (sqlFragment==null) return null;
-        if (exposedElements.size()==0) return sqlFragment;
+        if (exposedElements.isEmpty()) return sqlFragment;
 
 
         /*
