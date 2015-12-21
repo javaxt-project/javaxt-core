@@ -379,4 +379,12 @@ public class ConnectionPool {
     public int getMaxConnections(){
         return maxConnections;
     }
+
+    public ConnectionPoolDataSource getConnectionPoolDataSource(){
+        return dataSource;
+    }
+
+    public int getTimeout(){
+        return Math.round(timeoutMs/1000);
+    }
 }

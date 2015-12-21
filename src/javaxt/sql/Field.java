@@ -64,6 +64,29 @@ public class Field {
 
 
   //**************************************************************************
+  //** getType
+  //**************************************************************************
+  /** Returns the column type name (e.g. VARCHAR, INTEGER, BLOB, etc).
+   */
+    public String getType(){
+        return Type;
+    }
+
+
+  //**************************************************************************
+  //** getClassName
+  //**************************************************************************
+  /** Returns the Java class name that is associated with the column type.
+   *  For example, most JDBC drivers map VARCHAR columns to a java.lang.String.
+   *  In this case, the method would return "java.lang.String" for the field
+   *  class name.
+   */
+    public String getClassName(){
+        return Class;
+    }
+
+
+  //**************************************************************************
   //** getValue
   //**************************************************************************
   /** Returns the value for this field. */
@@ -80,7 +103,6 @@ public class Field {
   /** Returns the name of the table in which this field is found. Returns null
    *  if the table name is unknown.
    */
-
     public String getTable(){
         return Table;
     }
@@ -113,6 +135,11 @@ public class Field {
 
     public boolean isDirty(){
         return RequiresUpdate;
+    }
+
+
+    public String toString(){
+        return Name;
     }
 
 

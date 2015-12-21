@@ -1111,6 +1111,7 @@ public class File implements Comparable {
         if (ext.equals("java")) return "text/plain";
         if (ext.equals("js")) return "text/javascript";
         if (ext.equals("txt")) return "text/plain";
+        if (ext.equals("csv")) return "text/csv";
 
       //IMAGE
         if (ext.equals("bmp")) return "image/bmp";

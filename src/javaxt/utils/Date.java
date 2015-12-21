@@ -743,7 +743,9 @@ public class Date implements Comparable {
   /**  Returns the day of the week. Example: Monday = 1 */
     
     public int getDayOfWeek(){
-        return Integer.valueOf(FormatDate(currDate, "F")).intValue();
+        int dayOfWeek = this.getCalendar().get(Calendar.DAY_OF_WEEK) - 1;
+        if (dayOfWeek == 0) dayOfWeek = 7;
+        return dayOfWeek;
     }
     
     

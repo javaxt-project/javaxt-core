@@ -17,7 +17,7 @@ public class Value extends javaxt.utils.Value {
   //**************************************************************************
   /** Creates a new instance of Value. */
 
-    protected Value(Object value){
+    public Value(Object value){
         super(value);
     }
 
