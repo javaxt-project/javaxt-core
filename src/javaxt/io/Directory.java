@@ -487,43 +487,43 @@ public class Directory implements Comparable {
     }
 
 
+//  //**************************************************************************
+//  //** getSize
+//  //**************************************************************************
+//  /** Used to retrieve the size of the directory object, in bytes. Note that
+//   *  the getContentSize() method will return the total size of all the files 
+//   *  and folders found in this directory.
+//   */
+//    public long getSize(){
+//        if (file!=null) return getFileSize();
+//
+//        try{
+//            File.FileAttributes attr = getFileAttributes();
+//            if (attr!=null) return attr.getSize();
+//            else{
+//                getFile();
+//                return getFileSize();
+//            }
+//        }
+//        catch(java.io.FileNotFoundException e){
+//            return 0L;
+//        }
+//    }
+//
+//    private long getFileSize(){
+//        long size = file.length();
+//        if (size>0L && file.isDirectory()) return size;
+//        else return 0L;
+//    }
+
+
   //**************************************************************************
   //** getSize
-  //**************************************************************************
-  /** Used to retrieve the size of the directory object, in bytes. Note that
-   *  the getContentSize() method will return the total size of all the files 
-   *  and folders found in this directory.
-   */
-    public long getSize(){
-        if (file!=null) return getFileSize();
-
-        try{
-            File.FileAttributes attr = getFileAttributes();
-            if (attr!=null) return attr.getSize();
-            else{
-                getFile();
-                return getFileSize();
-            }
-        }
-        catch(java.io.FileNotFoundException e){
-            return 0L;
-        }
-    }
-
-    private long getFileSize(){
-        long size = file.length();
-        if (size>0L && file.isDirectory()) return size;
-        else return 0L;
-    }
-
-
-  //**************************************************************************
-  //** getContentSize
   //**************************************************************************
   /** Returns the total size of all the files and folders found in this
    *  directory, in bytes.
    */
-    public long getContentSize(){
+    public long getSize(){
 
         long size = 0L;
 

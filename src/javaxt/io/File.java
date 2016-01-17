@@ -1645,7 +1645,8 @@ public static class FileAttributes {
               //Failed to load the javaxt-core.dll. Fall back to the java.io.File object.
                 java.io.File f = new java.io.File(path);
                 if (!f.exists()) throw new java.io.FileNotFoundException(path);
-                if (f.exists()) ftLastWriteTime = new java.util.Date(f.lastModified());
+                size = f.length();
+                ftLastWriteTime = new java.util.Date(f.lastModified());
                 if (!f.canWrite()) flags.add("READONLY");
                 if (f.isHidden()) flags.add("HIDDEN");
                 if (f.isDirectory()) flags.add("DIRECTORY");
@@ -1696,7 +1697,8 @@ public static class FileAttributes {
 
       
           //Set other attributes including last modified date
-            if (f.exists()) ftLastWriteTime = new java.util.Date(f.lastModified());
+            size = f.length();
+            ftLastWriteTime = new java.util.Date(f.lastModified());
             if (!f.canWrite()) flags.add("READONLY");
             if (f.isHidden()) flags.add("HIDDEN");
             if (f.isDirectory()) flags.add("DIRECTORY");
