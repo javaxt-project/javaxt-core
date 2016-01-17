@@ -1485,8 +1485,15 @@ public static class FileAttributes {
             if (loadDLL()){
 
               //Get attributes
-                long[] attributes = GetFileAttributesEx(path);                
+                long[] attributes = null;
+                try{
+                    attributes = GetFileAttributesEx(path);
+                }
+                catch(Exception e){
+                    throw new Exception("File not found");
+                }
 
+                
               //Parse dates
                 java.text.SimpleDateFormat ftFormatter =
                 new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS");
@@ -1562,6 +1569,7 @@ public static class FileAttributes {
                 
               //Failed to load the javaxt-core.dll. Fall back to the java.io.File object.
                 java.io.File f = new java.io.File(path);
+                if (!f.exists()) throw new Exception("File not found");
                 if (f.exists()) ftLastWriteTime = new java.util.Date(f.lastModified());
                 if (!f.canWrite()) flags.add("READONLY");
                 if (f.isHidden()) flags.add("HIDDEN");
@@ -1570,6 +1578,10 @@ public static class FileAttributes {
             }
         }
         else{//UNIX or LINIX Operating System
+
+
+            java.io.File f = new java.io.File(path);
+            if (!f.exists()) throw new Exception("File not found");
 
 
           //Execute ls command to get last access time and creation time
@@ -1609,7 +1621,6 @@ public static class FileAttributes {
 
       
           //Set other attributes including last modified date
-            java.io.File f = new java.io.File(path);
             if (f.exists()) ftLastWriteTime = new java.util.Date(f.lastModified());
             if (!f.canWrite()) flags.add("READONLY");
             if (f.isHidden()) flags.add("HIDDEN");

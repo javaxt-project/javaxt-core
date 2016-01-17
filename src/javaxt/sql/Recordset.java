@@ -613,7 +613,7 @@ public class Recordset {
 
               //Find how many records will be affected by this update
                 int numRecords;
-                java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + " WHERE " + (where==null?"":where));
+                java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + (where==null? "" : " WHERE " + where));
                 try{
                     numRecords = r2.getInt(1);
                 }
