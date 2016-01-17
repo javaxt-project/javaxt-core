@@ -22,6 +22,7 @@ public class File implements Comparable {
     private String name = "";
     private String path = "";
     private FileAttributes attr;
+    private long lastAttrUpdate = 0;
 
     public final String PathSeparator = System.getProperty("file.separator");
     public final String LineSeperator = System.getProperty("line.separator");
@@ -1298,9 +1299,17 @@ public class File implements Comparable {
    *  deleted by this class.
    */
     public FileAttributes getFileAttributes(){
-        if (attr==null || (new java.util.Date().getTime()-attr.lastUpdate)>1000){
+        if (attr==null) lastAttrUpdate = 0;
+
+        if (attr==null || (new java.util.Date().getTime()-lastAttrUpdate)>1000){
             try{
                 attr = new FileAttributes(toString());
+
+              //Set lastUpdate (used to cache file attributes)
+                lastAttrUpdate = new java.util.Date().getTime();
+            }
+            catch(java.io.FileNotFoundException e){
+                attr = null;
             }
             catch(Exception e){
                 //e.printStackTrace();
@@ -1476,9 +1485,8 @@ public static class FileAttributes {
     private long size;
     private java.util.HashSet<String> flags = new java.util.HashSet<String>();
     private java.io.File link;
-    protected long lastUpdate;
 
-    public FileAttributes(String path) throws Exception {
+    public FileAttributes(String path) throws java.io.FileNotFoundException, Exception {
 
         if (isWindows){
 
@@ -1490,7 +1498,10 @@ public static class FileAttributes {
                     attributes = GetFileAttributesEx(path);
                 }
                 catch(Exception e){
-                    throw new Exception("File not found");
+                    if (!new java.io.File(path).exists()){
+                        throw new java.io.FileNotFoundException(path);
+                    }
+                    else throw e;
                 }
 
                 
@@ -1569,7 +1580,7 @@ public static class FileAttributes {
                 
               //Failed to load the javaxt-core.dll. Fall back to the java.io.File object.
                 java.io.File f = new java.io.File(path);
-                if (!f.exists()) throw new Exception("File not found");
+                if (!f.exists()) throw new java.io.FileNotFoundException(path);
                 if (f.exists()) ftLastWriteTime = new java.util.Date(f.lastModified());
                 if (!f.canWrite()) flags.add("READONLY");
                 if (f.isHidden()) flags.add("HIDDEN");
@@ -1581,7 +1592,7 @@ public static class FileAttributes {
 
 
             java.io.File f = new java.io.File(path);
-            if (!f.exists()) throw new Exception("File not found");
+            if (!f.exists()) throw new java.io.FileNotFoundException(path);
 
 
           //Execute ls command to get last access time and creation time
@@ -1647,9 +1658,6 @@ public static class FileAttributes {
             }
         }
         
-        
-      //Set lastUpdate (used to cache file attributes)
-        lastUpdate = new java.util.Date().getTime();
     }
     
     /** Used to extract a date from a ls output using the "--full-time" option. */

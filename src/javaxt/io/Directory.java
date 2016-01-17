@@ -27,6 +27,7 @@ public class Directory implements Comparable {
     private static List events = new LinkedList();
     private FileSystemWatcher FileSystemWatcher;
     private File.FileAttributes attr;
+    private long lastAttrUpdate = 0;
     
     public static final String PathSeparator = System.getProperty("file.separator");
     protected static final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
@@ -576,11 +577,20 @@ public class Directory implements Comparable {
    *  deleted by this class.
    */
     public File.FileAttributes getFileAttributes(){
-        if (attr==null || (new java.util.Date().getTime()-attr.lastUpdate)>1000){
+        if (attr==null) lastAttrUpdate = 0;
+
+        if (attr==null || (new java.util.Date().getTime()-lastAttrUpdate)>1000){
             try{
                 attr = new File.FileAttributes(toString());
+
+              //Set lastUpdate (used to cache file attributes)
+                lastAttrUpdate = new java.util.Date().getTime();
+            }
+            catch(java.io.FileNotFoundException e){
+                attr = null;
             }
             catch(Exception e){
+                //e.printStackTrace();
                 attr = null;
             }
         }
