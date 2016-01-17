@@ -234,7 +234,22 @@ public class Directory implements Comparable {
             }
         }
 
-        return getFile().exists();
+
+        if (file!=null){
+            return (file.isDirectory() && file.exists());
+        }
+
+        try{
+            File.FileAttributes attr = getFileAttributes();
+            if (attr!=null) return true;
+            else{
+                getFile();
+                return (file.isDirectory() && file.exists());
+            }
+        }
+        catch(java.io.FileNotFoundException e){
+            return false;
+        }
     }
 
 
@@ -430,14 +445,25 @@ public class Directory implements Comparable {
    *  identical to the getLastModifiedTime() method.
    */
     public java.util.Date getDate(){
-        if (file!=null && file.exists()) return new java.util.Date(file.lastModified());
-        File.FileAttributes attr = getFileAttributes();
-        if (attr!=null) return attr.getLastWriteTime();
-        else{
-            java.io.File file = getFile();
-            if (file.exists()) return new java.util.Date(file.lastModified());
+        if (file!=null) return getFileDate();
+
+        try{
+            File.FileAttributes attr = getFileAttributes();
+            if (attr!=null) return attr.getLastWriteTime();
+            else{
+                getFile();
+                return getFileDate();
+            }
         }
-        return null;
+        catch(java.io.FileNotFoundException e){
+            return null;
+        }
+
+    }
+
+    private java.util.Date getFileDate(){
+        if (file.exists() && file.isDirectory()) return new java.util.Date(file.lastModified());
+        else return null;
     }
 
 
@@ -464,11 +490,83 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** getSize
   //**************************************************************************
-  /**  Used to retrieve the size of the directory, in bytes. */
-    
+  /** Used to retrieve the size of the directory object, in bytes. Note that
+   *  the getContentSize() method will return the total size of all the files 
+   *  and folders found in this directory.
+   */
     public long getSize(){
-        return getFile().length();
+        if (file!=null) return getFileSize();
+
+        try{
+            File.FileAttributes attr = getFileAttributes();
+            if (attr!=null) return attr.getSize();
+            else{
+                getFile();
+                return getFileSize();
+            }
+        }
+        catch(java.io.FileNotFoundException e){
+            return 0L;
+        }
     }
+
+    private long getFileSize(){
+        long size = file.length();
+        if (size>0L && file.isDirectory()) return size;
+        else return 0L;
+    }
+
+
+  //**************************************************************************
+  //** getContentSize
+  //**************************************************************************
+  /** Returns the total size of all the files and folders found in this
+   *  directory, in bytes.
+   */
+    public long getContentSize(){
+
+        long size = 0L;
+
+      //Initiate search
+        java.util.List results = getChildren(true, null, false);
+
+        while (true){
+            Object item;
+            synchronized (results) {
+                while (results.isEmpty()) {
+                  try {
+                      results.wait();
+                  }
+                  catch (InterruptedException e) {
+                      break;
+                  }
+                }
+                item = results.remove(0);
+                results.notifyAll();
+            }
+
+            if (item!=null){ //Do something with the item.
+
+                if (item instanceof javaxt.io.File){
+                    javaxt.io.File file = (javaxt.io.File) item;
+                    size += file.getSize();
+                }
+                else{
+                    javaxt.io.Directory dir = (javaxt.io.Directory) item;
+                    try{
+                        //size += dir.getFileAttributes().getSize();
+                    }
+                    catch(Exception e){
+                    }
+                }
+            }
+            else{ //item is null. This is our queue that the search is done!
+                return size;
+            }
+        }
+    }
+
+
     
   //**************************************************************************
   //** isHidden
@@ -476,8 +574,24 @@ public class Directory implements Comparable {
   /**  Used to determine whether this Directory is Hidden */
     
     public boolean isHidden(){
-        return getFile().isHidden();
+
+        if (file!=null){
+            return (file.isDirectory() && file.isHidden());
+        }
+
+        try{
+            File.FileAttributes attr = getFileAttributes();
+            if (attr!=null) return attr.isHidden();
+            else{
+                getFile();
+                return (file.isDirectory() && file.isHidden());
+            }
+        }
+        catch(java.io.FileNotFoundException e){
+            return false;
+        }
     }
+
 
   //**************************************************************************
   //** isLink
@@ -576,18 +690,23 @@ public class Directory implements Comparable {
    *  cached attributes are automatically updated when the file is updated or
    *  deleted by this class.
    */
-    public File.FileAttributes getFileAttributes(){
+    public File.FileAttributes getFileAttributes() throws java.io.FileNotFoundException {
+
         if (attr==null) lastAttrUpdate = 0;
 
         if (attr==null || (new java.util.Date().getTime()-lastAttrUpdate)>1000){
             try{
-                attr = new File.FileAttributes(toString());
+              //Get directory attributes
+                String pathToFile = toString();
+                attr = new File.FileAttributes(pathToFile);
+                if (!attr.isDirectory()) throw new java.io.FileNotFoundException(pathToFile);
 
               //Set lastUpdate (used to cache file attributes)
                 lastAttrUpdate = new java.util.Date().getTime();
             }
             catch(java.io.FileNotFoundException e){
                 attr = null;
+                throw e;
             }
             catch(Exception e){
                 //e.printStackTrace();

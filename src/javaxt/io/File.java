@@ -228,41 +228,67 @@ public class File implements Comparable {
 
 
   //**************************************************************************
-  //** Get File Size
+  //** getSize
   //**************************************************************************
-  /**  Returns the size of the file, in bytes. */
-    
+  /** Returns the size of the file, in bytes. Returns 0L if the file is does
+   *  not exist or if the object is a directory.
+   */
     public long getSize(){
-        if (file!=null) return file.length();
-        FileAttributes attr = getFileAttributes();
-        if (attr!=null) return attr.getSize();
-        else return getFile().length(); //return 0;
+        if (file!=null) return getFileSize();
+
+        try{
+            FileAttributes attr = getFileAttributes();
+            if (attr!=null) return attr.getSize();
+            else{
+                getFile();
+                return getFileSize();
+            }
+        }
+        catch(java.io.FileNotFoundException e){
+            return 0L;
+        }
+    }
+
+    private long getFileSize(){
+        long size = file.length();
+        if (size>0L && file.isFile()) return size;
+        else return 0L;
     }
 
 
   //**************************************************************************
   //** getDate
   //**************************************************************************
-  /** Returns a timestamp of when the file was last modified. If the file does
-   *  not exist, returns null.
+  /** Returns a timestamp of when the file was last modified. Returns null if
+   *  the file does not exist or if the object is a directory.
    */
     public java.util.Date getDate(){
-        if (file!=null && file.exists()) return new java.util.Date(file.lastModified());
-        FileAttributes attr = getFileAttributes();
-        if (attr!=null) return attr.getLastWriteTime();
-        else{
-            java.io.File file = getFile();
-            if (file.exists()) return new java.util.Date(file.lastModified());
+        if (file!=null) return getFileDate();
+
+        try{
+            FileAttributes attr = getFileAttributes();
+            if (attr!=null) return attr.getLastWriteTime();
+            else{
+                getFile();
+                return getFileDate();
+            }
         }
-        return null; //return new java.util.Date(0);
+        catch(java.io.FileNotFoundException e){
+            return null;
+        }
+    }
+
+    private java.util.Date getFileDate(){
+        if (file.exists() && file.isFile()) return new java.util.Date(file.lastModified());
+        else return null;
     }
 
 
   //**************************************************************************
   //** setDate
   //**************************************************************************
-  /**  Used to set/update the last modified date. */
-
+  /**  Used to set/update the last modified date.
+   */
     public boolean setDate(java.util.Date lastModified){
         if (lastModified!=null){
             java.io.File file = getFile();
@@ -285,12 +311,20 @@ public class File implements Comparable {
    *   system can't find the file or if the object is a directory.
    */
     public boolean exists(){
-        if (file!=null) return (file.isFile() && file.exists());
-        FileAttributes attr = getFileAttributes();
-        if (attr!=null) return !attr.isDirectory();
-        else{
-            java.io.File file = getFile();
-            return (file.exists() && file.isFile());
+        if (file!=null){
+            return (file.isFile() && file.exists());
+        }
+
+        try{
+            FileAttributes attr = getFileAttributes();
+            if (attr!=null) return true;
+            else{
+                getFile();
+                return (file.isFile() && file.exists());
+            }
+        }
+        catch(java.io.FileNotFoundException e){
+            return false;
         }
     }
 
@@ -298,26 +332,51 @@ public class File implements Comparable {
   //**************************************************************************
   //** isHidden
   //**************************************************************************
-  /** Used to check whether the file is hidden.
+  /** Used to check whether the file is hidden. Returns true if the file
+   *  exists and is hidden according to the conventions of the underlying
+   *  file system.
    */
     public boolean isHidden(){
-        if (file!=null) return file.isHidden();
-        FileAttributes attr = getFileAttributes();
-        if (attr!=null) return attr.isHidden();
-        else return getFile().isHidden();
+        if (file!=null){
+            return (file.isFile() && file.isHidden());
+        }
+
+        try{
+            FileAttributes attr = getFileAttributes();
+            if (attr!=null) return attr.isHidden();
+            else{
+                getFile();
+                return (file.isFile() && file.isHidden());
+            }
+        }
+        catch(java.io.FileNotFoundException e){
+            return false;
+        }
     }
 
 
   //**************************************************************************
   //** isReadOnly
   //**************************************************************************
-  /** Used to check whether the file has read permissions.
+  /** Used to check whether the file has write permissions. Returns true if
+   *  the file exists and the application is not allowed to write to the file.
    */
     public boolean isReadOnly(){
-        if (file!=null) return !file.canWrite();
-        FileAttributes attr = getFileAttributes();
-        if (attr!=null) return attr.isReadOnly();
-        else return !getFile().canWrite();
+        if (file!=null){
+            return (file.isFile() && !file.canWrite());
+        }
+
+        try{
+            FileAttributes attr = getFileAttributes();
+            if (attr!=null) return attr.isReadOnly();
+            else{
+                getFile();
+                return (file.isFile() && !file.canWrite());
+            }
+        }
+        catch(java.io.FileNotFoundException e){
+            return false;
+        }
     }
 
 
@@ -1298,18 +1357,22 @@ public class File implements Comparable {
    *  cached attributes are automatically updated when the file is updated or
    *  deleted by this class.
    */
-    public FileAttributes getFileAttributes(){
+    private FileAttributes getFileAttributes() throws java.io.FileNotFoundException {
         if (attr==null) lastAttrUpdate = 0;
 
         if (attr==null || (new java.util.Date().getTime()-lastAttrUpdate)>1000){
             try{
-                attr = new FileAttributes(toString());
+              //Get file attributes
+                String pathToFile = toString();
+                attr = new FileAttributes(pathToFile);
+                if (attr.isDirectory()) throw new java.io.FileNotFoundException(pathToFile);
 
               //Set lastUpdate (used to cache file attributes)
                 lastAttrUpdate = new java.util.Date().getTime();
             }
             catch(java.io.FileNotFoundException e){
                 attr = null;
+                throw e;
             }
             catch(Exception e){
                 //e.printStackTrace();
@@ -1359,7 +1422,8 @@ public class File implements Comparable {
                 javaxt.io.Directory dir = new javaxt.io.Directory(System.getProperty("user.home"));
                 for (String appDir : new String[]{"AppData\\Local", "Application Data"}){
                     javaxt.io.Directory d = new javaxt.io.Directory(dir + appDir);
-                    if (d.exists() && d.toFile().canWrite()){
+                    java.io.File f = d.toFile(); //flip to file to prevent infinite recursion
+                    if (f.exists() && f.canWrite()){
                         dir = d;
                         break;
                     }
