@@ -113,7 +113,12 @@ public class Table implements Comparable {
             java.sql.ResultSet rs = dbmd.getPrimaryKeys(Catalog, Schema, Name);
             while (rs.next()) {
                 Key key = new Key();
-                key.Name = rs.getString("COLUMN_NAME");
+                key.Name = rs.getString("PK_NAME");
+                key.Table = new Table();
+                key.Table.Name = rs.getString("TABLE_NAME");
+                key.Table.Catalog = rs.getString("TABLE_CAT");
+                key.Table.Schema = rs.getString("TABLE_SCHEM");
+                key.Column = rs.getString("COLUMN_NAME");
                 keys.add(key);
             }            
             rs.close();
