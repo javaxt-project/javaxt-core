@@ -26,29 +26,6 @@ public class Recordset {
     private Value GeneratedKey;
 
 
-    private static final String[] resKeywords = new String[]{
-        "ADD","ADMIN","ALL","ALTER","AND","ANY","AS","AT","AVG","BEGIN","BETWEEN",
-        "BIGINT","BIT_LENGTH","BLOB","BOTH","BY","CASE","CAST","CHAR","CHAR_LENGTH",
-        "CHARACTER","CHARACTER_LENGTH","CHECK","CLOSE","COLLATE","COLUMN","COMMIT",
-        "CONNECT","CONSTRAINT","COUNT","CREATE","CROSS","CURRENT","CURRENT_CONNECTION",
-        "CURRENT_DATE","CURRENT_ROLE","CURRENT_TIME","CURRENT_TIMESTAMP",
-        "CURRENT_TRANSACTION","CURRENT_USER","CURSOR","DATE","DAY","DEC","DECIMAL",
-        "DECLARE","DEFAULT","DELETE","DISCONNECT","DISTINCT","DOUBLE","DROP","ELSE",
-        "END","ESCAPE","EXECUTE","EXISTS","EXTERNAL","EXTRACT","FETCH","FILTER",
-        "FLOAT","FOR","FOREIGN","FROM","FULL","FUNCTION","GDSCODE","GLOBAL","GRANT",
-        "GROUP","HAVING","HOUR","IN","INDEX","INNER","INSENSITIVE","INSERT","INT",
-        "INTEGER","INTO","IS","JOIN","LEADING","LEFT","LIKE","LONG","LOWER","MAX",
-        "MAXIMUM_SEGMENT","MERGE","MIN","MINUTE","MONTH","NATIONAL","NATURAL","NCHAR",
-        "NO","NOT","NULL","NUMERIC","OCTET_LENGTH","OF","ON","ONLY","OPEN","OR",
-        "ORDER","OUTER","PARAMETER","PLAN","POSITION","POST_EVENT","PRECISION",
-        "PRIMARY","PROCEDURE","RDB$DB_KEY","REAL","RECORD_VERSION","RECREATE",
-        "RECURSIVE","REFERENCES","RELEASE","RETURNING_VALUES","RETURNS","REVOKE",
-        "RIGHT","ROLLBACK","ROW_COUNT","ROWS","SAVEPOINT","SECOND","SELECT","SENSITIVE",
-        "SET","SIMILAR","SMALLINT","SOME","SQLCODE","SQLSTATE","START","SUM","TABLE",
-        "THEN","TIME","TIMESTAMP","TO","TRAILING","TRIGGER","TRIM","UNION","UNIQUE",
-        "UPDATE","UPPER","USER","USING","VALUE","VALUES","VARCHAR","VARIABLE","VARYING",
-        "VIEW","WHEN","WHERE","WHILE","WITH","YEAR"
-    };
 
    /**
     * Returns a value that describes if the Recordset object is open, closed, 
@@ -406,6 +383,8 @@ public class Recordset {
         }
         catch(SQLException e){
             e.printStackTrace();
+            SQLException ex = e.getNextException();
+            ex.printStackTrace();
         }
 
 
@@ -813,13 +792,12 @@ public class Recordset {
   //**************************************************************************
     
     private String escape(String colName){
+        String[] keywords = javaxt.sql.Database.getReservedKeywords(Connection);
         if (colName.contains(" ")) colName = "[" + colName + "]";
-        if (driver.equals("Firebird")){
-            for (String keyWord : resKeywords){
-                if (colName.equals(keyWord)){
-                    colName = "\"" + colName + "\"";
-                    break;
-                }
+        for (String keyWord : keywords){
+            if (colName.equalsIgnoreCase(keyWord)){
+                colName = "\"" + colName + "\"";
+                break;
             }
         }
         return colName;

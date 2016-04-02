@@ -613,6 +613,62 @@ public class Database {
         }
     }
 
+    
+  //**************************************************************************
+  //** getReservedKeywords
+  //**************************************************************************
+  /**  Used to retrieve a list of reserved keywords for a given database.
+   */
+    public static String[] getReservedKeywords(Connection conn){
+        javaxt.sql.Driver driver = conn.getDatabase().getDriver();
+
+        if (driver.equals("Firebird")){
+            return fbKeywords;
+        }
+        else if (driver.equals("SQLServer")){
+            return msKeywords;
+        }
+        else if (driver.equals("PostgreSQL")){
+          
+          //Try to get reserved keywords from the database. Note that in PostgreSQL
+          //"non-reserved" keywords are key words that are explicitly known to  
+          //the parser but are allowed as column or table names. Therefore, we  
+          //will ignore "non-reserved" keywords from our query.
+            if (pgKeywords==null){
+                java.util.HashSet<String> arr = new java.util.HashSet<String>();
+                java.sql.ResultSet rs = null;
+                java.sql.Statement stmt = null;
+                try{
+                    stmt = conn.getConnection().createStatement(rs.TYPE_FORWARD_ONLY, rs.CONCUR_READ_ONLY, rs.FETCH_FORWARD);
+                    rs = stmt.executeQuery("select word from pg_get_keywords() where catcode='R'");
+                    while(rs.next()){
+                        arr.add(rs.getString(1));
+                    }
+                    rs.close();
+                    stmt.close();
+                }
+                catch(java.sql.SQLException e){
+                    e.printStackTrace();
+                    if (rs!=null) try{ rs.close(); } catch(Exception ex){}
+                    if (stmt!=null) try{ stmt.close(); } catch(Exception ex){}
+                }
+                String[] keywords = new String[arr.size()];
+                int i=0;
+                java.util.Iterator<String> it = arr.iterator();
+                while (it.hasNext()){
+                    keywords[i] = it.next();
+                    i++;
+                }
+                pgKeywords = keywords;
+            }
+            
+            return pgKeywords;
+        }
+        else{
+            return ansiKeywords;
+        }
+    }
+    
 
     public static void displayDbProperties(Connection conn){
 
@@ -662,5 +718,114 @@ public class Database {
         str.append("ConnStr: " + this.getConnectionString());
         return str.toString();
     }
+    
+    
+  /** Firebird reserved keywords. */
+    private static final String[] fbKeywords = new String[]{
+        "ADD","ADMIN","ALL","ALTER","AND","ANY","AS","AT","AVG","BEGIN","BETWEEN",
+        "BIGINT","BIT_LENGTH","BLOB","BOTH","BY","CASE","CAST","CHAR","CHAR_LENGTH",
+        "CHARACTER","CHARACTER_LENGTH","CHECK","CLOSE","COLLATE","COLUMN","COMMIT",
+        "CONNECT","CONSTRAINT","COUNT","CREATE","CROSS","CURRENT","CURRENT_CONNECTION",
+        "CURRENT_DATE","CURRENT_ROLE","CURRENT_TIME","CURRENT_TIMESTAMP",
+        "CURRENT_TRANSACTION","CURRENT_USER","CURSOR","DATE","DAY","DEC","DECIMAL",
+        "DECLARE","DEFAULT","DELETE","DISCONNECT","DISTINCT","DOUBLE","DROP","ELSE",
+        "END","ESCAPE","EXECUTE","EXISTS","EXTERNAL","EXTRACT","FETCH","FILTER",
+        "FLOAT","FOR","FOREIGN","FROM","FULL","FUNCTION","GDSCODE","GLOBAL","GRANT",
+        "GROUP","HAVING","HOUR","IN","INDEX","INNER","INSENSITIVE","INSERT","INT",
+        "INTEGER","INTO","IS","JOIN","LEADING","LEFT","LIKE","LONG","LOWER","MAX",
+        "MAXIMUM_SEGMENT","MERGE","MIN","MINUTE","MONTH","NATIONAL","NATURAL","NCHAR",
+        "NO","NOT","NULL","NUMERIC","OCTET_LENGTH","OF","ON","ONLY","OPEN","OR",
+        "ORDER","OUTER","PARAMETER","PLAN","POSITION","POST_EVENT","PRECISION",
+        "PRIMARY","PROCEDURE","RDB$DB_KEY","REAL","RECORD_VERSION","RECREATE",
+        "RECURSIVE","REFERENCES","RELEASE","RETURNING_VALUES","RETURNS","REVOKE",
+        "RIGHT","ROLLBACK","ROW_COUNT","ROWS","SAVEPOINT","SECOND","SELECT","SENSITIVE",
+        "SET","SIMILAR","SMALLINT","SOME","SQLCODE","SQLSTATE","START","SUM","TABLE",
+        "THEN","TIME","TIMESTAMP","TO","TRAILING","TRIGGER","TRIM","UNION","UNIQUE",
+        "UPDATE","UPPER","USER","USING","VALUE","VALUES","VARCHAR","VARIABLE","VARYING",
+        "VIEW","WHEN","WHERE","WHILE","WITH","YEAR"
+    };
+    
+    
+  /** SQLServer reserved keywords. Source:
+   *  https://msdn.microsoft.com/en-us/library/ms189822.aspx
+   */
+    private static final String[] msKeywords = new String[]{
+        "ADD","ALL","ALTER","AND","ANY","AS","ASC","AUTHORIZATION","BACKUP","BEGIN",
+        "BETWEEN","BREAK","BROWSE","BULK","BY","CASCADE","CASE","CHECK","CHECKPOINT",
+        "CLOSE","CLUSTERED","COALESCE","COLLATE","COLUMN","COMMIT","COMPUTE",
+        "CONSTRAINT","CONTAINS","CONTAINSTABLE","CONTINUE","CONVERT","CREATE","CROSS",
+        "CURRENT","CURRENT_DATE","CURRENT_TIME","CURRENT_TIMESTAMP","CURRENT_USER",
+        "CURSOR","DATABASE","DBCC","DEALLOCATE","DECLARE","DEFAULT","DELETE","DENY",
+        "DESC","DISK","DISTINCT","DISTRIBUTED","DOUBLE","DROP","DUMP","ELSE","END",
+        "ERRLVL","ESCAPE","EXCEPT","EXEC","EXECUTE","EXISTS","EXIT","EXTERNAL",
+        "FETCH","FILE","FILLFACTOR","FOR","FOREIGN","FREETEXT","FREETEXTTABLE",
+        "FROM","FULL","FUNCTION","GOTO","GRANT","GROUP","HAVING","HOLDLOCK","IDENTITY",
+        "IDENTITY_INSERT","IDENTITYCOL","IF","IN","INDEX","INNER","INSERT","INTERSECT",
+        "INTO","IS","JOIN","KEY","KILL","LEFT","LIKE","LINENO","LOAD","MERGE","NATIONAL",
+        "NOCHECK","NONCLUSTERED","NOT","NULL","NULLIF","OF","OFF","OFFSETS","ON",
+        "OPEN","OPENDATASOURCE","OPENQUERY","OPENROWSET","OPENXML","OPTION","OR",
+        "ORDER","OUTER","OVER","PERCENT","PIVOT","PLAN","PRECISION","PRIMARY","PRINT",
+        "PROC","PROCEDURE","PUBLIC","RAISERROR","READ","READTEXT","RECONFIGURE",
+        "REFERENCES","REPLICATION","RESTORE","RESTRICT","RETURN","REVERT","REVOKE",
+        "RIGHT","ROLLBACK","ROWCOUNT","ROWGUIDCOL","RULE","SAVE","SCHEMA","SECURITYAUDIT",
+        "SELECT","SEMANTICKEYPHRASETABLE","SEMANTICSIMILARITYDETAILSTABLE",
+        "SEMANTICSIMILARITYTABLE","SESSION_USER","SET","SETUSER","SHUTDOWN","SOME",
+        "STATISTICS","SYSTEM_USER","TABLE","TABLESAMPLE","TEXTSIZE","THEN","TO",
+        "TOP","TRAN","TRANSACTION","TRIGGER","TRUNCATE","TRY_CONVERT","TSEQUAL",
+        "UNION","UNIQUE","UNPIVOT","UPDATE","UPDATETEXT","USE","USER","VALUES",
+        "VARYING","VIEW","WAITFOR","WHEN","WHERE","WHILE","WITH","WITHIN GROUP",
+        "WRITETEXT"
+    };
 
+    
+  /** PostgreSQL reserved keywords. */
+    private static String[] pgKeywords = null;
+
+
+  /** Superset of SQL-92, SQL-99, SQL-2003 reserved keywords. */
+    private static String[] ansiKeywords = new String[]{
+        "ABSOLUTE","ACTION","ADD","AFTER","ALL","ALLOCATE","ALTER","AND","ANY","ARE",
+        "ARRAY","AS","ASC","ASENSITIVE","ASSERTION","ASYMMETRIC","AT","ATOMIC",
+        "AUTHORIZATION","AVG","BEFORE","BEGIN","BETWEEN","BIGINT","BINARY","BIT",
+        "BIT_LENGTH","BLOB","BOOLEAN","BOTH","BREADTH","BY","CALL","CALLED","CASCADE",
+        "CASCADED","CASE","CAST","CATALOG","CHAR","CHAR_LENGTH","CHARACTER","CHARACTER_LENGTH",
+        "CHECK","CLOB","CLOSE","COALESCE","COLLATE","COLLATION","COLUMN","COMMIT",
+        "CONDITION","CONNECT","CONNECTION","CONSTRAINT","CONSTRAINTS","CONSTRUCTOR",
+        "CONTAINS","CONTINUE","CONVERT","CORRESPONDING","COUNT","CREATE","CROSS",
+        "CUBE","CURRENT","CURRENT_DATE","CURRENT_DEFAULT_TRANSFORM_GROUP","CURRENT_PATH",
+        "CURRENT_ROLE","CURRENT_TIME","CURRENT_TIMESTAMP","CURRENT_TRANSFORM_GROUP_FOR_TYPE",
+        "CURRENT_USER","CURSOR","CYCLE","DATA","DATE","DAY","DEALLOCATE","DEC","DECIMAL",
+        "DECLARE","DEFAULT","DEFERRABLE","DEFERRED","DELETE","DEPTH","DEREF","DESC",
+        "DESCRIBE","DESCRIPTOR","DETERMINISTIC","DIAGNOSTICS","DISCONNECT","DISTINCT",
+        "DO","DOMAIN","DOUBLE","DROP","DYNAMIC","EACH","ELEMENT","ELSE","ELSEIF",
+        "END","EQUALS","ESCAPE","EXCEPT","EXCEPTION","EXEC","EXECUTE","EXISTS","EXIT",
+        "EXTERNAL","EXTRACT","FALSE","FETCH","FILTER","FIRST","FLOAT","FOR","FOREIGN",
+        "FOUND","FREE","FROM","FULL","FUNCTION","GENERAL","GET","GLOBAL","GO","GOTO",
+        "GRANT","GROUP","GROUPING","HANDLER","HAVING","HOLD","HOUR","IDENTITY","IF",
+        "IMMEDIATE","IN","INDICATOR","INITIALLY","INNER","INOUT","INPUT","INSENSITIVE",
+        "INSERT","INT","INTEGER","INTERSECT","INTERVAL","INTO","IS","ISOLATION",
+        "ITERATE","JOIN","KEY","LANGUAGE","LARGE","LAST","LATERAL","LEADING","LEAVE",
+        "LEFT","LEVEL","LIKE","LOCAL","LOCALTIME","LOCALTIMESTAMP","LOCATOR","LOOP",
+        "LOWER","MAP","MATCH","MAX","MEMBER","MERGE","METHOD","MIN","MINUTE","MODIFIES",
+        "MODULE","MONTH","MULTISET","NAMES","NATIONAL","NATURAL","NCHAR","NCLOB",
+        "NEW","NEXT","NO","NONE","NOT","NULL","NULLIF","NUMERIC","OBJECT","OCTET_LENGTH",
+        "OF","OLD","ON","ONLY","OPEN","OPTION","OR","ORDER","ORDINALITY","OUT","OUTER",
+        "OUTPUT","OVER","OVERLAPS","PAD","PARAMETER","PARTIAL","PARTITION","PATH",
+        "POSITION","PRECISION","PREPARE","PRESERVE","PRIMARY","PRIOR","PRIVILEGES",
+        "PROCEDURE","PUBLIC","RANGE","READ","READS","REAL","RECURSIVE","REF","REFERENCES",
+        "REFERENCING","RELATIVE","RELEASE","REPEAT","RESIGNAL","RESTRICT","RESULT",
+        "RETURN","RETURNS","REVOKE","RIGHT","ROLE","ROLLBACK","ROLLUP","ROUTINE",
+        "ROW","ROWS","SAVEPOINT","SCHEMA","SCOPE","SCROLL","SEARCH","SECOND","SECTION",
+        "SELECT","SENSITIVE","SESSION","SESSION_USER","SET","SETS","SIGNAL","SIMILAR",
+        "SIZE","SMALLINT","SOME","SPACE","SPECIFIC","SPECIFICTYPE","SQL","SQLCODE",
+        "SQLERROR","SQLEXCEPTION","SQLSTATE","SQLWARNING","START","STATE","STATIC",
+        "SUBMULTISET","SUBSTRING","SUM","SYMMETRIC","SYSTEM","SYSTEM_USER","TABLE",
+        "TABLESAMPLE","TEMPORARY","THEN","TIME","TIMESTAMP","TIMEZONE_HOUR","TIMEZONE_MINUTE",
+        "TO","TRAILING","TRANSACTION","TRANSLATE","TRANSLATION","TREAT","TRIGGER",
+        "TRIM","TRUE","UNDER","UNDO","UNION","UNIQUE","UNKNOWN","UNNEST","UNTIL",
+        "UPDATE","UPPER","USAGE","USER","USING","VALUE","VALUES","VARCHAR","VARYING",
+        "VIEW","WHEN","WHENEVER","WHERE","WHILE","WINDOW","WITH","WITHIN","WITHOUT",
+        "WORK","WRITE","YEAR","ZONE"
+    };
+    
 }
