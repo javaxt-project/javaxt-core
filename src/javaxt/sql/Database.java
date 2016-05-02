@@ -576,7 +576,7 @@ public class Database {
    */    
     public static Table[] getTables(Connection conn){
         try{
-            java.util.TreeSet<Table> tables = new java.util.TreeSet<Table>();
+            java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
             ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"});
             while (rs.next()) {
