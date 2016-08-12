@@ -66,8 +66,9 @@ public class Image {
         this(new java.io.File(PathToImageFile));
     }
     
-    public Image(java.io.File File){
-        createBufferedImage(File);
+    public Image(java.io.File file){
+        try{ createBufferedImage(new FileInputStream(file)); }
+        catch(Exception e){}
     }
 
     public Image(java.io.InputStream InputStream){
@@ -550,24 +551,9 @@ public class Image {
   //**************************************************************************
   //** createBufferedImage
   //**************************************************************************
-  /** Used to create a BufferedImage from a File */
-
-    private void createBufferedImage(java.io.File file){
-        try{
-            createBufferedImage(new FileInputStream(file));
-        }
-        catch(Exception e){
-            //printError(e);
-        }
-    }
-
-
-  //**************************************************************************
-  //** createBufferedImage
-  //**************************************************************************
   /** Used to create a BufferedImage from a InputStream */
     
-    private void createBufferedImage(java.io.InputStream input){
+    private void createBufferedImage(java.io.InputStream input) {
         try{
             //bufferedImage = ImageIO.read(input);
 
@@ -592,7 +578,7 @@ public class Image {
             }
 
 
-            input.close(); 
+            input.close();
         }
         catch(Exception e){
             //e.printStackTrace();

@@ -45,4 +45,8 @@ public class Function {
     public Object[] getValues(){
         return values;
     }
+    
+    public String toString(){
+        return function;
+    }
 }

@@ -269,6 +269,22 @@ public class Value {
         else{
             if (value==null) return false;
         }
+        
+        
+      //Special case for BigDecimal. BigDecimal objects equal only if they are 
+      //equal in value and scale. Thus 2.0 is not equal to 2.00 when compared 
+      //using the equals() method. The following code removes this ambiguity.
+        if (!obj.equals(value)){
+            if (obj.getClass().equals(value.getClass())){
+                if (obj.getClass().equals(java.math.BigDecimal.class)){
+                    java.math.BigDecimal bd1 = (java.math.BigDecimal) obj;
+                    java.math.BigDecimal bd2 = (java.math.BigDecimal) value;
+                    return bd1.stripTrailingZeros().equals(bd2.stripTrailingZeros());
+                }
+            }
+        }
+        
+        
         return obj.equals(value);
     }
 
