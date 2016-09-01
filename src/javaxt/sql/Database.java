@@ -13,7 +13,7 @@ import javax.sql.ConnectionPoolDataSource;
  *
  ******************************************************************************/
 
-public class Database {
+public class Database implements Cloneable {
     
     private String name; //name of the catalog used to store tables, views, etc.
     private String host;
@@ -27,8 +27,8 @@ public class Database {
     private ConnectionPoolDataSource ConnectionPoolDataSource;
     private static final Class<?>[] stringType = { String.class };
     private static final Class<?>[] integerType = { Integer.TYPE };
-
-
+    
+    
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -404,7 +404,7 @@ public class Database {
         return path + server + database; // + props.toString()
     }
     
-
+    
   //**************************************************************************
   //** getConnection
   //**************************************************************************
@@ -717,6 +717,17 @@ public class Database {
         str.append("URL: " + getURL() + "\r\n");
         str.append("ConnStr: " + this.getConnectionString());
         return str.toString();
+    }
+    
+    
+  //**************************************************************************
+  //** clone
+  //**************************************************************************
+    public Database clone(){
+        Database db = new Database(name, host, port, username, password, driver);
+        if (properties!=null) db.properties = (java.util.Properties) properties.clone();
+        db.querystring = querystring;
+        return db;
     }
     
     
