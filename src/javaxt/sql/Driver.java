@@ -129,10 +129,12 @@ public class Driver {
         this.driver = className;
         this.Driver = driver;
 
-        Driver d = findDriver(className);
-        if (d!=null){
-            this.vendor = d.vendor;
-            this.protocol = d.protocol;
+        for (Driver d : drivers){
+            if (d.equals(className)){
+                this.vendor = d.vendor;
+                this.protocol = d.protocol;
+                break;
+            }
         }
     }
 
@@ -213,8 +215,13 @@ public class Driver {
         }
         else if(obj instanceof java.lang.String){
             String driverName = obj.toString();
+            
+            //Fetch/update protocol to avoid NPE
+            String protocol = this.getProtocol();
+            if (protocol==null) protocol = "";
+            
             if (driverName.equalsIgnoreCase(this.getClassName()) ||
-                driverName.toLowerCase().startsWith(this.getProtocol().toLowerCase()) ||
+                driverName.toLowerCase().startsWith(protocol.toLowerCase()) ||
                 driverName.equalsIgnoreCase(this.getVendor())
             ){
                 return true;

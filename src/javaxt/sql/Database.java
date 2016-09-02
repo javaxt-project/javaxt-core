@@ -342,7 +342,9 @@ public class Database implements Cloneable {
       //Update Server Name
         String server = host;
         if (port!=null && port>0) server += ":" + port;
-        if (driver.getVendor().equals("Derby") || driver.getVendor().equals("SQLite")){
+        String vendor = driver.getVendor();
+        if (vendor==null) vendor = "";
+        if (vendor.equals("Derby") || vendor.equals("SQLite")){
             server = ":" + server;
         }
 
@@ -353,10 +355,10 @@ public class Database implements Cloneable {
 
             if (name.trim().length()>0){
 
-                if (driver.getVendor().equals("SQLServer")){
+                if (vendor.equals("SQLServer")){
                     database = ";databaseName=" + name;
                 }
-                else if (driver.getVendor().equals("Derby")){
+                else if (vendor.equals("Derby")){
                     database = ";databaseName=" + name;
                 }
                 else{
@@ -376,12 +378,12 @@ public class Database implements Cloneable {
         
                 
       //Special case for Sybase
-        if (driver.getVendor().equals("Sybase")){
+        if (vendor.equals("Sybase")){
             if (path.toLowerCase().contains((CharSequence) "tds:")==false){
                 path = driver.getProtocol() + "Tds:"; 
             }
         }
-        else if (driver.getVendor().equals("Derby") || driver.getVendor().equals("SQLite")){
+        else if (vendor.equals("Derby") || vendor.equals("SQLite")){
             path = driver.getProtocol();
         }
 
