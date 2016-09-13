@@ -158,7 +158,8 @@ public class Recordset {
         this.Connection = Connection;
         this.isReadOnly = ReadOnly;
         this.driver = Connection.getDatabase().getDriver();
-
+        if (driver==null) driver = new Driver("","","");
+        
 
         if (Connection==null) throw new java.sql.SQLException("Connection is null.");
         if (Connection.isClosed()) throw new java.sql.SQLException("Connection is closed.");

@@ -623,6 +623,7 @@ public class Database implements Cloneable {
    */
     public static String[] getReservedKeywords(Connection conn){
         javaxt.sql.Driver driver = conn.getDatabase().getDriver();
+        if (driver==null) driver = new Driver("","","");
 
         if (driver.equals("Firebird")){
             return fbKeywords;
