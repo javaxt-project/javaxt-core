@@ -42,6 +42,7 @@ public class Request {
     private int maxRedirects = 5;
     private String username;
     private String password;
+    private String method;
 
     private java.util.Map<String, List<String>> requestHeaders = null;
     private HashMap<String, List<String>> RequestProperties = new HashMap<String, List<String>>();
@@ -88,6 +89,7 @@ public class Request {
         request.password = password;
         request.requestHeaders = requestHeaders;
         request.RequestProperties = RequestProperties;
+        request.method = method;
         return request;
     }
 
@@ -187,6 +189,24 @@ public class Request {
    */
     public java.net.URL getInitialURL(){
         return orgURL;
+    }
+
+
+  //**************************************************************************
+  //** setRequestMethod
+  //**************************************************************************
+  /** Used to specify the request method ("GET", "POST", "PUT", "DELETE", etc).
+   *  By default, requests are made using "GET" when fetching data and "POST" 
+   *  when writing data to the server. This method is used to override these 
+   *  defaults (e.g. "PUT" and "DELETE" for REST services). 
+   */
+    public void setRequestMethod(String method){
+        if (method!=null){
+            method = method.trim();
+            if (method.equalsIgnoreCase("DELETE")) method = "DELETE";
+            else if (method.equalsIgnoreCase("PUT")) method = "PUT";
+            this.method = method;
+        }
     }
 
 
@@ -619,6 +639,14 @@ public class Request {
                 conn = url.openConnection(HttpProxy);
             }
 
+            
+          //Set request method as needed
+            if (method!=null){
+                HttpsURLConnection con = (HttpsURLConnection)conn;
+                con.setRequestMethod(method);
+                System.out.println(method);
+            }
+            
 
           //Set timeouts
             if (connectionTimeout>0){
