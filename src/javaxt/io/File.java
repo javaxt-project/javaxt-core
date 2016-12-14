@@ -992,6 +992,12 @@ public class File implements Comparable {
 
         RelPath = RelPath.replace("\\","/");
         
+        
+        if (RelPath.startsWith("/")){
+            return (currDir + RelPath.substring(1)).replace("/", PathSeparator);
+        }
+
+        
         String[] arrRelPath = RelPath.split("/");
         String[] arrAbsPath = currDir.split("/");
         
