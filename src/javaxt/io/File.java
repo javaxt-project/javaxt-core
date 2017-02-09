@@ -45,7 +45,7 @@ public class File implements Comparable {
             Path = Path.substring(1,Path.length()-1).trim();
         }
         if (Path.endsWith("\\") || Path.endsWith("/")){
-            throw new IllegalArgumentException("Invalid Path.");
+            throw new IllegalArgumentException("Invalid Path: " + Path);
         }
 
         init(Path);

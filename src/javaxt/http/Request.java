@@ -600,15 +600,15 @@ public class Request {
 
 
           //By default, Java 1.6 and earlier use the SSLv2 protocol to initiate
-          //an SSL handshake. For security reasons, some modern webservers will
-          //actively refuse to accept SSLv2 messages. As a workaround, we need
-          //to explicitly set the client to use SSLv3.
+          //an SSL handshake. For security reasons, most modern webservers will
+          //actively refuse to accept SSLv2 messages. As a workaround, we'll
+          //try to use to use SSLv3 or TLSv1.
             if (ssl){
                 String[] arr = System.getProperty("java.version").split("\\.");
                 if (Double.valueOf(arr[0] + "." + arr[1])<1.7){
                     String sslProtocols = System.getProperty("https.protocols");
-                    if (sslProtocols==null || !sslProtocols.toUpperCase().startsWith("SSLV3")){
-                        System.setProperty("https.protocols", "SSLv3");
+                    if (sslProtocols==null){
+                        System.setProperty("https.protocols", "TLSv1,SSLv3");
                     }
                 }
             }
