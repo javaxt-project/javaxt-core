@@ -24,7 +24,6 @@ public class Directory implements Comparable {
     private String path = "";
 
     //private boolean useCache = false;
-    private static List events = new LinkedList();
     private FileSystemWatcher FileSystemWatcher;
     private File.FileAttributes attr;
     private long lastAttrUpdate = 0;
@@ -1776,8 +1775,7 @@ public class Directory implements Comparable {
             FileSystemWatcher = new FileSystemWatcher(this);
             new Thread(FileSystemWatcher).start();
         }
-        return events;
-        
+        return FileSystemWatcher.getEvents();
     }
 
   //**************************************************************************
@@ -1810,35 +1808,11 @@ public class Directory implements Comparable {
     
     
   //**************************************************************************
-  //** addEvent
-  //**************************************************************************
-  /** Used to add a new event to the list of events. This method is called 
-   *  from the FileSystemWatcher Class via the run() method.
-   */
-    
-    protected void addEvent(String event){
-        new Event(event);
-    }
-    
-  //**************************************************************************
-  //** addEvent
-  //**************************************************************************
-  /** Used to add a new event to the list of events. This method is called 
-   *  from the FileSystemWatcher Class via the EventMonitor.
-   */
-    
-    protected void addEvent(String action, String file){
-        new Event(action,file);
-    }
-    
-    private Event LastEvent = null;
-    
-  //**************************************************************************
   //** Event Class
   //**************************************************************************
   /**  Used to encapsulate a single event on the file system. 
   */
-    public class Event{
+    public static class Event {
 
         private String file;
         private String orgFile;
@@ -1856,7 +1830,7 @@ public class Directory implements Comparable {
       /**  Creates a new instance of FileSystemEvent by parsing a string 
        *   returned from FileSystemWatcherNative.ReadDirectoryChangesW()
        */
-        private Event(String event) {
+        protected Event(String event) {
             if (event!=null){
                 event = event.trim();
                 if (event.length()==0) event = null;
@@ -1870,69 +1844,13 @@ public class Directory implements Comparable {
                     String path = text.substring(text.indexOf(" ")).trim();
                     String action = text.substring(0,text.indexOf(" ")).trim();
                     
-                    boolean exists = true;
-                    boolean isDirectory = false;
-                    try{
-                        isDirectory = new File.FileAttributes(path).isDirectory();
-                    }
-                    catch(Exception e){
-                        exists = false;
-                    }
                     
 
                   //Set local variables
                     this.date = parseDate(date);
                     this.file = path;
                     this.action = action;
-                    boolean updateEvents = true;
 
-                    
-                  //Determine whether to update the events list when a file or 
-                  //folder is modified.
-                    if (action.equalsIgnoreCase("modify")){
-                        if (isDirectory || !exists){
-                            updateEvents = false;
-                        }
-                        else{
-                            if (LastEvent!=null) { 
-                                if (LastEvent.getFile().equals(this.file)){
-                                    if (LastEvent.getDate().equals(this.date)){
-                                        updateEvents = false;
-                                    }
-                                }
-                                LastEvent = null;
-                            }
-                            else{
-                                LastEvent = this;
-                            }
-                        }
-                    }
-
-                    
-                  //Special Case: If a rename event is encountered, wait for the 
-                  //renam2 event before updating the events list. Note that this
-                  //is unique to the FileSystemWatcher.dll.
-                    if (action.equalsIgnoreCase("rename")){
-                        updateEvents = false;
-                        LastEvent = this;
-                    }
-                    else if(action.equalsIgnoreCase("renam2")){
-                        if (LastEvent!=null) {                            
-                            this.orgFile = LastEvent.getFile();
-                            this.action = "Rename";
-                            LastEvent = null;
-                        }
-                    }
-                    
-                    
-                  //Update events list, as needed
-                    if (updateEvents){
-                        synchronized(events){
-                            events.add(this);
-                            events.notifyAll();
-                            //System.out.println(events.size());
-                        }
-                    }
                 }
                 catch(Exception ex){
                     //ex.printStackTrace();
@@ -1945,17 +1863,16 @@ public class Directory implements Comparable {
       //************************************************************************
       /**  Creates a new instance of FileSystemEvent for EventMonitor 
        */
-        private Event(String action, String file){
+        protected Event(String action, String file){
             this.date = new java.util.Date();
             this.action = action;
             this.file = file;
-            synchronized (events) {
-                events.add(this);
-                events.notifyAll();
-            }
         }
 
-
+        
+      //************************************************************************
+      //** parseDate
+      //************************************************************************
         private java.util.Date parseDate(String date){
             try{
                 return new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss yyyy").parse(date);
@@ -1975,6 +1892,10 @@ public class Directory implements Comparable {
             return action;
         }
 
+        protected void setAction(String action){
+            this.action = action;
+        }
+        
       //************************************************************************
       //** getFile
       //************************************************************************
@@ -1984,10 +1905,22 @@ public class Directory implements Comparable {
             return file;
         }
         
+        
+      //************************************************************************
+      //** getOriginalFile
+      //************************************************************************
         public String getOriginalFile(){
             return orgFile;
         }
         
+        protected void setOrgFile(String orgFile){
+            this.orgFile = orgFile;
+        }
+        
+        
+      //************************************************************************
+      //** getEventID
+      //************************************************************************
         public final int getEventID(){
             if (action.equalsIgnoreCase("create")) return this.CREATE;
             if (action.equalsIgnoreCase("delete")) return this.DELETE;
@@ -2839,7 +2772,9 @@ class FileSystemWatcher implements Runnable {
     private boolean includeSubdirectories = true;
     private boolean terminationRequested = false;
     private Long osHandle = null;
-
+    
+    private List events = new LinkedList();
+    private Directory.Event LastEvent = null;
 
   //**************************************************************************
   //** Constructors
@@ -2873,7 +2808,7 @@ class FileSystemWatcher implements Runnable {
               //block until the next event comes in.
                 String event = null;
                 while(!terminationRequested && ( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
-                    for (String e : event.split("\n")) directory.addEvent(e.trim());
+                    for (String e : event.split("\n")) addEvent(e.trim());
                 }
 
               //I have no idea what this block of code does. Probably safe to delete.
@@ -2901,6 +2836,86 @@ class FileSystemWatcher implements Runnable {
                 }
             }
         }
+    }
+    
+    
+  //**************************************************************************
+  //** addEvent
+  //**************************************************************************
+    
+    private void addEvent(String str){
+
+        Directory.Event event = new Directory.Event(str);
+        String action = event.getAction();
+        String path = event.getFile();
+        java.util.Date date = event.getDate();
+        
+        
+        boolean exists = true;
+        boolean isDirectory = false;
+        try{
+            isDirectory = new File.FileAttributes(path).isDirectory();
+        }
+        catch(Exception e){
+            exists = false;
+        }        
+        
+        boolean updateEvents = true;
+
+
+      //Determine whether to update the events list when a file or folder is modified
+        if (action.equalsIgnoreCase("modify")){
+            if (isDirectory || !exists){
+                updateEvents = false;
+            }
+            else{
+                if (LastEvent!=null) { 
+                    if (LastEvent.getFile().equals(path)){
+                        if (LastEvent.getDate().equals(date)){
+                            updateEvents = false;
+                        }
+                    }
+                    LastEvent = null;
+                }
+                else{
+                    LastEvent = event;
+                }
+            }
+        }
+
+
+      //Special Case: If a rename event is encountered, wait for the "renam2"
+      //event before updating the events list. 
+        if (action.equalsIgnoreCase("rename")){
+            updateEvents = false;
+            LastEvent = event;
+        }
+        else if(action.equalsIgnoreCase("renam2")){
+            if (LastEvent!=null) {                            
+                event.setOrgFile(LastEvent.getFile());
+                event.setAction("Rename");
+                LastEvent = null;
+            }
+        }
+
+
+      //Update events list, as needed
+        if (updateEvents){
+            synchronized(events){
+                events.add(event);
+                events.notifyAll();
+                //System.out.println(events.size());
+            }
+        }
+    }
+    
+
+  //**************************************************************************
+  //** getEvents
+  //**************************************************************************
+    
+    public List getEvents() {
+        return events;
     }
     
     
@@ -2955,18 +2970,18 @@ class FileSystemWatcher implements Runnable {
                             if (item.getSize()!=orgItem.getSize() || 
                                 item.getDate()!=orgItem.getDate())
                             {
-                                directory.addEvent("Modify",item.getPath());
+                                addEvent("Modify",item.getPath());
                             }
                         }
                     }
                     else{
-                        directory.addEvent("Create",item.getPath());
+                        addEvent("Create",item.getPath());
                     }
                 }
                 if (orgIndex.size()>0){ 
                     for (int i=0; i<orgIndex.size(); i++){
                         Item item = (Item) orgIndex.get(i);
-                        directory.addEvent("Delete",item.getPath());
+                        addEvent("Delete",item.getPath());
                     }
                     orgIndex.clear();
                 }
@@ -2981,6 +2996,14 @@ class FileSystemWatcher implements Runnable {
             }// end if
         }// end run
         
+        
+        private void addEvent(String action, String file){
+            Directory.Event event = new Directory.Event(action,file);
+            synchronized (events) {
+                events.add(event);
+                events.notifyAll();
+            }
+        }
         
 
       //************************************************************************

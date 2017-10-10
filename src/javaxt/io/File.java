@@ -807,6 +807,7 @@ public class File implements Comparable {
    * (CRC-32 checksum) of the file, or -1 if not known.
    */
     public long checksum(){
+        if (!exists()) return -1;
         try{
             java.util.zip.CRC32 crc = new java.util.zip.CRC32();
             crc.update(getBytes().toByteArray());

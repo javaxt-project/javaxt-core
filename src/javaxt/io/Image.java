@@ -442,7 +442,7 @@ public class Image {
 
                 red[r] = red[r]+1;
                 green[g] = green[g]+1;
-                blue[b] = blue[r]+1;
+                blue[b] = blue[b]+1;
 
                 int avg = Math.round((r+g+b)/3);
                 average[avg] = average[avg]+1;

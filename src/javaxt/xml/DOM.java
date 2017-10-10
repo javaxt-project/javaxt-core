@@ -266,8 +266,8 @@ public class DOM {
   //**************************************************************************
   //** getAttributeValue
   //**************************************************************************
-  /**  Used to return the value of a given node attribute. The search is case
-   *   insensitive. If no match is found, returns an empty string.
+  /** Used to return the value of a given node attribute. The search is case
+   *  insensitive. If no match is found, returns an empty string.
    */
     public static String getAttributeValue(NamedNodeMap attrCollection, String attrName){
         
@@ -286,13 +286,49 @@ public class DOM {
   //**************************************************************************
   //** getAttributeValue
   //**************************************************************************
-  /**  Used to return the value of a given node attribute. The search is case
-   *   insensitive. If no match is found, returns an empty string.
+  /** Used to return the value of a given node attribute. The search is case
+   *  insensitive. If no match is found, returns an empty string.
    */
-    public static String getAttributeValue(Node Node, String AttributeName){
-        return getAttributeValue(Node.getAttributes(), AttributeName);
+    public static String getAttributeValue(Node node, String attrName){
+        return getAttributeValue(node.getAttributes(), attrName);
     }
 
+    
+  //**************************************************************************
+  //** setAttributeValue
+  //**************************************************************************
+  /** Used to create or update an attribute. 
+   */
+    public static void setAttributeValue(Node node, String attrName, String attrValue){
+        
+        if (node==null) return;
+        
+        try{
+            ((Element)node).setAttribute(attrName, attrValue);
+        }
+        catch(Exception e){
+            
+          //Apparently some nodes can't be cast to an Element so we can try
+          //to update the node's attribute collection.
+            try{
+                
+                NamedNodeMap attrCollection = node.getAttributes();
+                for (int i=0; i<attrCollection.getLength(); i++ ) {
+                    org.w3c.dom.Node attribute = attrCollection.item(i);
+                    if (attribute.getNodeName().equals(attrName)) {
+                        attribute.setNodeValue(attrValue);
+                        return;
+                    }
+                }
+                
+                //TODO: If we're still here, create new attribute
+            }
+            catch(Exception ex){
+            }
+        }
+    }
+
+    
     
   //**************************************************************************
   //** getNodeValue
