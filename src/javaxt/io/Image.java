@@ -514,11 +514,7 @@ public class Image {
             
       //Create new image "collage"
         if (w>bufferedImage.getWidth() || h>bufferedImage.getHeight()){
-            int imageType = bufferedImage.getType();
-            if (imageType == 0 || imageType == 12) {
-                imageType = BufferedImage.TYPE_INT_ARGB;
-            }
-            BufferedImage bi = new BufferedImage(w, h, imageType);
+            BufferedImage bi = new BufferedImage(w, h, getImageType());
             Graphics2D g2d = bi.createGraphics();
             java.awt.Image img = bufferedImage;
             g2d.drawImage(img, x2, y2, null);
@@ -1029,11 +1025,7 @@ public class Image {
 
 
           //Create buffered image
-            int imageType = bufferedImage.getType();
-            if (imageType == 0 || imageType == 12) {
-                imageType = BufferedImage.TYPE_INT_ARGB;
-            }
-            BufferedImage bi = new BufferedImage(width, height, imageType);
+            BufferedImage bi = new BufferedImage(width, height, getImageType());
 
 
           //If the requested rectangle intersects the image bounds, crop the
@@ -1475,9 +1467,11 @@ public class Image {
     }
     
     private int getImageType(BufferedImage bufferedImage){
-        int i = bufferedImage.getType();
-        if (i<=0) i = BufferedImage.TYPE_INT_ARGB; //<- is this ok?
-        return i;
+        int imageType = bufferedImage.getType();
+        if (imageType <= 0 || imageType == 12) {
+            imageType = BufferedImage.TYPE_INT_ARGB;
+        }
+        return imageType;
     }
 
 
