@@ -1179,6 +1179,9 @@ public class File implements Comparable {
         if (ext.equals("js")) return "text/javascript";
         if (ext.equals("txt")) return "text/plain";
         if (ext.equals("csv")) return "text/csv";
+        
+      //JSON
+        if (ext.equals("json")) return "application/json";
 
       //IMAGE
         if (ext.equals("bmp")) return "image/bmp";

@@ -55,6 +55,7 @@ public class Image {
     private HashMap<Integer, Object> exif;
     private HashMap<Integer, Object> iptc;
     private HashMap<Integer, Object> gps;
+    private boolean saveMetadata = false;
 
 
   //**************************************************************************
@@ -1415,8 +1416,6 @@ public class Image {
                     params.getClass().getMethod("setQuality", float.class, boolean.class).invoke(params, outputQuality, true);
                     params.getClass().getMethod("setHorizontalSubsampling", int.class, int.class).invoke(params, 0, 2);
                     params.getClass().getMethod("setVerticalSubsampling", int.class, int.class).invoke(params, 0, 2);
-                    encoder.getClass().getMethod("encode", BufferedImage.class, JPEGEncodeParam).invoke(encoder, bi, params);
-
 
                   //Here's the original compression code without reflection
                     /*
@@ -1425,8 +1424,43 @@ public class Image {
                     params.setQuality(outputQuality, true); //true
                     params.setHorizontalSubsampling(0,2);
                     params.setVerticalSubsampling(0,2);
+                    params.setMarkerData(...);
                     encoder.encode(bi, params);
                     */
+                    
+                    
+                  //Save metadata as needed
+                    if (saveMetadata && metadata!=null){
+                        java.lang.reflect.Method setMarkerData = params.getClass().getMethod("setMarkerData", int.class, byte[][].class);
+
+                      //Parse unknown markers (similar logic to the getUnknownTags method)
+                        java.util.HashSet<Integer> markers = new java.util.HashSet<Integer>();
+                        for (String name : metadata.getMetadataFormatNames()) {
+                            IIOMetadataNode node = (IIOMetadataNode) metadata.getAsTree(name);
+                            for (Node unknownNode : getElementsByTagName("unknown", node)){
+                                String markerTag = getAttributeValue(unknownNode.getAttributes(), "MarkerTag");
+
+                                try{
+                                    int marker = Integer.parseInt(markerTag);
+                                    if (!markers.contains(marker)){
+                                        markers.add(marker);
+
+                                        byte[] data = (byte[]) ((IIOMetadataNode) unknownNode).getUserObject();
+                                        if (data!=null){
+                                            byte[][] app = new byte[1][data.length];
+                                            app[0] = data;
+                                            setMarkerData.invoke(params, marker, app);
+                                        }
+                                    }
+                                }
+                                catch(Exception e){
+                                    //e.printStackTrace();
+                                }
+                            }
+                        }
+                    }
+                    
+                    encoder.getClass().getMethod("encode", BufferedImage.class, JPEGEncodeParam).invoke(encoder, bi, params);
                 }
                 catch(Exception e){
                     bas.reset();
@@ -1445,7 +1479,12 @@ public class Image {
                 params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
                 params.setCompressionQuality(outputQuality);
                 writer.setOutput(ImageIO.createImageOutputStream(bas));
-                writer.write(null, new IIOImage(bi, null, null), params);
+                if (saveMetadata){
+                    writer.write(metadata, new IIOImage(bi, null, metadata), params);
+                }
+                else{
+                    writer.write(null, new IIOImage(bi, null, null), params);
+                }
             }
 
             
@@ -1553,7 +1592,7 @@ public class Image {
   /** Returns the raw, javax.imageio.metadata.IIOMetadata associated with this
    * image. You can iterate through the metadata using an xml parser like this:
    <pre>
-    IIOMetadata metadata = image.getMetadata().getIIOMetadata();
+    IIOMetadata metadata = image.getIIOMetadata();
     for (String name : metadata.getMetadataFormatNames()) {
         System.out.println( "Format name: " + name );
         org.w3c.dom.Node metadataNode = metadata.getAsTree(name);
@@ -1577,6 +1616,7 @@ public class Image {
         iptc = null;
         exif = null;
         gps = null;
+        saveMetadata = true;
     }
 
 
@@ -1586,7 +1626,9 @@ public class Image {
   /** Returns the raw IPTC byte array (marker 0xED).
    */
     public byte[] getIptcData(){
-        return (byte[]) getUnknownTags(0xED)[0].getUserObject();
+        IIOMetadataNode[] tags = getUnknownTags(0xED);
+        if (tags.length==0) return null;
+        return (byte[]) tags[0].getUserObject();
     }
 
 
@@ -1624,7 +1666,9 @@ public class Image {
   /** Returns the raw EXIF byte array (marker 0xE1).
    */
     public byte[] getExifData(){
-        return (byte[]) getUnknownTags(0xE1)[0].getUserObject();
+        IIOMetadataNode[] tags = getUnknownTags(0xE1);
+        if (tags.length==0) return null;
+        return (byte[]) tags[0].getUserObject();
     }
     
 
