@@ -75,7 +75,7 @@ public class Request {
         }
     };
 
-    private boolean validateCertificates = false;
+    private boolean validateCertificates = true;
 
 
     public Request clone(){
@@ -238,7 +238,11 @@ public class Request {
   //** validateSSLCertificates
   //**************************************************************************
   /** Used to enable/disable certificate validation for HTTPS Connections.
-   *  Note that this is set to false by default.
+   *  By default, certificates are validated via a Certificate Authority (CA).
+   *  However, there are times where you may not want to validate a site's
+   *  certificate (e.g. connecting to a intranet site or a development server 
+   *  with self-signed certificate). In these cases, you can bypass the 
+   *  validation process by setting this method to false. 
    */
     public void validateSSLCertificates(boolean validateCertificates){
         this.validateCertificates = validateCertificates;
