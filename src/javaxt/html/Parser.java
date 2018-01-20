@@ -16,100 +16,37 @@ public class Parser {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-    
     public Parser(String html){
         this.html = html;
+    }
+
+    
+  //**************************************************************************
+  //** getHTML
+  //**************************************************************************
+    public String getHTML(){
+        return html;
     }
 
 
   //**************************************************************************
   //** setHTML
   //**************************************************************************
-  /** Used to reset the "scope" of the parser */
-    
+  /** Used to reset the "scope" of the parser 
+   */ 
     public void setHTML(String html){
         this.html = html;
     }
 
 
   //**************************************************************************
-  //** getAbsolutePath
+  //** getElementByID
   //**************************************************************************
-
-    public static String getAbsolutePath(String RelPath, String url){
-        
-      //Check whether RelPath is actually relative
-        try{
-            new java.net.URL(RelPath);
-            return RelPath;
-        }
-        catch(Exception e){}
-
-
-        
-      //Remove "./" prefix in the RelPath
-        if (RelPath.length()>2){
-            if (RelPath.substring(0,2).equals("./")){
-                RelPath = RelPath.substring(2,RelPath.length());
-            }
-        }
-        
-        
-        String[] arrRelPath = RelPath.split("/");
-
-        try{
-            java.net.URL URL = new java.net.URL(url);
-            String urlBase = URL.getProtocol() + "://" + URL.getHost();
-            
-            //System.out.println(url);
-            //System.out.println(URL.getPath());
-            //System.out.print(urlBase);
-            
-
-          //Build Path
-            String urlPath = "";
-            String newPath = "";
-            if (RelPath.substring(0,1).equals("/")){
-                newPath = RelPath;
-            }
-            else{
-            
-                urlPath = "/";
-                String dir = "";
-                String[] arr = URL.getPath().split("/");
-                for (int i=0; i<=(arr.length-arrRelPath.length); i++){
-                     dir = arr[i];
-                     if (dir.length()>0){
-
-                         urlPath += dir + "/";
-                     }
-                }
-                //System.out.println(urlPath);
-                
-                
-              //This can be cleaned-up a bit...
-                if (RelPath.substring(0,1).equals("/")){
-                    newPath = RelPath.substring(1,RelPath.length());
-                }
-                else if (RelPath.substring(0,2).equals("./")){
-                    newPath = RelPath.substring(2,RelPath.length());
-                }
-                else if (RelPath.substring(0,3).equals("../")){
-                    newPath = RelPath.replace("../", "");
-                }
-                else{
-                    newPath = RelPath;
-                }
-            }
-
-            
-
-            return urlBase + urlPath + newPath;
-            
-        
-        }
-        catch(Exception e){}
-        return null;
+  /** Returns an HTML Element with a given id. Returns null if the element was 
+   *  not found.
+   */
+    public Element getElementByID(String id){
+        return getElementByAttributes(null, "id", id);
     }
 
 
@@ -137,12 +74,11 @@ public class Parser {
     }
 
 
-
   //**************************************************************************
   //** getElementByTagName
   //**************************************************************************
   /** Returns an array of HTML Elements found in the HTML document with given
-   *  tag name.
+   *  tag name, attribute, and attribute value (e.g. "div", "class", "hdr2").
    */
     public Element[] getElements(String tagName, String attributeName, String attributeValue){
         String orgHTML = html;
@@ -162,7 +98,6 @@ public class Parser {
     }
 
 
-
   //**************************************************************************
   //** getElementByTagName
   //**************************************************************************
@@ -171,17 +106,6 @@ public class Parser {
    */
     public Element getElementByTagName(String tagName){
         return getElementByAttributes(tagName, null, null);
-    }
-
-
-  //**************************************************************************
-  //** getElementByID
-  //**************************************************************************
-  /** Returns an HTML Element with a given id. Returns null if the element was 
-   *  not found.
-   */
-    public Element getElementByID(String id){
-        return getElementByAttributes(null, "id", id);
     }
 
 
@@ -257,7 +181,7 @@ public class Parser {
                     if (Tag.isStartTag()){
                         if (tagName==null || Tag.getName().equalsIgnoreCase(tagName)){ //<--Tag name is null when getElementByID
 
-                            if (attributeName==null || Tag.getAttributeValue(attributeName).equalsIgnoreCase(attributeValue)){ //<--Filter by attributes!
+                            if (attributeName==null || Tag.getAttribute(attributeName).equalsIgnoreCase(attributeValue)){ //<--Filter by attributes!
                                 absStart = i+1;
                                 Element = Tag;
                                 outerStart = absStart - tag.length();
@@ -345,18 +269,18 @@ public class Parser {
     public String[] getImageLinks(){
         java.util.ArrayList<String> links = new java.util.ArrayList<String>();
         for (Element img : getElementsByTagName("img")){
-            String src = img.getAttributeValue("src");
+            String src = img.getAttribute("src");
             if (src.length()>0) links.add(src);
         }
         return links.toArray(new String[links.size()]);
     }
 
-
+    
   //**************************************************************************
   //** stripHTMLTags
   //**************************************************************************
-  /**  Used to remove any html tags from a block of text */
-    
+  /** Used to remove any html tags from a block of text 
+   */
     public static String stripHTMLTags(String html){
         
         String s = html + " ";
@@ -392,5 +316,79 @@ public class Parser {
         //html = html.replaceAll("\\s+"," ");
         
         return html.replace("&nbsp;", " ").trim();
+    }
+    
+    
+  //**************************************************************************
+  //** getAbsolutePath
+  //**************************************************************************
+    public static String getAbsolutePath(String RelPath, String url){
+        
+      //Check whether RelPath is actually relative
+        try{
+            new java.net.URL(RelPath);
+            return RelPath;
+        }
+        catch(Exception e){}
+
+        
+      //Remove "./" prefix in the RelPath
+        if (RelPath.length()>2){
+            if (RelPath.substring(0,2).equals("./")){
+                RelPath = RelPath.substring(2,RelPath.length());
+            }
+        }
+        
+        
+        String[] arrRelPath = RelPath.split("/");
+        try{
+            java.net.URL URL = new java.net.URL(url);
+            String urlBase = URL.getProtocol() + "://" + URL.getHost();
+            
+            //System.out.println(url);
+            //System.out.println(URL.getPath());
+            //System.out.print(urlBase);
+            
+
+          //Build Path
+            String urlPath = "";
+            String newPath = "";
+            if (RelPath.substring(0,1).equals("/")){
+                newPath = RelPath;
+            }
+            else{
+            
+                urlPath = "/";
+                String dir = "";
+                String[] arr = URL.getPath().split("/");
+                for (int i=0; i<=(arr.length-arrRelPath.length); i++){
+                     dir = arr[i];
+                     if (dir.length()>0){
+
+                         urlPath += dir + "/";
+                     }
+                }
+                //System.out.println(urlPath);
+                
+                
+              //This can be cleaned-up a bit...
+                if (RelPath.substring(0,1).equals("/")){
+                    newPath = RelPath.substring(1,RelPath.length());
+                }
+                else if (RelPath.substring(0,2).equals("./")){
+                    newPath = RelPath.substring(2,RelPath.length());
+                }
+                else if (RelPath.substring(0,3).equals("../")){
+                    newPath = RelPath.replace("../", "");
+                }
+                else{
+                    newPath = RelPath;
+                }
+            }            
+
+            return urlBase + urlPath + newPath;
+        }
+        catch(Exception e){}
+        return null;
     }
 }

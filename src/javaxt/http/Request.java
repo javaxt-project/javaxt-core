@@ -155,9 +155,9 @@ public class Request {
         this.setHeader("Accept", "*/*");
         this.setHeader("Accept-Encoding", "gzip,deflate");
         this.setHeader("Accept-Charset", "ISO-8859-1,utf-8;q=0.7,*;q=0.7");
-        //this.setHeader("User-Agent", "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.10)"); //windows xp
-        this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:56.0) Gecko/20100101 Firefox/56.0"); //windows 7
-        //this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0"); //windows 8
+      //this.setHeader("User-Agent", "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.10)"); //windows xp
+        this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0"); //windows 7
+      //this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0"); //windows 8
     }
 
 

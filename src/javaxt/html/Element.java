@@ -18,8 +18,7 @@ public class Element {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**
-   *  @param html HTML used to define a tag (e.g. &lt;div id="1"&gt;)
+  /** @param html HTML used to define a tag (e.g. &lt;div id="1"&gt;)
    */
     protected Element(String tagHTML){
         this.tagHTML = tagHTML;
@@ -85,15 +84,115 @@ public class Element {
     public String getOuterHTML(){
         return outerHTML;
     }
+    
+    public String getInnerText(){
+        return Parser.stripHTMLTags(innerHTML);
+    }
+
+  //**************************************************************************
+  //** getAttribute
+  //**************************************************************************
+  /** Returns the value for a given attribute. If no match is found, returns
+   *  an empty string.
+   */
+    public String getAttribute(String attributeName){
+        return _getAttributeValue(attributeName);
+    }
 
 
+  //**************************************************************************
+  //** getElementByID
+  //**************************************************************************
+  /** Returns an HTML Element with given a id. Returns null if the element was
+   *  not found.
+   */
+    public Element getElementByID(String id){
+        return getElementByAttributes(null, "id", id);
+    }
+
+
+  //**************************************************************************
+  //** getElementByTagName
+  //**************************************************************************
+  /** Returns an array of HTML Elements with given tag name.
+   */
+    public Element[] getElementsByTagName(String tagName){
+        return new Parser(innerHTML).getElementsByTagName(tagName);
+    }
+
+
+  //**************************************************************************
+  //** getElementByTagName
+  //**************************************************************************
+  /** Returns the first HTML Element with given tag name. Returns null if an
+   *  element was not found.
+   */
+    public Element getElementByTagName(String tagName){
+        return getElementByAttributes(tagName, null, null);
+    }
+
+
+  //**************************************************************************
+  //** getElements
+  //**************************************************************************
+  /** Returns an array of HTML Elements with given tag name, attribute, and 
+   *  attribute value (e.g. "div", "class", "panel-header").
+   */
+    public Element[] getElements(String tagName, String attributeName, String attributeValue){
+        return new Parser(innerHTML).getElements(tagName, attributeName, attributeValue);
+    }
+
+
+  //**************************************************************************
+  //** getElementByAttributes
+  //**************************************************************************
+  /** Returns the first HTML Element with given tag name and attribute. Returns
+   *  null if an element was not found.
+   */
+    public Element getElementByAttributes(String tagName, String attributeName, String attributeValue){
+        return new Parser(innerHTML).getElementByAttributes(tagName, attributeName, attributeValue);
+    }
+
+
+  //**************************************************************************
+  //** getImageLinks
+  //**************************************************************************
+  /** Returns a list of links to images. The links may include relative paths.
+   *  Use the Parser.getAbsolutePath() method to resolve the relative paths to 
+   *  a fully qualified url.
+   */
+    public String[] getImageLinks(){
+        return new Parser(innerHTML).getImageLinks();
+    }
+
+
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+    public String toString(){
+        return outerHTML;
+    }
+    
+    
+    /** @deprecated Use getInnerText() */
+    public String stripHTMLTags(){
+        return getInnerText();
+    }
+    
+    /** @deprecated Use getAttribute() */
+    public String getAttributeValue(String attributeName){
+        return getAttribute(attributeName);
+    }
+    
+    
+    
   //**************************************************************************
   //** getAttributeValue
   //**************************************************************************
   /** Returns the value for a given attribute. If no match is found, returns
    *  an empty string.
    */
-    public String getAttributeValue(String attributeName){
+    private String _getAttributeValue(String attributeName){
         try{
             org.w3c.dom.Document XMLDoc = DOM.createDocument("<" + tag + "/>");
             org.w3c.dom.NamedNodeMap attr = XMLDoc.getFirstChild().getAttributes();
@@ -101,19 +200,16 @@ public class Element {
         }
         catch(Exception e){
             try{
-               return getAttributeValue2(tag, attributeName);
+               return _getAttributeValue2(tag, attributeName);
             }
             catch(Exception ex){
                return "";
             }
         }
-
     }
 
 
-
-
-    private String getAttributeValue2(String tag, String attributeName){
+    private String _getAttributeValue2(String tag, String attributeName){
 
         tag = tag.trim();
 
@@ -128,15 +224,6 @@ public class Element {
         String tagName = orgTag + " ";
         tagName = tagName.substring(0, tagName.indexOf(" "));
 
-/*
-        if (tagName.equalsIgnoreCase("img")){
-            System.out.println("IMGTAG = " + tag);
-        }
-        else{
-            return "";
-        }
-
-*/
 
 
       //compress spaces
@@ -192,81 +279,8 @@ public class Element {
 
                  }
 
-
              }
-
-
         }
-
         return "";
-    }
-
-
-
-  //**************************************************************************
-  //** getElementByTagName
-  //**************************************************************************
-  /** Returns an array of HTML Elements with given tag name.
-   */
-    public Element[] getElementsByTagName(String tagName){
-        return new Parser(innerHTML).getElementsByTagName(tagName);
-    }
-
-
-  //**************************************************************************
-  //** getElementByTagName
-  //**************************************************************************
-  /** Returns the first HTML Element with given tag name. Returns null if an
-   *  element was not found.
-   */
-    public Element getElementByTagName(String tagName){
-        return getElementByAttributes(tagName, null, null);
-    }
-
-
-  //**************************************************************************
-  //** getElementByID
-  //**************************************************************************
-  /** Returns an HTML Element with given a id. Returns null if the element was
-   *  not found.
-   */
-    public Element getElementByID(String id){
-        return getElementByAttributes(null, "id", id);
-    }
-
-
-    public Element[] getElements(String tagName, String attributeName, String attributeValue){
-        return new Parser(innerHTML).getElements(tagName, attributeName, attributeValue);
-    }
-
-
-  //**************************************************************************
-  //** getElementByAttributes
-  //**************************************************************************
-  /** Returns the first HTML Element with given tag name and attribute. Returns
-   *  null if an element was not found.
-   */
-    public Element getElementByAttributes(String tagName, String attributeName, String attributeValue){
-        return new Parser(innerHTML).getElementByAttributes(tagName, attributeName, attributeValue);
-    }
-
-    public String stripHTMLTags(){
-        return Parser.stripHTMLTags(innerHTML);
-    }
-
-
-  //**************************************************************************
-  //** getImageLinks
-  //**************************************************************************
-  /** Returns a list of links to images. The links may include relative paths.
-   *  Use the getAbsolutePath method to resolve the relative paths to a fully
-   *  qualified url.
-   */
-    public String[] getImageLinks(){
-        return new Parser(innerHTML).getImageLinks();
-    }
-    
-    public String toString(){
-        return outerHTML;
     }
 }

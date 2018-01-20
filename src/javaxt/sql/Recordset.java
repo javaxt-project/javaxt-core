@@ -557,11 +557,12 @@ public class Recordset {
                 java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
                 java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
                 if (r2.next()) {
-                    Key[] arr = new Table(r2, dbmd).getPrimaryKeys();
+                    Table table = new Table(r2, dbmd);
+                    Key[] arr = table.getPrimaryKeys();
                     if (arr!=null){
                         for (int i=0; i<arr.length; i++){
                             Key key = arr[i];
-                            Field field = getField(key.getName());
+                            Field field = getField(key.getColumn());
                             if (field!=null) keys.add(field);
                         }
                     }

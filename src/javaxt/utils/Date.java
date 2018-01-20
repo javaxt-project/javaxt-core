@@ -35,6 +35,7 @@ public class Date implements Comparable {
 
          "EEE, d MMM yyyy HH:mm:ss z",  // Mon, 7 Jun 1976 13:02:09 EST
          "EEE, dd MMM yyyy HH:mm:ss z", // Mon, 07 Jun 1976 13:02:09 EST
+         "EEE, dd MMM yyyy HH:mm:ss",   // Mon, 07 Jun 1976 13:02:09
 
          "EEE MMM dd HH:mm:ss z yyyy",  // Mon Jun 07 13:02:09 EST 1976
          "EEE MMM d HH:mm:ss z yyyy",   // Mon Jun 7 13:02:09 EST 1976
@@ -154,23 +155,49 @@ public class Date implements Comparable {
 
         try{
 
-          //Special Case: Java fails to parse the "T" in strings like
-          //"1976-06-07T01:02:09.000" and "1976-06-07T13:02-0500"
-            if (date.length()>="1976-06-07T13:02".length()){
-                if (date.substring(10, 11).equalsIgnoreCase("T")){
-                    date = date.replace("T", " ");
-                }
-            }
-
-
           //Loop through all known date formats and try to convert the string to a date
             for (String format : SupportedFormats){
+                
+                if (format.endsWith("Z")){
 
-              //Special Case: Java fails to parse the "Z" in "1976-06-07 00:00:00Z"
-                if (date.endsWith("Z") && format.endsWith("Z")){
-                    date = date.substring(0, date.length()-1) + "UTC";
+                    //Special Case: Java fails to parse the "T" in strings like
+                    //"1976-06-07T01:02:09.000" and "1976-06-07T13:02-0500"
+                    int idx = date.indexOf("T");
+                    if (idx==10 && format.startsWith("yyyy-MM-dd HH:mm")){
+                        date = date.substring(0, idx) + " " + date.substring(idx+1);
+                    }
+                    
+                    
+                    
+                    if (date.endsWith("Z") && date.length()==format.length()){
+                      //If the date literally ends with the letter "Z", then the
+                      //date is probably referencing "Zulu" timezone (i.e. UTC).
+                      //Example: "1976-06-07 00:00:00Z". Java doesn't understand
+                      //what the "Z" timezone is so we'll replace the "Z" with
+                      //"UTC".
+                        date = date.substring(0, date.length()-1) + "UTC";
+                    }
+                    else{
+
+                        
+                      //Check if the timezone offset is specified in "+/-HH:mm" 
+                      //format (e.g. "2018-01-17T01:00:35+07:00"). If so, update
+                      //the timezone offset by removing the colon. 
+                        if (date.length()>=format.length()){
+                            int len = format.length()-1;
+                            String tz = date.substring(len);
+                            if (tz.length()==6){
+                                String a = tz.substring(0,1);
+                                if ((a.equals("-") || a.equals("+")) && tz.indexOf(":")==3){
+                                    tz = tz.replace(":", "");
+                                    date = date.substring(0, len) + tz;
+                                }
+                            }
+                            
+                        }
+                    }
                 }
-
+                
                 try{
                     currDate = parseDate(date, format);
                     return;
@@ -682,7 +709,26 @@ public class Date implements Comparable {
         return currDate;
     }
 
+    
+  //**************************************************************************
+  //** setTime
+  //**************************************************************************
+  /** Used to update the hours, minutes, seconds, and milliseconds of the
+   *  current date.
+   */
+    public java.util.Date setTime(int hours, int minutes, int seconds, int milliseconds){
+        Calendar cal = getCalendar();
+        
+        cal.set(Calendar.HOUR_OF_DAY, hours);
+        cal.set(Calendar.MINUTE, minutes);
+        cal.set(Calendar.SECOND, seconds);
+        cal.set(Calendar.MILLISECOND, milliseconds);
+        
+        currDate = cal.getTime();
+        return currDate;
+    }
 
+    
   //**************************************************************************
   //** getDate
   //**************************************************************************
