@@ -1,6 +1,14 @@
 package javaxt.html;
 import javaxt.xml.DOM;
 
+//******************************************************************************
+//**  HTML Element
+//******************************************************************************
+/**
+ *   Used to represent a DOM element in an HTML document.
+ *
+ ******************************************************************************/
+
 public class Element {
 
     private String tagName;
@@ -12,7 +20,6 @@ public class Element {
     private boolean isEndTag;
 
     private String tag;
-    private String[] arr;
 
 
   //**************************************************************************
@@ -47,19 +54,21 @@ public class Element {
         //tag = AddQuotes(tag);
 
         tag = tag.replaceAll("\\s+"," ").trim();
-        tag = tag.trim();
 
-        arr = tag.split(" ");
 
+        String[] arr = tag.split(" ");
         tagName = arr[0];
     }
 
-
-    public boolean isStartTag(){
+    protected String getTag(){
+        return tagHTML;
+    }
+    
+    protected boolean isStartTag(){
         return isStartTag;
     }
 
-    public boolean isEndTag(){
+    protected boolean isEndTag(){
         return isEndTag;
     }
 
@@ -72,22 +81,39 @@ public class Element {
         return tagName;
     }
 
-    protected String getTag(){
-        return tagHTML;
-    }
     
+  //**************************************************************************
+  //** getInnerHTML
+  //**************************************************************************
+  /** Returns the HTML content (inner HTML) of an element as a String.
+   */
     public String getInnerHTML(){
         return innerHTML;
     }
 
-
+    
+  //**************************************************************************
+  //** getOuterHTML
+  //**************************************************************************
+  /** Returns the HTML used to define this element (tag and attributes), as 
+   *  well as the HTML content (inner HTML). You can use this String to remove
+   *  or replace elements from the original HTML document.
+   */
     public String getOuterHTML(){
         return outerHTML;
     }
     
+    
+  //**************************************************************************
+  //** getInnerText
+  //**************************************************************************
+  /** Removes all HTML tags and attributes inside this element, leaving the 
+   *  raw rendered text.
+   */
     public String getInnerText(){
         return Parser.stripHTMLTags(innerHTML);
     }
+
 
   //**************************************************************************
   //** getAttribute
@@ -169,6 +195,9 @@ public class Element {
   //**************************************************************************
   //** toString
   //**************************************************************************
+  /** Returns the outer HTML of this element. See getOuterHTML() for more 
+   *  information.
+   */
     public String toString(){
         return outerHTML;
     }
@@ -183,9 +212,8 @@ public class Element {
     public String getAttributeValue(String attributeName){
         return getAttribute(attributeName);
     }
-    
-    
-    
+
+
   //**************************************************************************
   //** getAttributeValue
   //**************************************************************************
@@ -213,9 +241,7 @@ public class Element {
 
         tag = tag.trim();
 
-        if (tag.contains((CharSequence) " ")==false){
-            return tag;
-        }
+        if (!tag.contains(" ")) return tag;
 
         String orgTag = tag;
         tag = tag.substring(tag.indexOf(" "), tag.length()).trim();
@@ -229,7 +255,6 @@ public class Element {
       //compress spaces
         String newTag = "";
         tag += " ";
-        boolean skipChar = false;
         for (int i=0; i<tag.length()-1; i++){
              char ch = tag.charAt(i);
              if (ch==' ' && tag.charAt(i+1)==' '){

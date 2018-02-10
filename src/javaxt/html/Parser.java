@@ -129,12 +129,12 @@ public class Parser {
         int outerEnd = 0;
 
         StringBuffer tag = new StringBuffer();
-        Element Element = null;
+        Element el = null;
 
         boolean insideQuote = false;
         boolean insideComment = false;
                  
-        for (int i = 0; i < s.length(); i++){
+        for (int i=0; i<s.length(); i++){
 
             c = s.substring(i,i+1); 
 
@@ -177,13 +177,13 @@ public class Parser {
                 concat = false;
                 Element Tag = new Element(tag.toString());
 
-                if (Element==null){
+                if (el==null){
                     if (Tag.isStartTag()){
                         if (tagName==null || Tag.getName().equalsIgnoreCase(tagName)){ //<--Tag name is null when getElementByID
 
                             if (attributeName==null || Tag.getAttribute(attributeName).equalsIgnoreCase(attributeValue)){ //<--Filter by attributes!
                                 absStart = i+1;
-                                Element = Tag;
+                                el = Tag;
                                 outerStart = absStart - tag.length();
 
 
@@ -194,8 +194,8 @@ public class Parser {
                               //Special case for tags that self terminate
                                 if (Tag.isEndTag()){
                                     //Element.innerHTML = null;
-                                    Element.outerHTML = tag.toString();
-                                    return Element;
+                                    el.outerHTML = tag.toString();
+                                    return el;
                                 }
                                 
                             }
@@ -228,10 +228,10 @@ public class Parser {
 
 
                         if (foundEnd){ // if (numEndTags>=numStartTags){
-                            Element.innerHTML = html.substring(absStart,absEnd);
+                            el.innerHTML = html.substring(absStart,absEnd);
                             outerEnd = i+1;
-                            Element.outerHTML = html.substring(outerStart,outerEnd);
-                            return Element;
+                            el.outerHTML = html.substring(outerStart,outerEnd);
+                            return el;
                         }
                     }
 
@@ -248,11 +248,11 @@ public class Parser {
 
 
       //Last ditch effort!
-        if (Element!=null){
-            if (Element.getOuterHTML()==null){
-                Element.outerHTML = Element.getTag();
+        if (el!=null){
+            if (el.getOuterHTML()==null){
+                el.outerHTML = el.getTag();
             }
-            return Element;
+            return el;
         }
 
         return null;
@@ -320,73 +320,91 @@ public class Parser {
     
     
   //**************************************************************************
-  //** getAbsolutePath
+  //** MapPath
   //**************************************************************************
-    public static String getAbsolutePath(String RelPath, String url){
-        
-      //Check whether RelPath is actually relative
+  /** Returns a fully qualified URL for a given path. Returns null if the  
+   *  function fails to resolve the path.
+   *  @param relPath Relative path to a file (e.g. "../images/header.jpg")
+   *  @param url URL that is sourcing the relPath (e.g. "http://acme.com/about/")
+   *  @return Using the examples cited in the 2 parameters, return a URL
+   *  "http://acme.com/images/header.jpg"
+   */
+    public static String MapPath(String relPath, java.net.URL url){
+
+      //Check if relPath is a fully qualified URL. If so, return the relPath.
         try{
-            new java.net.URL(RelPath);
-            return RelPath;
+            new java.net.URL(relPath);
+            return relPath;
         }
         catch(Exception e){}
 
         
-      //Remove "./" prefix in the RelPath
-        if (RelPath.length()>2){
-            if (RelPath.substring(0,2).equals("./")){
-                RelPath = RelPath.substring(2,RelPath.length());
+      //Remove "./" prefix in the relPath
+        if (relPath.length()>2){
+            if (relPath.substring(0,2).equals("./")){
+                relPath = relPath.substring(2,relPath.length());
             }
         }
         
         
-        String[] arrRelPath = RelPath.split("/");
+        String[] arrRelPath = relPath.split("/");
         try{
-            java.net.URL URL = new java.net.URL(url);
-            String urlBase = URL.getProtocol() + "://" + URL.getHost();
+            String urlBase = url.getProtocol() + "://" + url.getHost();
+            if (url.getPort()!=80) urlBase+= ":" + url.getPort();
             
-            //System.out.println(url);
-            //System.out.println(URL.getPath());
-            //System.out.print(urlBase);
             
 
           //Build Path
             String urlPath = "";
-            String newPath = "";
-            if (RelPath.substring(0,1).equals("/")){
-                newPath = RelPath;
+            String newPath;
+            if (relPath.substring(0,1).equals("/")){
+                newPath = relPath;
             }
             else{
             
                 urlPath = "/";
-                String dir = "";
-                String[] arr = URL.getPath().split("/");
+                String[] arr = url.getPath().split("/");
                 for (int i=0; i<=(arr.length-arrRelPath.length); i++){
-                     dir = arr[i];
+                     String dir = arr[i];
                      if (dir.length()>0){
 
                          urlPath += dir + "/";
                      }
                 }
-                //System.out.println(urlPath);
-                
+
                 
               //This can be cleaned-up a bit...
-                if (RelPath.substring(0,1).equals("/")){
-                    newPath = RelPath.substring(1,RelPath.length());
+                if (relPath.substring(0,1).equals("/")){
+                    newPath = relPath.substring(1,relPath.length());
                 }
-                else if (RelPath.substring(0,2).equals("./")){
-                    newPath = RelPath.substring(2,RelPath.length());
+                else if (relPath.substring(0,2).equals("./")){
+                    newPath = relPath.substring(2,relPath.length());
                 }
-                else if (RelPath.substring(0,3).equals("../")){
-                    newPath = RelPath.replace("../", "");
+                else if (relPath.substring(0,3).equals("../")){
+                    newPath = relPath.replace("../", "");
                 }
                 else{
-                    newPath = RelPath;
+                    newPath = relPath;
                 }
-            }            
+            }
 
             return urlBase + urlPath + newPath;
+        }
+        catch(Exception e){}
+        return null;
+    }
+
+
+  //**************************************************************************
+  //** getAbsolutePath
+  //**************************************************************************
+  /** Returns a fully qualified URL for a given path. See MapPath() method for 
+   *  more information.
+   *  @deprecated Use MapPath()
+   */
+    public static String getAbsolutePath(String relPath, String url){
+        try{
+            return MapPath(relPath, new java.net.URL(url));
         }
         catch(Exception e){}
         return null;
