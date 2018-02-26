@@ -818,8 +818,53 @@ public class File implements Comparable {
         }
     }
 
+    
+  //**************************************************************************
+  //** getSHA1
+  //**************************************************************************
+  /** Returns a string representing the SHA-1 hash for the file.
+   */
+    public String getSHA1() {
+        return getHash("SHA-1");
+    }
 
 
+  //**************************************************************************
+  //** getMD5
+  //**************************************************************************
+  /** Returns a string representing the MD5 hash for the file.
+   */
+    public String getMD5() {
+        return getHash("MD5");
+    }
+
+    
+  //**************************************************************************
+  //** getHash
+  //**************************************************************************
+    private String getHash(String algorithm){
+        if (!exists()) return null;
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance(algorithm);
+            InputStream input = getInputStream();
+            byte[] buf = new byte[bufferSize];
+            int i = 0;
+            while((i=input.read(buf))!=-1) {
+                md.update(buf, 0, i);
+            }
+            input.close();
+            return new javax.xml.bind.annotation.adapters.HexBinaryAdapter().marshal(md.digest()).toLowerCase();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** write
+  //**************************************************************************
     public void write(ByteArrayOutputStream bas){
         write(bas.toByteArray());
     }
