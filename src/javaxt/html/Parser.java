@@ -350,7 +350,8 @@ public class Parser {
         String[] arrRelPath = relPath.split("/");
         try{
             String urlBase = url.getProtocol() + "://" + url.getHost();
-            if (url.getPort()!=80) urlBase+= ":" + url.getPort();
+            int port = url.getPort();
+            if (port>0 && port!=80) urlBase+= ":" + url.getPort();
             
             
 

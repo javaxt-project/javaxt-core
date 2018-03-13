@@ -121,17 +121,7 @@ public class URL {
 
 
       //Decode the querystring. Note that the urlDecoder doesn't decode everything (e.g. "&amp;")
-        try{
-            query = java.net.URLDecoder.decode(query, "UTF-8");
-        }
-        catch(Exception e){
-          //This should never happen. Try to decode the string manually?
-            String find[] = new String[]{"%2C","%2F","%3A"};
-            String replace[] = new String[]{",","/",":"};
-            for (int i=0; i<find.length; i++){
-                 query = query.replace(find[i],replace[i]);
-            }
-        }
+        query = decode(query);
 
       //Special case for query strings with "&amp;" instead of "&" delimiters
         boolean amp = query.contains("&amp;");
@@ -180,16 +170,42 @@ public class URL {
 
         return parameters;
     }
-
+    
+    private static String decode(String str){
+        try{
+            return java.net.URLDecoder.decode(str, "UTF-8");
+        }
+        catch(Exception e){
+          //This should never happen. Try to decode the string manually?
+            String find[] = new String[]{"%2C","%2F","%3A"};
+            String replace[] = new String[]{",","/",":"};
+            for (int i=0; i<find.length; i++){
+                 str = str.replace(find[i],replace[i]);
+            }
+            return str;
+        }
+    }
+    
+    private static String encode(String str){
+        try{
+            return java.net.URLEncoder.encode(str, "UTF-8").replaceAll("\\+", "%20");
+        }
+        catch(Exception e){
+            return str;
+        }
+    }
+    
 
   //**************************************************************************
   //** setParameter
   //**************************************************************************
-  /** Used to set or update a value for a given parameter. If append is true,
-   *  the value will be added to other values for this key.
+  /** Used to set or update a value for a given parameter in the query string. 
+   *  If append is true, the value will be added to other values for this key.
    */
     public void setParameter(String key, String value, boolean append){
 
+        if (value!=null) value = decode(value);
+        
         key = key.toLowerCase();
         if (append){
             List<String> values = parameters.get(key);
@@ -393,14 +409,18 @@ public class URL {
                     value = null;
                 }
             }
-            str.append(key);
+
+
+            str.append(encode(key));
             if (value!=null){
-                str.append("=" + value); 
+                str.append("=");
+                str.append(encode(value));
             }
+
+            
             if (it.hasNext()) str.append("&");
         }
         return str.toString();
-
     }
 
 
@@ -614,25 +634,9 @@ public class URL {
 
 
           //Encode and append QueryString as needed
-            java.util.HashSet<String> keys = getKeys();
-            java.util.Iterator<String> it = keys.iterator();
-            if (it.hasNext()){
-                StringBuffer str = new StringBuffer();
-                while (it.hasNext()){
-                    String key = it.next();
-                    String value = this.getParameter(key);
-                    if (value.length()==0){
-                        if (parameters.get(key.toLowerCase())==null){
-                            value = null;
-                        }
-                    }
-                    str.append(java.net.URLEncoder.encode(key, "UTF-8"));
-                    if (value!=null){
-                        str.append("=" + java.net.URLEncoder.encode(value, "UTF-8"));
-                    }
-                    if (it.hasNext()) str.append("&");
-                }
-                url = new java.net.URL(url.toString() + "?" + str.toString());
+            String query = getQueryString();
+            if (query.length()>0){
+                url = new java.net.URL(url.toString() + "?" + query);
             }
             
         }

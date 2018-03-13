@@ -11,7 +11,24 @@ import java.util.NoSuchElementException;
  *   one entry at a time, this iterator can help avoid out of memory exceptions.
  *
  *   Subclasses must define a method called {@link #run()} and may call
- *   {@link yield(T)} to return values one at a time.
+ *   {@link yield(T)} to return values one at a time. Example:
+ <pre>
+    Generator&lt;String&gt; generator = new Generator&lt;String&gt;() {
+
+        @Override
+        public void run() {
+
+            BufferedReader br = file.getBufferedReader("UTF-8");
+
+            String row;
+            while ((row = br.readLine()) != null){  
+                yield(row);
+            }
+
+            br.close();
+        }
+    };
+ </pre>
  *
  *   @author Adrian Kuhn &lt;akuhn(at)iam.unibe.ch&gt;
  *

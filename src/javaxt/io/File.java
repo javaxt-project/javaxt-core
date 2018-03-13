@@ -865,11 +865,20 @@ public class File implements Comparable {
   //**************************************************************************
   //** write
   //**************************************************************************
+  /** Creates a new file using the given ByteArrayOutputStream. Note that this 
+   *  method will convert the ByteArrayOutputStream to a byte array using the
+   *  toByteArray() method which may result in memory issues.
+   */
     public void write(ByteArrayOutputStream bas){
         write(bas.toByteArray());
     }
 
-
+    
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /** Creates a new file using the given byte array. 
+   */
     public void write(byte[] bytes){
         java.io.File File = getFile();
         attr = null;
@@ -887,8 +896,14 @@ public class File implements Comparable {
             }
         }
     }
-    
-    
+
+
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /** Creates a new file using the given InputStream. Note that the caller is 
+   *  responsible for closing the input stream after the method is complete.
+   */
     public void write(InputStream input){
         java.io.File File = getFile();
         attr = null;
@@ -973,7 +988,9 @@ public class File implements Comparable {
   //**************************************************************************
   //** Write Text
   //**************************************************************************
-    
+  /** Used to write text to a file using an array of strings. A new line is
+   *  created for each entry in the array.
+   */
     public void write(String[] Content){
         java.io.File File = getFile();
         attr = null;
@@ -1116,7 +1133,6 @@ public class File implements Comparable {
   /**  Returns the full file path (including the file name) */
     
     public String toString(){
-        //if (file!=null) return file.toString();
         return path + name;
     }
  
