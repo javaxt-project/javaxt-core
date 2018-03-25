@@ -648,7 +648,6 @@ public class Request {
             if (method!=null){
                 HttpsURLConnection con = (HttpsURLConnection)conn;
                 con.setRequestMethod(method);
-                System.out.println(method);
             }
             
 
