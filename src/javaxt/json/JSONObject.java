@@ -91,7 +91,7 @@ public class JSONObject {
                 // Only add value if non-null
                 Object value = x.nextValue();
                 if (value!=null) {
-                    this.put(key, value);
+                    set(key, value);
                 }
             }
 
@@ -219,9 +219,8 @@ public class JSONObject {
   //**************************************************************************
   /** Put a key/boolean pair in the JSONObject.
    */
-    public JSONObject put(String key, boolean value) throws JSONException {
-        this.put(key, value ? Boolean.TRUE : Boolean.FALSE);
-        return this;
+    public void set(String key, boolean value) throws JSONException {
+        set(key, value ? Boolean.TRUE : Boolean.FALSE);
     }
 
 
@@ -230,9 +229,8 @@ public class JSONObject {
   //**************************************************************************
   /** Put a key/double pair in the JSONObject.
    */
-    public JSONObject put(String key, double value) throws JSONException {
-        this.put(key, Double.valueOf(value));
-        return this;
+    public void set(String key, double value) throws JSONException {
+        set(key, Double.valueOf(value));
     }
     
     
@@ -241,9 +239,8 @@ public class JSONObject {
   //**************************************************************************
   /** Put a key/float pair in the JSONObject.
    */
-    public JSONObject put(String key, float value) throws JSONException {
-        this.put(key, Float.valueOf(value));
-        return this;
+    public void set(String key, float value) throws JSONException {
+        set(key, Float.valueOf(value));
     }
 
     
@@ -252,9 +249,8 @@ public class JSONObject {
   //**************************************************************************
   /** Put a key/int pair in the JSONObject.
    */
-    public JSONObject put(String key, int value) throws JSONException {
-        this.put(key, Integer.valueOf(value));
-        return this;
+    public void set(String key, int value) throws JSONException {
+        set(key, Integer.valueOf(value));
     }
 
     
@@ -263,9 +259,8 @@ public class JSONObject {
   //**************************************************************************
   /** Put a key/long pair in the JSONObject.
    */
-    public JSONObject put(String key, long value) throws JSONException {
-        this.put(key, Long.valueOf(value));
-        return this;
+    public void set(String key, long value) throws JSONException {
+        set(key, Long.valueOf(value));
     }
     
 
@@ -279,7 +274,7 @@ public class JSONObject {
    *  types: Boolean, Double, Integer, JSONArray, JSONObject, Long, String,  
    *  or the JSONObject.NULL object.
    */
-    public JSONObject put(String key, Object value) throws JSONException {
+    public void set(String key, Object value) throws JSONException {
         if (key == null) {
             throw new NullPointerException("Null key.");
         }
@@ -289,7 +284,6 @@ public class JSONObject {
         } else {
             this.remove(key);
         }
-        return this;
     }
     
     

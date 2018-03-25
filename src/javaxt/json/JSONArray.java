@@ -164,9 +164,8 @@ public class JSONArray implements Iterable<Object> {
   //**************************************************************************
   /** Appends a boolean value. This increases the array's length by one.
    */
-    public JSONArray put(boolean value) {
-        this.put(value ? Boolean.TRUE : Boolean.FALSE);
-        return this;
+    public void add(boolean value) {
+        add(value ? Boolean.TRUE : Boolean.FALSE);
     }
 
 
@@ -175,11 +174,10 @@ public class JSONArray implements Iterable<Object> {
   //**************************************************************************
   /** Appends a double value. This increases the array's length by one.
    */
-    public JSONArray put(double value) throws JSONException {
+    public void add(double value) throws JSONException {
         Double d = new Double(value);
         JSONObject.testValidity(d);
-        this.put(d);
-        return this;
+        add(d);
     }
     
     
@@ -188,9 +186,8 @@ public class JSONArray implements Iterable<Object> {
   //**************************************************************************
   /** Appends an int value. This increases the array's length by one.
   */
-    public JSONArray put(int value) {
-        this.put(new Integer(value));
-        return this;
+    public void add(int value) {
+        add(new Integer(value));
     }
     
     
@@ -199,9 +196,8 @@ public class JSONArray implements Iterable<Object> {
   //**************************************************************************
   /** Appends an long value. This increases the array's length by one.
    */
-    public JSONArray put(long value) {
-        this.put(new Long(value));
-        return this;
+    public void add(long value) {
+        add(new Long(value));
     }
 
 
@@ -212,9 +208,8 @@ public class JSONArray implements Iterable<Object> {
    *  @param value An object value. The value should be a Boolean, Double,
    *  Integer, JSONArray, JSONObject, Long, String, or a JSONObject.NULL object.
    */
-    public JSONArray put(Object value) {
-        this.myArrayList.add(value);
-        return this;
+    public void add(Object value) {
+        myArrayList.add(value);
     }
 
 
