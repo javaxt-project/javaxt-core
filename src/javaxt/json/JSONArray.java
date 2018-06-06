@@ -2,8 +2,6 @@ package javaxt.json;
 import javaxt.utils.Value;
 import java.io.IOException;
 import java.io.Writer;
-import java.util.ArrayList;
-import java.util.Iterator;
 
 //******************************************************************************
 //**  JSONArray
@@ -19,7 +17,7 @@ import java.util.Iterator;
 
 public class JSONArray implements Iterable<Object> {
 
-    private final ArrayList<Object> myArrayList;
+    private final java.util.ArrayList<Object> arr;
 
     
   //**************************************************************************
@@ -28,7 +26,7 @@ public class JSONArray implements Iterable<Object> {
   /** Used to create a new/empty array.
    */
     public JSONArray() {
-        this.myArrayList = new ArrayList<Object>();
+        arr = new java.util.ArrayList<Object>();
     }
 
     
@@ -61,10 +59,10 @@ public class JSONArray implements Iterable<Object> {
             for (;;) {
                 if (x.nextClean() == ',') {
                     x.back();
-                    this.myArrayList.add(JSONObject.NULL);
+                    //arr.add(JSONObject.NULL);
                 } else {
                     x.back();
-                    this.myArrayList.add(x.nextValue());
+                    arr.add(x.nextValue());
                 }
                 switch (x.nextClean()) {
                 case 0:
@@ -95,8 +93,8 @@ public class JSONArray implements Iterable<Object> {
   //** iterator
   //**************************************************************************
     @Override
-    public Iterator<Object> iterator() {
-        return this.myArrayList.iterator();
+    public java.util.Iterator<Object> iterator() {
+        return arr.iterator();
     }
 
     
@@ -106,7 +104,7 @@ public class JSONArray implements Iterable<Object> {
   /** Returns the number of elements in the JSONArray, included nulls.
    */
     public int length() {
-        return this.myArrayList.size();
+        return arr.size();
     }
     
     
@@ -149,18 +147,7 @@ public class JSONArray implements Iterable<Object> {
 
 
   //**************************************************************************
-  //** isNull
-  //**************************************************************************
-  /** Returns true if the value at the index is null, or if there is no value.
-   */
-    public boolean isNull(int index) {
-        return JSONObject.NULL.equals(this.opt(index));
-    }
-
-
-
-  //**************************************************************************
-  //** put
+  //** add
   //**************************************************************************
   /** Appends a boolean value. This increases the array's length by one.
    */
@@ -170,7 +157,7 @@ public class JSONArray implements Iterable<Object> {
 
 
   //**************************************************************************
-  //** put
+  //** add
   //**************************************************************************
   /** Appends a double value. This increases the array's length by one.
    */
@@ -182,7 +169,7 @@ public class JSONArray implements Iterable<Object> {
     
     
   //**************************************************************************
-  //** put
+  //** add
   //**************************************************************************
   /** Appends an int value. This increases the array's length by one.
   */
@@ -192,7 +179,7 @@ public class JSONArray implements Iterable<Object> {
     
     
   //**************************************************************************
-  //** put
+  //** add
   //**************************************************************************
   /** Appends an long value. This increases the array's length by one.
    */
@@ -202,14 +189,14 @@ public class JSONArray implements Iterable<Object> {
 
 
   //**************************************************************************
-  //** put
+  //** add
   //**************************************************************************
   /** Appends an object value. This increases the array's length by one.
    *  @param value An object value. The value should be a Boolean, Double,
-   *  Integer, JSONArray, JSONObject, Long, String, or a JSONObject.NULL object.
+   *  Integer, JSONArray, JSONObject, Long, or String.
    */
     public void add(Object value) {
-        myArrayList.add(value);
+        arr.add(value);
     }
 
 
@@ -221,10 +208,37 @@ public class JSONArray implements Iterable<Object> {
    */
     public Object remove(int index) {
         return index >= 0 && index < this.length()
-            ? this.myArrayList.remove(index)
+            ? arr.remove(index)
             : null;
     }
 
+    
+  //**************************************************************************
+  //** equals
+  //**************************************************************************
+  /** Returns true if the given object is a JSONArray and the JSONArray 
+   *  contains the same entries as this array. Order is important.
+   */
+    public boolean equals(Object obj){
+        if (obj instanceof JSONArray){
+            JSONArray arr = (JSONArray) obj;
+            if (arr.length()==this.length()){
+                for (int i=0; i<this.arr.size(); i++){
+                    Object val = this.arr.get(i);
+                    Object val2 = arr.get(i).toObject();
+                    if (val==null){
+                        if (val2!=null) return false;
+                    }
+                    else{
+                        if (!val.equals(val2)) return false;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    
 
   //**************************************************************************
   //** toString
@@ -278,7 +292,7 @@ public class JSONArray implements Iterable<Object> {
 
             if (length == 1) {
                 try {
-                    JSONObject.writeValue(writer, this.myArrayList.get(0),
+                    JSONObject.writeValue(writer, arr.get(0),
                             indentFactor, indent);
                 } catch (Exception e) {
                     throw new JSONException("Unable to write JSONArray value at index: 0", e);
@@ -295,7 +309,7 @@ public class JSONArray implements Iterable<Object> {
                     }
                     JSONObject.indent(writer, newindent);
                     try {
-                        JSONObject.writeValue(writer, this.myArrayList.get(i),
+                        JSONObject.writeValue(writer, arr.get(i),
                                 indentFactor, newindent);
                     } catch (Exception e) {
                         throw new JSONException("Unable to write JSONArray value at index: " + i, e);
@@ -321,6 +335,6 @@ public class JSONArray implements Iterable<Object> {
   /** Returns an object value, or null if there is no object at that index.
    */
     private Object opt(int index) {
-        return (index < 0 || index >= this.length()) ? null : myArrayList.get(index);
+        return (index < 0 || index >= this.length()) ? null : arr.get(index);
     }
 }

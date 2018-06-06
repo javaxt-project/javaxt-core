@@ -16,15 +16,15 @@ public class JSONException extends RuntimeException {
 
     private static final long serialVersionUID = 0;
 
-    protected JSONException(final String message) {
+    public JSONException(final String message) {
         super(message);
     }
 
-    protected JSONException(final String message, final Throwable cause) {
+    public JSONException(final String message, final Throwable cause) {
         super(message, cause);
     }
 
-    protected JSONException(final Throwable cause) {
+    public JSONException(final Throwable cause) {
         super(cause.getMessage(), cause);
     }
 }
