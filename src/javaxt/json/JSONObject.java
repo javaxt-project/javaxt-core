@@ -89,7 +89,7 @@ public class JSONObject {
                 // Only add value if non-null
                 Object value = x.nextValue();
                 if (value!=null) {
-                    setValue(key, value);
+                    put(key, value);
                 }
             }
 
@@ -259,55 +259,101 @@ public class JSONObject {
   //**************************************************************************
   //** setValue
   //**************************************************************************
-  /** Put a key/boolean pair in the JSONObject.
+  /** Used to set the value for a given key with a boolean.
    */
     public void setValue(String key, boolean value) throws JSONException {
-        setValue(key, value ? Boolean.TRUE : Boolean.FALSE);
+        put(key, value ? Boolean.TRUE : Boolean.FALSE);
     }
 
 
   //**************************************************************************
   //** setValue
   //**************************************************************************
-  /** Put a key/double pair in the JSONObject.
+  /** Used to set the value for a given key with a double.
    */
     public void setValue(String key, double value) throws JSONException {
-        setValue(key, Double.valueOf(value));
+        put(key, Double.valueOf(value));
     }
     
     
   //**************************************************************************
   //** setValue
   //**************************************************************************
-  /** Put a key/float pair in the JSONObject.
+  /** Used to set the value for a given key with a float.
    */
     public void setValue(String key, float value) throws JSONException {
-        setValue(key, Float.valueOf(value));
+        put(key, Float.valueOf(value));
     }
 
     
   //**************************************************************************
   //** setValue
   //**************************************************************************
-  /** Put a key/int pair in the JSONObject.
+  /** Used to set the value for a given key with an integer.
    */
     public void setValue(String key, int value) throws JSONException {
-        setValue(key, Integer.valueOf(value));
+        put(key, Integer.valueOf(value));
     }
 
     
   //**************************************************************************
   //** setValue
   //**************************************************************************
-  /** Put a key/long pair in the JSONObject.
+  /** Used to set the value for a given key with a long.
    */
     public void setValue(String key, long value) throws JSONException {
-        setValue(key, Long.valueOf(value));
+        put(key, Long.valueOf(value));
     }
-    
+
 
   //**************************************************************************
   //** setValue
+  //**************************************************************************
+  /** Used to set the value for a given key with a String.
+   */
+    public void setValue(String key, String str) throws JSONException {
+        if (str!=null){
+            str = str.trim();
+            if (str.length()==0) str = null;
+        }
+        put(key, str);
+    }
+    
+    
+  //**************************************************************************
+  //** setValue
+  //**************************************************************************
+  /** Used to set the value for a given key with a JSONObject.
+   */
+    public void setValue(String key, JSONObject json) throws JSONException {
+        put(key, json);
+    }
+
+
+  //**************************************************************************
+  //** setValue
+  //**************************************************************************
+  /** Used to set the value for a given key with a JSONArray.
+   */
+    public void setValue(String key, JSONArray arr) throws JSONException {
+        put(key, arr);
+    }
+    
+    
+  //**************************************************************************
+  //** setValue
+  //**************************************************************************
+  /** Used to set the value for a given key with a javaxt.utils.Value.
+   */
+    public void setValue(String key, Value val) throws JSONException {
+        Object obj = null;
+        if (val!=null) obj = val.toObject();
+        put(key, obj);
+    }
+    
+    
+  //**************************************************************************
+  //** put
   //**************************************************************************
   /** Put a key/value pair in the JSONObject. If the value is null, then the
    *  key will be removed from the JSONObject if it is present.
@@ -315,11 +361,11 @@ public class JSONObject {
    *  @param value An object which is the value. It should be of one of these
    *  types: Boolean, Double, Integer, JSONArray, JSONObject, Long, or String.
    */
-    public void setValue(String key, Object value) throws JSONException {
+    private void put(String key, Object value) throws JSONException {
         if (key == null) {
             throw new NullPointerException("Null key.");
         }
-        if (value != null) {
+        if (value!=null) {
             testValidity(value);
             map.put(key, value);
         } 
