@@ -150,7 +150,7 @@ public class URL {
                  int x = word.indexOf("=");
                  if (x>=0){
                      String key = word.substring(0,x).toLowerCase();
-                     String value = word.substring(x+1);
+                     String value = decode(word.substring(x+1));
 
                    //Special case for JDBC connection strings that contain extra params after the query
                      if (amp && value.contains(";")) value = value.substring(0, value.indexOf(";"));
