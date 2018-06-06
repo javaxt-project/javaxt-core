@@ -261,8 +261,8 @@ public class JSONObject {
   //**************************************************************************
   /** Used to set the value for a given key with a boolean.
    */
-    public void setValue(String key, boolean value) throws JSONException {
-        put(key, value ? Boolean.TRUE : Boolean.FALSE);
+    public void setValue(String key, Boolean value) throws JSONException {
+        put(key, value);
     }
 
 
@@ -271,8 +271,8 @@ public class JSONObject {
   //**************************************************************************
   /** Used to set the value for a given key with a double.
    */
-    public void setValue(String key, double value) throws JSONException {
-        put(key, Double.valueOf(value));
+    public void setValue(String key, Double value) throws JSONException {
+        put(key, value);
     }
     
     
@@ -281,8 +281,8 @@ public class JSONObject {
   //**************************************************************************
   /** Used to set the value for a given key with a float.
    */
-    public void setValue(String key, float value) throws JSONException {
-        put(key, Float.valueOf(value));
+    public void setValue(String key, Float value) throws JSONException {
+        put(key, value);
     }
 
     
@@ -291,8 +291,8 @@ public class JSONObject {
   //**************************************************************************
   /** Used to set the value for a given key with an integer.
    */
-    public void setValue(String key, int value) throws JSONException {
-        put(key, Integer.valueOf(value));
+    public void setValue(String key, Integer value) throws JSONException {
+        put(key, value);
     }
 
     
@@ -301,8 +301,8 @@ public class JSONObject {
   //**************************************************************************
   /** Used to set the value for a given key with a long.
    */
-    public void setValue(String key, long value) throws JSONException {
-        put(key, Long.valueOf(value));
+    public void setValue(String key, Long value) throws JSONException {
+        put(key, value);
     }
 
 
