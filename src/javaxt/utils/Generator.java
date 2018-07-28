@@ -29,113 +29,124 @@ import java.util.NoSuchElementException;
         }
     };
  </pre>
+ * 
+ *   Clients can iterate through the generated results using standard iterators
+ *   or an enhanced for loop like this:
+ <pre>
+    for (String row : generator){
+        System.out.println(row);
+    }
+ </pre>
  *
- *   @author Adrian Kuhn &lt;akuhn(at)iam.unibe.ch&gt;
+ *   @author Michael Herrmann
+ *   https://github.com/mherrmann/java-generator-functions
  *
  ******************************************************************************/
 
 public abstract class Generator<T> implements Iterable<T> {
 
-    public abstract void run();
+	private class Condition {
+		private boolean isSet;
+		public synchronized void set() {
+			isSet = true;
+			notify();
+		}
+		public synchronized void await() throws InterruptedException {
+			try {
+				if (isSet)
+					return;
+				wait();
+			} finally {
+				isSet = false;
+			}
+		}
+	}
 
-    public Iterator<T> iterator() {
-        return new Iter();
-    }
+	static ThreadGroup THREAD_GROUP;
 
-    private static final Object DONE = new Object();
-    private static final Object EMPTY = new Object();
-    private Object drop = EMPTY;
-    private Thread th = null;
+	Thread producer;
+	private boolean hasFinished;
+	private final Condition itemAvailableOrHasFinished = new Condition();
+	private final Condition itemRequested = new Condition();
+	private T nextItem;
+	private boolean nextItemAvailable;
+	private RuntimeException exceptionRaisedByProducer;
 
-    private synchronized Object take() {
-        while (drop == EMPTY) {
-            try {
-                    wait();
-            } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-            }
-        }
-        Object temp = drop;
-        if (drop != DONE)
-                drop = EMPTY;
-        notifyAll();
-        return temp;
-    }
+	@Override
+	public Iterator<T> iterator() {
+		return new Iterator<T>() {
+			@Override
+			public boolean hasNext() {
+				return waitForNext();
+			}
+			@Override
+			public T next() {
+				if (!waitForNext())
+					throw new NoSuchElementException();
+				nextItemAvailable = false;
+				return nextItem;
+			}
+			@Override
+			public void remove() {
+				throw new UnsupportedOperationException();
+			}
+			private boolean waitForNext() {
+				if (nextItemAvailable)
+					return true;
+				if (hasFinished)
+					return false;
+				if (producer == null)
+					startProducer();
+				itemRequested.set();
+				try {
+					itemAvailableOrHasFinished.await();
+				} catch (InterruptedException e) {
+					hasFinished = true;
+				}
+				if (exceptionRaisedByProducer != null)
+					throw exceptionRaisedByProducer;
+				return !hasFinished;
+			}
+		};
+	}
 
-    private synchronized void put(Object value) {
-        if (drop == DONE)
-                throw new IllegalStateException();
-        if (drop != EMPTY)
-                throw new IllegalStateException();
-        drop = value;
-        notifyAll();
-        while (drop != EMPTY) {
-            try {
-                    wait();
-            } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-            }
-        }
-    }
+	protected abstract void run() throws InterruptedException;
 
-    protected void yield(T value) {
-            put(value);
-    }
+	protected void yield(T element) throws InterruptedException {
+		nextItem = element;
+		nextItemAvailable = true;
+		itemAvailableOrHasFinished.set();
+		itemRequested.await();
+	}
 
-    public synchronized void done() {
-        if (drop == DONE)
-                throw new IllegalStateException();
-        if (drop != EMPTY)
-                throw new IllegalStateException();
-        drop = DONE;
-        notifyAll();
-    }
+	private void startProducer() {
+		assert producer == null;
+		if (THREAD_GROUP == null)
+			THREAD_GROUP = new ThreadGroup("generatorfunctions");
+		producer = new Thread(THREAD_GROUP, new Runnable() {
+			@Override
+			public void run() {
+				try {
+					itemRequested.await();
+					Generator.this.run();
+				} catch (InterruptedException e) {
+					// No need to do anything here; Remaining steps in run()
+					// will cleanly shut down the thread.
+				} catch (RuntimeException e) {
+					exceptionRaisedByProducer = e;
+				}
+				hasFinished = true;
+				itemAvailableOrHasFinished.set();
+			}
+		});
+		producer.setDaemon(true);
+		producer.start();
+	}
 
-    private class Iter implements Iterator<T>, Runnable {
-
-        private Object next = EMPTY;
-
-        public Iter() {
-            if (th != null)
-                    throw new IllegalStateException("Can not run coroutine twice");
-            th = new Thread(this);
-            th.setDaemon(true);
-            th.start();
-        }
-
-        public void run() {
-            Generator.this.run();
-            done();
-        }
-
-        public boolean hasNext() {
-                if (next == EMPTY)
-                        next = take();
-                return next != DONE;
-        }
-
-        @SuppressWarnings("unchecked")
-        public T next() {
-                if (next == EMPTY)
-                        next = take();
-                if (next == DONE)
-                        throw new NoSuchElementException();
-                Object temp = next;
-                next = EMPTY;
-                return (T) temp;
-        }
-
-        public void remove() {
-                throw new UnsupportedOperationException();
-
-        }
-
-        @SuppressWarnings("deprecation")
-        @Override
-        protected void finalize() throws Throwable {
-                th.stop(); // let's commit suicide
-        }
-
-    }
-
+	@Override
+	protected void finalize() throws Throwable {
+		producer.interrupt();
+		producer.join();
+		super.finalize();
+	}
 }
