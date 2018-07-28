@@ -1,4 +1,6 @@
 package javaxt.sql;
+import java.sql.SQLException;
+import javaxt.utils.Generator;
 
 //******************************************************************************
 //**  Connection Class
@@ -87,7 +89,7 @@ public class Connection {
    *  <pre> jdbc:derby://temp/my.db;user=admin;password=mypassword </pre>
    */
     
-    public boolean open(String ConnectionString) throws java.sql.SQLException {
+    public boolean open(String ConnectionString) throws SQLException {
         return open(new Database(ConnectionString));
     }
 
@@ -98,7 +100,7 @@ public class Connection {
   //**************************************************************************
   /** Used to open a connection to the database. */
     
-    public boolean open(Database database) throws java.sql.SQLException {
+    public boolean open(Database database) throws SQLException {
                 
         long startTime = java.util.Calendar.getInstance().getTimeInMillis();
         this.database = database;
@@ -176,11 +178,61 @@ public class Connection {
     
     
   //**************************************************************************
+  //** getRecordset
+  //**************************************************************************
+  /** Used to execute a SQL statement and returns a Recordset as an iterator.
+   *  This simplifies using the Recordset object insofar as it eliminate the
+   *  need to call the hasNext(), moveNext(), and close() methods. Instead,
+   *  you can execute a query and iterate through records like this:
+   
+        Connection conn = db.getConnection();
+        for (Recordset rs : conn.getRecordset("select distinct(first_name) from contacts")){
+            System.out.println(rs.getValue(0));
+        }
+        conn.close();
+   */
+    public Generator<Recordset> getRecordset(String sql, boolean readOnly) throws SQLException {
+
+        final Recordset rs = new Recordset();
+        rs.open(sql, this, readOnly);
+
+        
+        return new Generator<Recordset>() {
+            @Override
+            public void run() {
+                while (rs.hasNext()){
+                    try{
+                        yield(rs);
+                    }
+                    catch(InterruptedException e){
+                        return;
+                    }
+                    rs.moveNext();
+                }
+                rs.close();
+            }
+        };
+    }
+    
+    
+  //**************************************************************************
+  //** getRecordset
+  //**************************************************************************
+  /** Used to execute a SQL statement and returns a Recordset as an iterator.
+   *  The Recordset is read-only. Use the other getRecordset() method for 
+   *  creating and updating records.
+   */
+    public Generator<Recordset> getRecordset(String sql) throws SQLException {
+        return getRecordset(sql, true);
+    }
+    
+    
+  //**************************************************************************
   //** Execute
   //**************************************************************************
   /** Used to execute a prepared sql statement (e.g. "delete from my_table").
    */
-    public void execute(String sql) throws java.sql.SQLException {
+    public void execute(String sql) throws SQLException {
         java.sql.PreparedStatement preparedStmt = Conn.prepareStatement(sql);
         preparedStmt.execute();
         preparedStmt.close();
@@ -193,7 +245,7 @@ public class Connection {
   //**************************************************************************
   /** Used to explicitely commit changes made to the database. */
     
-    public void commit() throws java.sql.SQLException {
+    public void commit() throws SQLException {
         execute("COMMIT");
     }
     
