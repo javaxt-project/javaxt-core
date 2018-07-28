@@ -133,7 +133,7 @@ public class JSONObject {
             traverse(node, json);
         }
         else{
-            json.setValue(node.getNodeName(), node.getTextContent());
+            json.set(node.getNodeName(), node.getTextContent());
         }
         
         this.map = json.map;
@@ -148,10 +148,10 @@ public class JSONObject {
                 for (int i=0; i<xmlNodeList.getLength(); i++){
                     traverse(xmlNodeList.item(i), _json);
                 }
-                json.setValue(node.getNodeName(), _json);
+                json.set(node.getNodeName(), _json);
             }
             else{
-                json.setValue(node.getNodeName(), node.getTextContent());
+                json.set(node.getNodeName(), node.getTextContent());
             }
         }
     }
@@ -162,37 +162,9 @@ public class JSONObject {
   //**************************************************************************
   /** Returns the value associated with a key.
    */
-    public Value getValue(String key) {
-        if (key == null) return new Value(null);
-        return new Value(map.get(key));
-    }
-
-    
-  //**************************************************************************
-  //** getJSONArray
-  //**************************************************************************
-  /** Returns the JSONArray associated with a key.
-   */
-    public JSONArray getJSONArray(String key) {
-        Object object = map.get(key);
-        if (object instanceof JSONArray) {
-            return (JSONArray) object;
-        }
-        return null;
-    }
-
-    
-  //**************************************************************************
-  //** getJSONObject
-  //**************************************************************************
-  /** Returns the JSONObject associated with a key.
-   */
-    public JSONObject getJSONObject(String key) {
-        Object object = map.get(key);
-        if (object instanceof JSONObject) {
-            return (JSONObject) object;
-        }
-        return null;
+    public JSONValue get(String key) {
+        if (key == null) return new JSONValue(null);
+        return new JSONValue(map.get(key));
     }
 
     
@@ -257,98 +229,40 @@ public class JSONObject {
 
 
   //**************************************************************************
-  //** setValue
+  //** set
   //**************************************************************************
-  /** Used to set the value for a given key with a boolean.
+  /** Used to set the value for a given key.
    */
-    public void setValue(String key, Boolean value) throws JSONException {
-        put(key, value);
-    }
-
-
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with a double.
-   */
-    public void setValue(String key, Double value) throws JSONException {
-        put(key, value);
-    }
-    
-    
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with a float.
-   */
-    public void setValue(String key, Float value) throws JSONException {
-        put(key, value);
-    }
-
-    
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with an integer.
-   */
-    public void setValue(String key, Integer value) throws JSONException {
-        put(key, value);
-    }
-
-    
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with a long.
-   */
-    public void setValue(String key, Long value) throws JSONException {
-        put(key, value);
-    }
-
-
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with a String.
-   */
-    public void setValue(String key, String str) throws JSONException {
-        if (str!=null){
+    public void set(String key, Object value) throws JSONException {
+        
+        if (value instanceof Value){
+            value = ((Value) value).toObject();
+        }
+        
+        if (value instanceof String){
+            String str = (String) value;
             str = str.trim();
             if (str.length()==0) str = null;
+            put(key, str);
         }
-        put(key, str);
-    }
-    
-    
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with a JSONObject.
-   */
-    public void setValue(String key, JSONObject json) throws JSONException {
-        put(key, json);
-    }
+        else{
+            
+            /*
+          //Test whether the value is supported
+            if (value instanceof JSONObject || value instanceof JSONArray ||
+                value instanceof Integer || value instanceof Long ||
+                value instanceof Double || value instanceof Float ||
+                value instanceof Boolean
+            ){
+                put(key, value);
+            }
+            else{
+                throw new JSONException("Unsupported value type for " + key);
+            }
+            */
 
-
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with a JSONArray.
-   */
-    public void setValue(String key, JSONArray arr) throws JSONException {
-        put(key, arr);
-    }
-    
-    
-  //**************************************************************************
-  //** setValue
-  //**************************************************************************
-  /** Used to set the value for a given key with a javaxt.utils.Value.
-   */
-    public void setValue(String key, Value val) throws JSONException {
-        Object obj = null;
-        if (val!=null) obj = val.toObject();
-        put(key, obj);
+            put(key, value);
+        }
     }
     
     
@@ -390,18 +304,27 @@ public class JSONObject {
   //** equals
   //**************************************************************************
   /** Returns true if the given object is a JSONObject and the JSONObject 
-   *  contains the same key/value pairs. Order is not important.
+   *  contains the same key/value pairs. The comparison is made by cloning 
+   *  the two JSONObjects using the toString() method. Example:
+   *  JSONObject j1 = new JSONObject(this.toString());
+   *  Note that the order of the key/value pairs is not important.
    */
     public boolean equals(Object obj){
         if (obj instanceof JSONObject){
             JSONObject json = (JSONObject) obj;
             if (json.length()==this.length()){
-                java.util.Iterator<String> it = map.keySet().iterator();
+                
+                
+                JSONObject j1 = new JSONObject(this.toString());
+                JSONObject j2 = new JSONObject(json.toString());
+                
+                
+                java.util.Iterator<String> it = j1.keySet().iterator();
                 while (it.hasNext()){
                     String key = it.next();
-                    if (!json.has(key)) return false;
-                    Object val = map.get(key);
-                    Object val2 = json.getValue(key).toObject();
+                    if (!j2.has(key)) return false;
+                    Object val = j1.get(key).toObject();
+                    Object val2 = j2.get(key).toObject();
                     if (val==null){
                         if (val2!=null) return false;
                     }
@@ -460,7 +383,8 @@ public class JSONObject {
             int indentFactor, int indent) throws JSONException, IOException {
         if (value == null || value.equals(null)) {
             writer.write("null");
-        } else if (value instanceof Number) {
+        } 
+        else if (value instanceof Number) {
             // not all Numbers may match actual JSON Numbers. i.e. fractions or Imaginary
             final String numberAsString = numberToString((Number) value);
             try {
@@ -474,13 +398,26 @@ public class JSONObject {
                 // Instead we will quote it as a string
                 quote(numberAsString, writer);
             }
-        } else if (value instanceof Boolean) {
+        }
+        else if (value instanceof Boolean) {
             writer.write(value.toString());
-        } else if (value instanceof Enum<?>) {
+        }
+        else if (value instanceof javaxt.utils.Date) {
+            writer.write(quote(((javaxt.utils.Date) value).toISOString()));
+        }
+        else if (value instanceof java.util.Date) {
+            writer.write(quote(new javaxt.utils.Date(((java.util.Date) value)).toISOString()));
+        }
+        else if (value instanceof java.util.Calendar) {
+            writer.write(quote(new javaxt.utils.Date(((java.util.Calendar) value)).toISOString()));
+        }
+        else if (value instanceof Enum<?>) {
             writer.write(quote(((Enum<?>)value).name()));
-        } else if (value instanceof JSONObject) {
+        } 
+        else if (value instanceof JSONObject) {
             ((JSONObject) value).write(writer, indentFactor, indent);
-        } else if (value instanceof JSONArray) {
+        } 
+        else if (value instanceof JSONArray) {
             ((JSONArray) value).write(writer, indentFactor, indent);
 //        } else if (value instanceof Map) {
 //            Map<?, ?> map = (Map<?, ?>) value;
@@ -490,7 +427,8 @@ public class JSONObject {
 //            new JSONArray(coll).write(writer, indentFactor, indent);
 //        } else if (value.getClass().isArray()) {
 //            new JSONArray(value).write(writer, indentFactor, indent);
-        } else {
+        } 
+        else {
             quote(value.toString(), writer);
         }
         return writer;

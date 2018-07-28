@@ -1,7 +1,7 @@
 package javaxt.json;
-import javaxt.utils.Value;
 import java.io.IOException;
 import java.io.Writer;
+import javaxt.utils.Value;
 
 //******************************************************************************
 //**  JSONArray
@@ -99,7 +99,7 @@ public class JSONArray implements Iterable<Object> {
 
     
   //**************************************************************************
-  //** iterator
+  //** length
   //**************************************************************************
   /** Returns the number of elements in the JSONArray, included nulls.
    */
@@ -109,94 +109,40 @@ public class JSONArray implements Iterable<Object> {
     
     
   //**************************************************************************
+  //** isEmpty
+  //**************************************************************************
+  /** Returns true if there are no entries in the array.
+   */
+    public boolean isEmpty(){
+        return arr.isEmpty();
+    }
+    
+    
+  //**************************************************************************
   //** get
   //**************************************************************************
   /** Returns the object value associated with an index.
    */
-    public Value get(int index) {
-        return new Value(opt(index));
+    public JSONValue get(int index) {
+        return new JSONValue(opt(index));
     }
 
 
   //**************************************************************************
-  //** getJSONArray
+  //** add
   //**************************************************************************
-  /** Returns the JSONArray associated with an index.
+  /** Appends an object to the array.
    */
-    public JSONArray getJSONArray(int index) {
-        Object object = opt(index);
-        if (object instanceof JSONArray) {
-            return (JSONArray) object;
+    public void add(Object object) throws JSONException {
+        
+        if (object instanceof Value){
+            object = ((Value) object).toObject();
         }
-        return null;
-    }
 
-    
-  //**************************************************************************
-  //** getJSONObject
-  //**************************************************************************
-  /** Returns the JSONObject associated with an index.
-   */
-    public JSONObject getJSONObject(int index) {
-        Object object = opt(index);
-        if (object instanceof JSONObject) {
-            return (JSONObject) object;
-        }
-        return null;
-    }
-
-
-  //**************************************************************************
-  //** add
-  //**************************************************************************
-  /** Appends a boolean value. This increases the array's length by one.
-   */
-    public void add(boolean value) {
-        add(value ? Boolean.TRUE : Boolean.FALSE);
-    }
-
-
-  //**************************************************************************
-  //** add
-  //**************************************************************************
-  /** Appends a double value. This increases the array's length by one.
-   */
-    public void add(double value) throws JSONException {
-        Double d = new Double(value);
-        JSONObject.testValidity(d);
-        add(d);
-    }
-    
-    
-  //**************************************************************************
-  //** add
-  //**************************************************************************
-  /** Appends an int value. This increases the array's length by one.
-  */
-    public void add(int value) {
-        add(new Integer(value));
-    }
-    
-    
-  //**************************************************************************
-  //** add
-  //**************************************************************************
-  /** Appends an long value. This increases the array's length by one.
-   */
-    public void add(long value) {
-        add(new Long(value));
-    }
-
-
-  //**************************************************************************
-  //** add
-  //**************************************************************************
-  /** Appends an object value. This increases the array's length by one.
-   *  @param value An object value. The value should be a Boolean, Double,
-   *  Integer, JSONArray, JSONObject, Long, or String.
-   */
-    public void add(Object value) {
-        arr.add(value);
+        
+        JSONObject.testValidity(object);
+        
+        arr.add(object);
     }
 
 
