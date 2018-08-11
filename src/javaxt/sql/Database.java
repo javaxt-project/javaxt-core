@@ -27,6 +27,7 @@ public class Database implements Cloneable {
     private ConnectionPoolDataSource ConnectionPoolDataSource;
     private static final Class<?>[] stringType = { String.class };
     private static final Class<?>[] integerType = { Integer.TYPE };
+    private ConnectionPool connectionPool;
     
     
   //**************************************************************************
@@ -410,15 +411,62 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getConnection
   //**************************************************************************
-  /** Used to open a connection to the database. Note the the connection will
-   *  need to be closed afterwards.
+  /** Used to open a connection to the database. If a connection pool has been 
+   *  initialized (initConnectionPool), then an open connection is returned 
+   *  from the pool. Otherwise, a new connection is created. In either case, 
+   *  the connection must be closed when you are finished with it. 
    */     
     public Connection getConnection() throws SQLException {
-        Connection connection = new Connection();
-        connection.open(this);
-        return connection;
+        if (connectionPool==null){
+            Connection connection = new Connection();
+            connection.open(this);
+            return connection;
+        }
+        else{
+            return connectionPool.getConnection();
+        }
     }
 
+    
+  //**************************************************************************
+  //** initConnectionPool
+  //**************************************************************************
+  /** Used to initialize a connection pool. Subsequent called to the 
+   *  getConnection() method will return connections from the pool.
+   */  
+    public void initConnectionPool(int maxConnections) throws SQLException {
+        if (connectionPool!=null) return;
+        connectionPool = new ConnectionPool(this, maxConnections);
+        
+      //Create Shutdown Hook to clean up the connection pool on exit
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                if (connectionPool!=null){
+                    System.out.println("Shutting down...");
+                    try{
+                        connectionPool.close();
+                    }
+                    catch(Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+    }
+    
+    
+  //**************************************************************************
+  //** terminateConnectionPool
+  //**************************************************************************
+  /** Used to terminate the connection pool, closing all active connections.
+   */
+    public void terminateConnectionPool() throws SQLException {
+        if (connectionPool!=null){ 
+            connectionPool.close();
+            connectionPool = null;
+        }
+    }
+    
     
   //**************************************************************************
   //** setConnectionPoolDataSource
