@@ -17,11 +17,10 @@ public class Database implements Cloneable {
     
     private String name; //name of the catalog used to store tables, views, etc.
     private String host;
-    private Integer port = -1;
+    private Integer port;
     private String username;
     private String password;
     private Driver driver; 
-    //private String props;
     private java.util.Properties properties;
     private String querystring;
     private ConnectionPoolDataSource ConnectionPoolDataSource;
@@ -54,11 +53,10 @@ public class Database implements Cloneable {
     public Database(String name, String host, int port, String username, String password, Driver driver) {
         this.name = name;
         this.host = host;
-        this.port = port;
+        this.port = port>0 ? port : null;
         this.username = username;
         this.password = password;
         this.driver = driver;
-        //this.url = this.getURL();
     }
 
 
@@ -205,20 +203,25 @@ public class Database implements Cloneable {
    *  (e.g. /temp/firebird.db)
    */
     public void setHost(String host){
-        host = host.trim();
-        if (host.contains(":")){
-            try{
-            this.host = host.substring(0, host.indexOf(":"));
-            this.port = Integer.valueOf(host.substring(host.indexOf(":")+1));
+        if (host==null){
+            this.host = null;
+        }
+        else{
+            host = host.trim();
+            if (host.contains(":")){
+                try{
+                    this.host = host.substring(0, host.indexOf(":"));
+                    this.port = Integer.valueOf(host.substring(host.indexOf(":")+1));
+                }
+                catch(Exception e){
+                    this.host = host; //eg file paths
+                }
             }
-            catch(Exception e){
+            else{
                 this.host = host;
             }
         }
-        else{
-            this.host = host;
-        }
-    }    
+    }
     
     
   //**************************************************************************
@@ -240,7 +243,7 @@ public class Database implements Cloneable {
         this.port = port;
     }
     
-    public int getPort(){
+    public Integer getPort(){
         return port;
     }
 
@@ -442,7 +445,7 @@ public class Database implements Cloneable {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 if (connectionPool!=null){
-                    System.out.println("Shutting down...");
+                    System.out.println("Shutting down connection pool...");
                     try{
                         connectionPool.close();
                     }
@@ -775,7 +778,7 @@ public class Database implements Cloneable {
   //** clone
   //**************************************************************************
     public Database clone(){
-        Database db = new Database(name, host, port, username, password, driver);
+        Database db = new Database(name, host, port==null ? -1 : port, username, password, driver);
         if (properties!=null) db.properties = (java.util.Properties) properties.clone();
         db.querystring = querystring;
         return db;

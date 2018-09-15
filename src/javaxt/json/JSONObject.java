@@ -42,7 +42,8 @@ public class JSONObject {
    *  </small>.
    */
     public JSONObject(String source) throws JSONException {
-        this(new JSONTokener(source));
+        this();
+        if (source!=null) init(new JSONTokener(source));
     }
    
     
@@ -51,8 +52,12 @@ public class JSONObject {
   //**************************************************************************
   /** Construct a JSONObject from a JSONTokener.
    */
-    protected JSONObject(JSONTokener x) throws JSONException {
+    protected JSONObject(JSONTokener source) throws JSONException {
         this();
+        if (source!=null) init(source);
+    }
+    
+    private void init(JSONTokener x) throws JSONException{
         char c;
         String key;
 
@@ -84,7 +89,7 @@ public class JSONObject {
                 // Check if key exists
                 if (map.get(key) != null) {
                     // key already exists
-                    throw x.syntaxError("Duplicate key \"" + key + "\"");
+                    //throw x.syntaxError("Duplicate key \"" + key + "\"");
                 }
                 // Only add value if non-null
                 Object value = x.nextValue();
