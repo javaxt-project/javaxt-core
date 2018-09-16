@@ -68,6 +68,7 @@ public class Image {
     }
     
     public Image(java.io.File file){
+        if (!file.exists()) throw new IllegalArgumentException("Input file not found.");
         try{ createBufferedImage(new FileInputStream(file)); }
         catch(Exception e){}
     }
@@ -1328,23 +1329,24 @@ public class Image {
   //**************************************************************************
   //** setOutputQuality
   //**************************************************************************
-  /**  Used to set the output quality/compression ratio. Only applies when 
-   *   creating JPEG images. Applied only when writing the image to a file or 
-   *   byte array.
+  /** Used to set the output quality/compression ratio. Only applies when 
+   *  creating JPEG images. Applied only when writing the image to a file or 
+   *  byte array. Accepts values between 0-1. Also accepts values between 
+   *  1-100. If the latter, it divides the value by 100.
    */
-    public void setOutputQuality(double percentage){
-        if (percentage>1&&percentage<=100) percentage=percentage/100;
-        float q = (float) percentage;
-        if (q==1f && useSunCodec) q = 1.2f;
-        if (q>=0f && q<=1.2f) outputQuality = q;
+    public void setOutputQuality(float quality){
+        if (quality>1&&quality<=100) quality=quality/100;
+        if (quality==1f && useSunCodec) quality = 1.2f;
+        if (quality>=0f && quality<=1.2f) outputQuality = quality;
     }
 
 
   //**************************************************************************
   //** isJPEG
   //**************************************************************************
-  /**  Used to determine whether to create a custom jpeg compressed image   */
-    
+  /** Returns true if the given file extension is associated with a jpeg 
+   *  compressed image.
+   */ 
     private boolean isJPEG(String FileExtension){
         FileExtension = FileExtension.trim().toLowerCase();
         if (FileExtension.equals("jpg") || 
@@ -1360,8 +1362,9 @@ public class Image {
   //**************************************************************************
   //** isJPEG2000
   //**************************************************************************
-  /**  Used to determine whether to create a custom jpeg compressed image   */
-    
+  /** Returns true if the given file extension is associated with a jpeg2000 
+   *  compressed image.
+   */ 
     private boolean isJPEG2000(String FileExtension){
         FileExtension = FileExtension.trim().toLowerCase();
         if (FileExtension.equals("jp2") || 
