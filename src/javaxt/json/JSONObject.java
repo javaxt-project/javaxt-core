@@ -194,6 +194,16 @@ public class JSONObject {
 
     
   //**************************************************************************
+  //** isEmpty
+  //**************************************************************************
+  /** Returns true if there are no entries in the JSONObject.
+   */
+    public boolean isEmpty(){
+        return map.isEmpty();
+    }
+    
+    
+  //**************************************************************************
   //** keys
   //**************************************************************************
   /** Returns an enumeration of the keys of the JSONObject. Modifying this key 
