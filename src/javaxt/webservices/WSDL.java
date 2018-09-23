@@ -1,5 +1,4 @@
 package javaxt.webservices;
-import javaxt.utils.string;
 import org.w3c.dom.*;
 import javaxt.xml.DOM;
 
@@ -1559,7 +1558,8 @@ public class WSDL {
         return str;
     }
     
-
-    private boolean contains(String str, String ch){ return string.contains(str,ch,true); }
+    private boolean contains(String a, String b){
+        return a.toLowerCase().contains(b.toLowerCase());
+    }
 
 }
