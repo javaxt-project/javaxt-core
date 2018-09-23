@@ -305,9 +305,7 @@ public class Request {
    */ 
     private String getCredentials() throws Exception {
         if (username==null || password==null) return null;
-        else
-            return javaxt.utils.Base64.encodeBytes(
-                (username + ":" + password).getBytes("UTF-8"));
+        else return javaxt.utils.Base64.encode((username + ":" + password));
     }
 
 
@@ -829,7 +827,7 @@ public class Request {
                     version = "1.1";
                 }
 
-                if (st.hasMoreTokens()) responseCode = javaxt.utils.string.toInt(st.nextToken().trim());
+                if (st.hasMoreTokens()) responseCode = Integer.valueOf(st.nextToken().trim());
                 if (st.hasMoreTokens()){
                     message = "";
                     while (st.hasMoreTokens()){
@@ -842,8 +840,7 @@ public class Request {
 
     }
 
-
-
+    
 
   //**************************************************************************
   //** getExpiration
