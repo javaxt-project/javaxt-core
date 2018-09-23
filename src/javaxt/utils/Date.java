@@ -6,7 +6,7 @@ import java.util.Locale;
 import java.util.HashMap;
 
 //******************************************************************************
-//**  Date Utils - By Peter Borissow
+//**  Date Utils
 //******************************************************************************
 /**
  *   Used to parse, format, and compute dates
@@ -1100,11 +1100,11 @@ public class Date implements Comparable {
             double offset = timezone.getRawOffset();
             String str = (offset/(60*60*1000.0))+"";
             int h = Integer.parseInt(str.substring(0, str.indexOf(".")));
-            double m = Double.parseDouble("0." + str.substring(str.indexOf(".")+1))*60;
+            float m = Float.parseFloat("0." + str.substring(str.indexOf(".")+1))*60;
             String gmt =
                     "GMT" + (h>-1 ? "+" : "-") +
                     String.format("%02d", (h<0 ? -h : h)) + ":" +
-                    String.format("%02d", (int) javaxt.utils.string.round(m, 0));
+                    String.format("%02d", Math.round(m));
             if (!timezones.containsKey(gmt)) timezones.put(gmt, gmt);
         }
     }
