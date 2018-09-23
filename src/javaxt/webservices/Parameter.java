@@ -52,7 +52,7 @@ public class Parameter {
 
       //Get min occurances
         try{
-            minOccurs = cint(DOM.getAttributeValue(attr, "minOccurs").trim());
+            minOccurs = Integer.valueOf(DOM.getAttributeValue(attr, "minOccurs").trim());
             if (minOccurs<0) minOccurs = 0;
         }
         catch (Exception e){}
@@ -68,7 +68,7 @@ public class Parameter {
         }
         else{
             try{
-                this.maxOccurs = cint(maxOccurs);
+                this.maxOccurs = Integer.valueOf(maxOccurs);
                 if (this.maxOccurs<0) this.maxOccurs = 0;
             }
             catch (Exception e){}
@@ -285,7 +285,7 @@ public class Parameter {
 
             if (value instanceof byte[]){
                 xml.append("<" + name + attributes + ">");
-                xml.append(javaxt.utils.Base64.encodeBytes((byte[]) value));
+                xml.append(javaxt.utils.Base64.encode((byte[]) value)); 
                 xml.append("</" + name + ">");
             }
             else if (value instanceof Object[]){
@@ -411,9 +411,6 @@ public class Parameter {
 //    }
 
 
-    private int cint(String str){
-        return javaxt.utils.string.cint(str);
-    }
 
     private boolean bool(String str){
         if (str.equalsIgnoreCase("true")) return true;
