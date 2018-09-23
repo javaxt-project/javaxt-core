@@ -313,15 +313,20 @@ public class Parser {
    */
     public class SelectStatement{
 
-        private String alias = null;
-        private String statement = null;
-        private String columnName = null;   
+        private String field;
+        private String alias;
+        private String statement;
+        private String columnName;
+        private boolean isFunction = false;
         private java.util.List exposedElements = new java.util.LinkedList();        
 
         public SelectStatement(String statement){
             
+            this.field = statement;
             this.statement = statement;
             this.columnName = stripFunctions(statement);
+            
+            
             
           //Find the alias, defined by the "AS" keyword
             if (statement.toUpperCase().contains("AS")){
@@ -377,7 +382,8 @@ public class Parser {
                                     (nextChar.equals(" ") || nextChar.equals("(") || nextChar.equals("[") || nextChar.equals("\"")))
                                 {
                                     this.alias = removeParentheses(as);
-                                    this.columnName = stripFunctions(s.substring(0,i-1).trim());                                    
+                                    this.field = s.substring(0,i-1).trim();
+                                    this.columnName = stripFunctions(field);                                    
                                 }
                                 
                             }
@@ -391,6 +397,10 @@ public class Parser {
             }//end if
             
 
+          //Check whether the field equals the column name. If not, then there 
+          //is a function present in the expression
+            if (!field.equals(columnName)) isFunction = true;
+            
 
           //Iterate throught the list of operands and identify any exposed columns (columns that are not wrapped in quotes)
             String[] elements = new String[]{columnName, alias};
@@ -414,13 +424,20 @@ public class Parser {
         
         }//end constructor
         
+        public String getField(){
+            return field;
+        }
+        
+        public String getAlias(){
+            return alias;
+        }
         
         public String getColumnName(){
             return columnName;
         }
         
-        public String getAlias(){
-            return alias;
+        public boolean isFunction(){
+            return isFunction;
         }
         
         public String toString(){
@@ -515,7 +532,7 @@ public class Parser {
 
         }
         else{
-            String[] tables = javaxt.utils.string.split(fromClause, ",");            
+            String[] tables = fromClause.split(",");        
             for (int i=0; i<tables.length; i++){
                 String tableName = tables[i].trim();
                 fromStatement.addTable(tableName);
@@ -935,7 +952,7 @@ public class Parser {
   /** Used to determine whether a block of text is wrapped in quotes.
    */
     private boolean isExposed(String element){
-        if (javaxt.utils.string.isNumeric(element)){
+        if (isNumeric(element)){
             return false;
         }
         else if (element.startsWith("\"") && element.endsWith("\"")){
@@ -1437,7 +1454,15 @@ public class Parser {
     private int Len(String str){return str.length();}
     private String Left(String str, int n){return str.substring(0,n);}
     private String Right(String str, int n){ int iLen = str.length(); return str.substring(iLen - n, iLen);}
-
+    private boolean isNumeric(String str){
+        try{
+            Double.valueOf(str).doubleValue();
+            return true;
+        }
+        catch(Exception e){
+            return false;
+        }
+    }
     
 
   //**************************************************************************
