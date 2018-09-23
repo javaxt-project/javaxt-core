@@ -183,7 +183,7 @@ public class Timer {
                 try {
                     theRunnable.run();
                 }
-                catch(Exception e) {
+                catch(Throwable e) {
                   //Restart the scheduled task!
                     init();
                 }
