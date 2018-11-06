@@ -184,12 +184,13 @@ public class Connection {
    *  This simplifies using the Recordset object insofar as it eliminate the
    *  need to call the hasNext(), moveNext(), and close() methods. Instead,
    *  you can execute a query and iterate through records like this:
-   
+    <pre>
         Connection conn = db.getConnection();
-        for (Recordset rs : conn.getRecordset("select distinct(first_name) from contacts")){
+        for (Recordset rs : conn.getRecordset("select distinct(name) from contacts")){
             System.out.println(rs.getValue(0));
         }
         conn.close();
+    </pre>
    */
     public Generator<Recordset> getRecordset(String sql, boolean readOnly) throws SQLException {
 

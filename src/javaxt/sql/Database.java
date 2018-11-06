@@ -27,7 +27,7 @@ public class Database implements Cloneable {
     private static final Class<?>[] stringType = { String.class };
     private static final Class<?>[] integerType = { Integer.TYPE };
     private ConnectionPool connectionPool;
-    
+    private int maxConnections = 15;
     
   //**************************************************************************
   //** Constructor
@@ -430,14 +430,14 @@ public class Database implements Cloneable {
         }
     }
 
-    
+
   //**************************************************************************
   //** initConnectionPool
   //**************************************************************************
   /** Used to initialize a connection pool. Subsequent called to the 
    *  getConnection() method will return connections from the pool.
    */  
-    public void initConnectionPool(int maxConnections) throws SQLException {
+    public void initConnectionPool() throws SQLException {
         if (connectionPool!=null) return;
         connectionPool = new ConnectionPool(this, maxConnections);
         
@@ -470,7 +470,42 @@ public class Database implements Cloneable {
         }
     }
     
-    
+
+  //**************************************************************************
+  //** setConnectionPoolSize
+  //**************************************************************************
+  /** Used to specify the size of the connection pool. The pool size must be
+   *  set before initializing the connection pool. If the pool size is not 
+   *  defined, the connection pool will default to 15.
+   */  
+    public void setConnectionPoolSize(int maxConnections){
+        if (connectionPool!=null) return;
+        this.maxConnections = maxConnections;
+    }
+
+
+  //**************************************************************************
+  //** getConnectionPoolSize
+  //**************************************************************************
+  /** Returns the size of the connection pool.
+   */
+    public int getConnectionPoolSize(){
+        return maxConnections;
+    }
+
+
+  //**************************************************************************
+  //** getConnectionPool
+  //**************************************************************************
+  /** Returns the connection pool that was created via the initConnectionPool
+   *  method. Returns null if the connection pool has not been not initialized
+   *  or if the connection pool has been terminated.
+   */
+    public ConnectionPool getConnectionPool(){
+        return connectionPool;
+    }
+
+
   //**************************************************************************
   //** setConnectionPoolDataSource
   //**************************************************************************
