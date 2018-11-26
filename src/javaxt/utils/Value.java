@@ -36,6 +36,7 @@ public class Value {
    */
     public Integer toInteger(){
         if (value==null) return null;
+        if (value instanceof Integer) return (Integer) value;
         try{
             return Integer.valueOf(prepNumber(value+""));
         }
@@ -53,6 +54,7 @@ public class Value {
    */
     public Short toShort(){
         if (value==null) return null;
+        if (value instanceof Short) return (Short) value;
         try{
             return Short.valueOf(prepNumber(value+""));
         }
@@ -70,6 +72,7 @@ public class Value {
    */
     public Double toDouble(){
         if (value==null) return null;
+        if (value instanceof Double) return (Double) value;
         try{
             return Double.valueOf(prepNumber(value+""));
         }
@@ -87,6 +90,7 @@ public class Value {
    */
     public Long toLong(){
         if (value==null) return null;
+        if (value instanceof Long) return (Long) value;
         try{
             return Long.valueOf(prepNumber(value+""));
         }
@@ -104,6 +108,7 @@ public class Value {
    */
     public java.math.BigDecimal toBigDecimal(){
         if (value==null) return null;
+        if (value instanceof java.math.BigDecimal) return (java.math.BigDecimal) value;
         try{
             return java.math.BigDecimal.valueOf(toDouble());
         }
@@ -121,6 +126,7 @@ public class Value {
    */
     public Float toFloat(){
         if (value==null) return null;
+        if (value instanceof Float) return (Float) value;
         try{
             return Float.valueOf(prepNumber(value+""));
         }
@@ -138,7 +144,10 @@ public class Value {
    */
     public javaxt.utils.Date toDate(){
         if (value!=null){
-            if (value instanceof java.sql.Timestamp){
+            if (value instanceof javaxt.utils.Date){
+                return (javaxt.utils.Date) value;
+            }
+            else if (value instanceof java.sql.Timestamp){
                 java.sql.Timestamp ts = (java.sql.Timestamp) value;
                 return new javaxt.utils.Date(ts.getTime());
             }
