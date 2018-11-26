@@ -708,7 +708,24 @@ public class Date implements Comparable {
         currDate = cal.getTime();
         return currDate;
     }
-
+    
+  //**************************************************************************
+  //** setDate
+  //**************************************************************************
+  /** Used to update the year, month and day of the current date.
+   *  @param month Valid range is 1-12
+   *  @param day Valid range is 1-31
+   */
+    public java.util.Date setDate(int year, int month, int day){
+        Calendar cal = getCalendar();
+        
+        cal.set(Calendar.YEAR, year);
+        cal.set(Calendar.MONTH, month-1);
+        cal.set(Calendar.DAY_OF_MONTH, day);
+        
+        currDate = cal.getTime();
+        return currDate;
+    }
     
   //**************************************************************************
   //** setTime
