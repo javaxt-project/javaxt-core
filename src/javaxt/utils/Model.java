@@ -57,11 +57,12 @@ public abstract class Model {
         try{
 
             
-          //Get or create a prepared statement from the sql cache
-            PreparedStatement stmt;
+          //Execute query using a prepared statement
             synchronized(sqlCache){
+                
+              //Get or create a prepared statement from the sql cache
                 String query = "select * from " + tableName + " where id=?";
-                stmt = sqlCache.get(query);
+                PreparedStatement stmt = sqlCache.get(query);
                 if (stmt==null){
                     Connection conn = getConnection(this.getClass());
                     stmt = conn.getConnection().prepareStatement(query);
@@ -70,22 +71,25 @@ public abstract class Model {
                     
                     //TODO: Launch thread to close idle connections
                 }
-            }
-            
+                
+                                
+              //Execute prepared statement
+                stmt.setLong(1, id);
+                java.sql.ResultSet rs = stmt.executeQuery();
+                if (!rs.next()){
+                    rs.close();
+                    throw new IllegalArgumentException();
+                }
 
-          //Execute prepared statement
-            stmt.setLong(1, id);
-            java.sql.ResultSet rs = stmt.executeQuery();
-            if (!rs.next()){
+                update(rs);
                 rs.close();
-                throw new IllegalArgumentException();
             }
 
-            update(rs);
-            rs.close();
-        
         }
-        catch(SQLException e){ 
+        catch(IllegalArgumentException e){ 
+            throw e;
+        }
+        catch(Exception e){ 
 
             
           //Execute query without a prepared statement
@@ -214,15 +218,27 @@ public abstract class Model {
         else{
             throw new SQLException("Failed to find connection for " + c.getName());
         }
-    }    
+    }  
     
     
   //**************************************************************************
-  //** register
+  //** init
   //**************************************************************************
   /** Used to associate a model with a connection pool.
+    <pre>
+        for (Jar.Entry entry : jar.getEntries()){
+            String name = entry.getName();
+            if (name.endsWith(".class")){
+                name = name.substring(0, name.length()-6).replace("/", ".");
+                Class c = Class.forName(name);
+                if (javaxt.utils.Model.class.isAssignableFrom(c)){
+                    javaxt.utils.Model.init(c, database.getConnectionPool());
+                }
+            }
+        }
+    </pre>
    */
-    public static void register(Class c, ConnectionPool connectionPool){
+    public static void init(Class c, ConnectionPool connectionPool){
         synchronized(connPool){
             connPool.put(c.getName(), connectionPool);
             connPool.notifyAll();
