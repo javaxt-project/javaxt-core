@@ -36,7 +36,9 @@ public class Value extends javaxt.utils.Value {
             }
             else{
                 javaxt.utils.Date date = toDate();
-                return new java.sql.Timestamp(date.getDate().getTime());
+                if (date!=null){
+                    return new java.sql.Timestamp(date.getDate().getTime());
+                }
             }
         }
         return null;

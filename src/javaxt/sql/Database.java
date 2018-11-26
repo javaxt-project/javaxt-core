@@ -445,7 +445,7 @@ public class Database implements Cloneable {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 if (connectionPool!=null){
-                    System.out.println("Shutting down connection pool...");
+                    System.out.println("\r\nShutting down connection pool...");
                     try{
                         connectionPool.close();
                     }

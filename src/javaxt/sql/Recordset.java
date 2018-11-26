@@ -648,7 +648,12 @@ public class Recordset {
             }
         }
         else{
-            stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+            try{
+                stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+            }
+            catch(Exception e){ //not all databases support auto generated keys
+                stmt = Conn.prepareStatement(sql.toString());
+            }
         }
 
 
@@ -660,7 +665,6 @@ public class Recordset {
             String FieldType = field.Class.toLowerCase();
             if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
             Value FieldValue = field.getValue();
-
 
 
           //Special case for SQL Functions
@@ -770,9 +774,14 @@ public class Recordset {
 
 
             if (InsertOnUpdate){
-                java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                if (generatedKeys.next()) {
-                    this.GeneratedKey = new Value(generatedKeys.getString(1));
+                try{
+                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                    if (generatedKeys.next()) {
+                        this.GeneratedKey = new Value(generatedKeys.getString(1));
+                    }
+                }
+                catch(Exception e){
+                    //not all databases support auto generated keys
                 }
                 InsertOnUpdate = false;
             }
@@ -1395,7 +1404,7 @@ public class Recordset {
   /** Used to retrieve the total record count. Note that this method may be
    *  slow.
    */    
-    public int getRecordCount(){
+    public long getRecordCount(){
         
         try{
             int currRow = rs.getRow(); rs.last(); int size = rs.getRow();
@@ -1404,13 +1413,13 @@ public class Recordset {
         }
         catch(Exception e){
 
-            Integer numRecords = null;
+            Long numRecords = null;
 
             String sql = new Parser(sqlString).setSelect("count(*)");
             Recordset rs = new Recordset();
             try{
                 rs.open(sql, Connection);
-                numRecords = rs.getValue(0).toInteger();
+                numRecords = rs.getValue(0).toLong();
                 rs.close();
             }
             catch(SQLException ex){
@@ -1418,7 +1427,7 @@ public class Recordset {
             }
 
             if (numRecords!=null) return numRecords;
-            else return -1;
+            else return -1L;
         }
     }
 
