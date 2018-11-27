@@ -676,8 +676,7 @@ public class Date implements Comparable {
    */    
     public java.util.Date add(int amount, String units){
 
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(currDate);
+        Calendar cal = getCalendar();
         
         int div = 0;
         if (units.equals("S") || units.toLowerCase().startsWith("ms") || units.toLowerCase().startsWith("mil")){
