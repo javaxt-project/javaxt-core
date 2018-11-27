@@ -1,4 +1,7 @@
 package javaxt.utils;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 
 //******************************************************************************
 //**  Console
@@ -11,7 +14,7 @@ package javaxt.utils;
 public class Console {
     
     private String me = this.getClass().getName();
-    String indent = "                       "; // 25 spaces
+    private String indent = "                       "; // 25 spaces
     
     
   //**************************************************************************
@@ -37,22 +40,115 @@ public class Console {
    *  method.
    */
     private String getSource(){
-        try{
-            int x = 1/0; //intentionally throw exception
+        
+      //Create an exception
+        Exception e = new Exception();
+
+      //Find first element in the stack trace that doesn't belong to this class
+        for (StackTraceElement el : e.getStackTrace()){
+            if (!el.getClassName().equals(me)){
+                String className = el.getClassName();
+                int idx = className.lastIndexOf(".");
+                if (idx>0) className = className.substring(idx+1);
+
+                return className + ":" + el.getLineNumber();
+            }
         }
-        catch(Exception e){
 
-          //Find first element in the stack trace that doesn't belong to this class
-            for (StackTraceElement el : e.getStackTrace()){
-                if (!el.getClassName().equals(me)){
-                    String className = el.getClassName();
-                    int idx = className.lastIndexOf(".");
-                    if (idx>0) className = className.substring(idx+1);
-
-                    return className + ":" + el.getLineNumber();
+        return "";
+    }
+    
+    
+  //**************************************************************************
+  //** getUserName
+  //**************************************************************************
+    public static String getUserName(String prompt){
+        String username = null;
+        System.out.print(prompt);
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        try {
+            username = br.readLine();
+        } 
+        catch (IOException e) {
+            System.out.println("Error trying to read your name!");
+            //System.exit(1);
+        }
+        return username;
+    }
+    
+    
+  //**************************************************************************
+  //** getPassword
+  //**************************************************************************
+    public static String getPassword(String prompt) {
+ 
+        String password = "";
+        ConsoleEraser consoleEraser = new ConsoleEraser();
+        System.out.print(prompt);
+        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+        consoleEraser.start();
+        try {
+            password = in.readLine();
+        }
+        catch (IOException e){
+            System.out.println("Error trying to read your password!");
+            //System.exit(1);
+        }
+ 
+        consoleEraser.halt();
+        System.out.print("\b");
+ 
+        return password;
+    }
+ 
+    
+  //**************************************************************************
+  //** ConsoleEraser Class
+  //**************************************************************************
+    private static class ConsoleEraser extends Thread {
+        private boolean running = true;
+        public void run() {
+            while (running) {
+                System.out.print("\b ");
+                try {
+                    Thread.currentThread().sleep(1);
+                }
+                catch(InterruptedException e) {
+                    break;
                 }
             }
         }
-        return "";
+        public synchronized void halt() {
+            running = false;
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** parseArgs
+  //**************************************************************************
+  /** Converts command line inputs into key/value pairs. 
+   */
+    public static java.util.HashMap<String, String> parseArgs(String[] args){
+        java.util.HashMap<String, String> map = new java.util.HashMap<String, String>();
+        for (int i=0; i<args.length; i++){
+            String key = args[i];
+            if (key.startsWith("-")){
+                if (i<args.length-1){
+                    String nextArg = args[i+1];
+                    if (nextArg.startsWith("-")){
+                        map.put(key, null);
+                    }
+                    else{
+                        i++;
+                        map.put(key, nextArg);
+                    }
+                }
+                else{
+                    map.put(key, null);
+                }
+            }
+        }
+        return map;
     }
 }
