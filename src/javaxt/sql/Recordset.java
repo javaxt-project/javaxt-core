@@ -517,7 +517,8 @@ public class Recordset {
             updateFields();
             tableName = Fields[0].getTable();
         }
-        if (tableName.contains(" ")) tableName = "[" + tableName + "]";
+        //if (tableName.contains(" ")) tableName = "[" + tableName + "]";
+        tableName = escape(tableName);
 
 
       //Construct a SQL insert/update statement
@@ -803,8 +804,11 @@ public class Recordset {
   //**************************************************************************
     
     private String escape(String colName){
-        String[] keywords = javaxt.sql.Database.getReservedKeywords(Connection);
-        if (colName.contains(" ")) colName = "[" + colName + "]";
+        String[] keywords = Database.getReservedKeywords(Connection);
+        colName = colName.trim();
+        if (colName.contains(" ") && !colName.startsWith("[")){
+            colName = "[" + colName + "]";
+        }
         for (String keyWord : keywords){
             if (colName.equalsIgnoreCase(keyWord)){
                 colName = "\"" + colName + "\"";
