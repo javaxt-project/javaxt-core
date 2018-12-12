@@ -17,7 +17,7 @@ public abstract class Model {
     
     protected Long id;
     
-    private final String tableName;
+    protected final String tableName;
     
     private static ConcurrentHashMap<String, PreparedStatement> 
     sqlCache = new ConcurrentHashMap<String, PreparedStatement>();
@@ -25,12 +25,19 @@ public abstract class Model {
     private static ConcurrentHashMap<String, ConnectionPool> 
     connPool = new ConcurrentHashMap<String, ConnectionPool>();
     
-    
+    private static ConcurrentHashMap<String, String[]> 
+    reservedKeywords = new ConcurrentHashMap<String, String[]>();
+
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
     protected Model(String tableName){
-        this.tableName = tableName;
+        String[] keywords;
+        synchronized(reservedKeywords){
+            keywords = reservedKeywords.get(this.getClass().getName());
+        }
+        this.tableName = escape(tableName, keywords);
     }
 
 
@@ -218,9 +225,9 @@ public abstract class Model {
         else{
             throw new SQLException("Failed to find connection for " + c.getName());
         }
-    }  
-    
-    
+    }
+
+
   //**************************************************************************
   //** init
   //**************************************************************************
@@ -239,9 +246,51 @@ public abstract class Model {
     </pre>
    */
     public static void init(Class c, ConnectionPool connectionPool){
+        
+      //Associate model with the connection pool
         synchronized(connPool){
             connPool.put(c.getName(), connectionPool);
             connPool.notifyAll();
         }
+        
+        
+      //Get reserved keywords associated with the database
+        String[] keywords = null;
+        Connection conn = null;
+        try{
+            conn = connectionPool.getConnection();
+            keywords = javaxt.sql.Database.getReservedKeywords(conn);
+            conn.close();
+        }
+        catch(Exception e){
+            if (conn!=null) conn.close();
+        }
+        
+        synchronized(reservedKeywords){
+            reservedKeywords.put(c.getName(), keywords);
+            reservedKeywords.notifyAll();
+        }
+    }
+    
+    
+  //**************************************************************************
+  //** escape
+  //**************************************************************************
+  /** Used to wrap column and table names in quotes if the name is a reserved
+   *  SQL keyword.
+   */
+    protected String escape(String colName, String[] keywords){
+        colName = colName.trim();
+        if (colName.contains(" ") && !colName.startsWith("[")){
+            colName = "[" + colName + "]";
+        }
+        if (keywords==null) return colName;
+        for (String keyWord : keywords){
+            if (colName.equalsIgnoreCase(keyWord)){
+                colName = "\"" + colName + "\"";
+                break;
+            }
+        }
+        return colName;
     }
 }
