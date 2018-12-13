@@ -16,6 +16,7 @@ public abstract class Model {
     protected Long id;
     
     protected final String tableName;
+    private String[] keywords;
     
     private static ConcurrentHashMap<String, PreparedStatement> 
     sqlCache = new ConcurrentHashMap<String, PreparedStatement>();
@@ -31,10 +32,14 @@ public abstract class Model {
   //** Constructor
   //**************************************************************************
     protected Model(String tableName){
-        String[] keywords;
+        
+      //Get SQL reserved keywords 
         synchronized(reservedKeywords){
             keywords = reservedKeywords.get(this.getClass().getName());
         }
+        
+        
+      //Set table name
         this.tableName = escape(tableName, keywords);
     }
 
@@ -58,14 +63,28 @@ public abstract class Model {
   //**************************************************************************
   //** init
   //**************************************************************************
-    protected void init(long id) throws SQLException {
+    protected final void init(long id, String...fieldNames) throws SQLException {
+        
+        
+        StringBuilder sql = new StringBuilder("select ");
+        for (int i=0; i<fieldNames.length; i++){
+            if (i>0) sql.append(", ");
+            String fieldName = fieldNames[i];
+            //TODO: Update escape function to escape fields inside of functions
+            sql.append(escape(fieldName, keywords));
+        }
+        sql.append(" from ");
+        sql.append(tableName);
+        sql.append(" where id=");
+        
+        
         try{
             
           //Execute query using a prepared statement
             synchronized(sqlCache){
                 
               //Get or create a prepared statement from the sql cache
-                String query = "select * from " + tableName + " where id=?";
+                String query = sql.toString() + "?";
                 PreparedStatement stmt = sqlCache.get(query);
                 if (stmt==null){
                     Connection conn = getConnection(this.getClass());
@@ -102,7 +121,8 @@ public abstract class Model {
                 conn = getConnection(this.getClass());
           
                 Recordset rs = new Recordset();
-                rs.open("select * from " + tableName + " where id=" + id, conn);
+                String query = sql.toString() + id;
+                rs.open(query, conn);
                 if (rs.EOF){
                     rs.close();
                     conn.close();
@@ -277,10 +297,14 @@ public abstract class Model {
    *  SQL keyword.
    */
     protected String escape(String colName, String[] keywords){
+        /*
+        //TODO: Check whether the colName contains a function. Otherwise, the
+        //following logic won't work...
         colName = colName.trim();
         if (colName.contains(" ") && !colName.startsWith("[")){
             colName = "[" + colName + "]";
         }
+        */
         if (keywords==null) return colName;
         for (String keyWord : keywords){
             if (colName.equalsIgnoreCase(keyWord)){
