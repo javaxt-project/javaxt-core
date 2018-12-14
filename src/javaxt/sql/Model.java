@@ -171,12 +171,42 @@ public abstract class Model {
 
     
   //**************************************************************************
-  //** getID
+  //** _get
   //**************************************************************************
-  /** Used to find an object in the database using a given set of constraints.
+  /** Used to find a model in the database using a given set of constraints.
+   *  Example: 
+    <pre>
+        _get(Contact.class, "firstname=", "John", "lastname=", "Smith");
+        _get(Contact.class, 123);
+    </pre>
    */
-    protected Long getID(Object...args) throws SQLException {
-        Long id = null;
+    protected static Object _get(Class c, Object...args) throws SQLException {
+        
+        if (args.length==1){
+            if ((args[0] instanceof Long) || (args[0] instanceof Integer)){
+                try{
+                    long id;
+                    if (args[0] instanceof Long) id = (Long) args[0];
+                    else id = new Long((Integer) args[0]);
+                    return c.getConstructor(long.class).newInstance(id);
+                }
+                catch(Exception e){
+                    return null;
+                }
+            }
+            else{
+                return null;
+            }
+        }
+
+        
+      //Get tableName
+        String tableName = null;
+        try{ tableName = ((Model) c.newInstance()).tableName; }
+        catch(Exception e){}
+        
+        
+      //Build sql to find the model id
         StringBuilder str = new StringBuilder("select id from "); 
         str.append(tableName); 
         str.append(" where ");
@@ -195,9 +225,12 @@ public abstract class Model {
             if (i<args.length-2) str.append(" and ");
         }
         
+        
+      //Execute query
+        Long id = null;
         Connection conn = null;
         try{
-            conn = getConnection(this.getClass());
+            conn = getConnection(c);
             javaxt.sql.Recordset rs = new javaxt.sql.Recordset();
             rs.open(str.toString(), conn);
             if (!rs.EOF) id = rs.getValue(0).toLong();
@@ -209,10 +242,27 @@ public abstract class Model {
             throw e;
         }
 
-        return id;
+        
+      //Return model
+        if (id!=null){
+            try{ return c.getConstructor(long.class).newInstance(id); }
+            catch(Exception e){}
+        }
+        return null;
     }
 
+    
+  //**************************************************************************
+  //** _find
+  //**************************************************************************
+  /** Returns an array of models from the database using a given set of 
+   *  constraints.
+   */
+    protected static Object[] _find(Class c, Object...args) throws SQLException {
+        return null;
+    }
 
+    
   //**************************************************************************
   //** getValue
   //**************************************************************************
