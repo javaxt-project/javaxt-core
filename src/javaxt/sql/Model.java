@@ -171,6 +171,14 @@ public abstract class Model {
 
     
   //**************************************************************************
+  //** toJson
+  //**************************************************************************
+  /** Returns a JSON representation of the object.
+   */
+    public abstract javaxt.json.JSONObject toJson();
+    
+    
+  //**************************************************************************
   //** _get
   //**************************************************************************
   /** Used to find a model in the database using a given set of constraints.
@@ -259,7 +267,7 @@ public abstract class Model {
    *  constraints.
    */
     protected static Object[] _find(Class c, Object...args) throws SQLException {
-        return null;
+        return new Object[0];
     }
 
     
