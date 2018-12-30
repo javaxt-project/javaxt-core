@@ -853,14 +853,26 @@ public class File implements Comparable {
                 md.update(buf, 0, i);
             }
             input.close();
-            return new javax.xml.bind.annotation.adapters.HexBinaryAdapter().marshal(md.digest()).toLowerCase();
+            //return new javax.xml.bind.annotation.adapters.HexBinaryAdapter().marshal(md.digest()).toLowerCase();
+            return printHexBinary(md.digest()).toLowerCase();
         }
         catch(Exception e){
-            e.printStackTrace();
             return null;
         }
     }
 
+    private static final char[] hexCode = "0123456789ABCDEF".toCharArray();
+
+    private String printHexBinary(byte[] data) {
+        if (data==null) return null;
+        StringBuilder r = new StringBuilder(data.length * 2);
+        for (byte b : data) {
+            r.append(hexCode[(b >> 4) & 0xF]);
+            r.append(hexCode[(b & 0xF)]);
+        }
+        return r.toString();
+    }
+    
 
   //**************************************************************************
   //** write
