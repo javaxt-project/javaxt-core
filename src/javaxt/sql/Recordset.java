@@ -81,9 +81,20 @@ public class Recordset {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of this class. */
-
-    public Recordset(){}
+  /** Creates a new instance of this class. 
+   */
+    public Recordset(){
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                if (stmt!=null){
+                    try{ stmt.cancel(); }
+                    catch(Exception e){}
+                    try{ stmt.close(); }
+                    catch(Exception e){}
+                }
+            }
+        });
+    }
 
 
   //**************************************************************************
