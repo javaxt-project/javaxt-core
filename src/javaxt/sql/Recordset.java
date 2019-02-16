@@ -377,13 +377,24 @@ public class Recordset {
         
         return rs;
     }
+
+
+//  //**************************************************************************
+//  //** cancel
+//  //**************************************************************************  
+//  /** Cancels the current query and closes the recordset.
+//   */
+//    public void cancel(){
+//        State = 0;
+//        close();
+//    }
     
-    
+
   //**************************************************************************
-  //** Close
+  //** close
   //**************************************************************************  
-  /**  Closes the Recordset freeing up database and jdbc resources.   */
-    
+  /** Closes the Recordset freeing up database and jdbc resources.   
+   */
     public void close(){
 
 
@@ -391,12 +402,17 @@ public class Recordset {
         try{
             if (State==1) executeBatch();
             if (rs!=null) rs.close();
-            if (stmt!=null) stmt.close();
+            if (stmt!=null){
+                try{ stmt.cancel(); }
+                catch(Exception e){}
+                try{ stmt.close(); }
+                catch(Exception e){}
+            }
         }
         catch(SQLException e){
             e.printStackTrace();
             SQLException ex = e.getNextException();
-            ex.printStackTrace();
+            if (ex!=null) ex.printStackTrace();
         }
 
 

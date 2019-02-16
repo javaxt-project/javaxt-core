@@ -129,6 +129,17 @@ public class File implements Comparable {
         else path = path.replace("/", PathSeparator);
 
         if (!path.endsWith(PathSeparator)) path += PathSeparator;
+        
+        
+      //Special case for relative paths
+        if (path.startsWith(".")){ 
+            try{
+                init(new java.io.File(path + name).getCanonicalPath());
+            }
+            catch(Exception e){
+                throw new IllegalArgumentException("Invalid Path.");
+            }
+        }
     }
 
 
