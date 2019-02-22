@@ -208,30 +208,9 @@ public abstract class Model {
         }
 
         
-      //Get tableName
-        String tableName = null;
-        try{ tableName = ((Model) c.newInstance()).tableName; }
-        catch(Exception e){}
-        
         
       //Build sql to find the model id
-        StringBuilder str = new StringBuilder("select id from "); 
-        str.append(tableName); 
-        str.append(" where ");
-        for (int i=0; i<args.length-1; i++){
-            str.append(args[i]);
-            i++;
-            Object val = args[i];
-            if (val instanceof String){
-                str.append("'");
-                str.append(val.toString().replace("'", "''"));
-                str.append("'");
-            }
-            else{
-                str.append(val);
-            }
-            if (i<args.length-2) str.append(" and ");
-        }
+        String sql = getSQL(c, args);
         
         
       //Execute query
@@ -240,7 +219,7 @@ public abstract class Model {
         try{
             conn = getConnection(c);
             javaxt.sql.Recordset rs = new javaxt.sql.Recordset();
-            rs.open(str.toString(), conn);
+            rs.open(sql, conn);
             if (!rs.EOF) id = rs.getValue(0).toLong();
             rs.close();
             conn.close();
@@ -259,7 +238,7 @@ public abstract class Model {
         return null;
     }
 
-    
+
   //**************************************************************************
   //** _find
   //**************************************************************************
@@ -267,10 +246,86 @@ public abstract class Model {
    *  constraints.
    */
     protected static Object[] _find(Class c, Object...args) throws SQLException {
+        
+      //Build sql using args
+        String sql = getSQL(c, args);
+        
+        
+      //Execute query
+        java.util.ArrayList<Long> ids = new java.util.ArrayList<Long>();
+        Connection conn = null;
+        try{
+            conn = getConnection(c);
+            javaxt.sql.Recordset rs = new javaxt.sql.Recordset();
+            rs.open(sql, conn);
+            while (rs.hasNext()){
+                ids.add(rs.getValue(0).toLong());
+                rs.moveNext();
+            }
+            rs.close();
+            conn.close();
+        }
+        catch(SQLException e){
+            if (conn!=null) conn.close();
+            throw e;
+        }
+
+        
+      //Return model
+        if (!ids.isEmpty()){
+            java.util.ArrayList arr = new java.util.ArrayList(ids.size());
+            for (long id : ids){
+                try{
+                    arr.add(c.getConstructor(long.class).newInstance(id));
+                }
+                catch(Exception e){}
+            }
+            return arr.toArray();
+        }
+
         return new Object[0];
     }
 
     
+  //**************************************************************************
+  //** getSQL
+  //**************************************************************************
+  /** Returns a sql statement used to generate a list of model IDs
+   */
+    private static String getSQL(Class c, Object...args){
+        
+      //Get tableName
+        String tableName = null;
+        try{ tableName = ((Model) c.newInstance()).tableName; }
+        catch(Exception e){}
+
+        StringBuilder str = new StringBuilder("select ");
+        str.append(tableName);
+        str.append(".id from ");
+        str.append(tableName); 
+        
+        if (args.length>1){
+            str.append(" where ");
+
+            for (int i=0; i<args.length-1; i++){
+                str.append(args[i]);
+                i++;
+                Object val = args[i];
+                if (val instanceof String){
+                    str.append("'");
+                    str.append(val.toString().replace("'", "''"));
+                    str.append("'");
+                }
+                else{
+                    str.append(val);
+                }
+                if (i<args.length-2) str.append(" and ");
+            }
+        }
+        return str.toString();
+    }
+
+
   //**************************************************************************
   //** getValue
   //**************************************************************************
@@ -313,8 +368,8 @@ public abstract class Model {
             if (name.endsWith(".class")){
                 name = name.substring(0, name.length()-6).replace("/", ".");
                 Class c = Class.forName(name);
-                if (javaxt.utils.Model.class.isAssignableFrom(c)){
-                    javaxt.utils.Model.init(c, database.getConnectionPool());
+                if (javaxt.sql.Model.class.isAssignableFrom(c)){
+                    javaxt.sql.Model.init(c, database.getConnectionPool());
                 }
             }
         }
