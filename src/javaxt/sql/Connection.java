@@ -102,7 +102,7 @@ public class Connection {
     
     public boolean open(Database database) throws SQLException {
                 
-        long startTime = java.util.Calendar.getInstance().getTimeInMillis();
+        long startTime = System.currentTimeMillis();
         this.database = database;
         boolean isClosed = true;
         
@@ -132,7 +132,7 @@ public class Connection {
         isClosed = Conn.isClosed();
 
         
-        long endTime = java.util.Calendar.getInstance().getTimeInMillis();
+        long endTime = System.currentTimeMillis();
         Speed = endTime-startTime;
         return isClosed;
     }
