@@ -26,7 +26,12 @@ public class Console {
     public void log(Object obj){
         String source = getSource();
         source = "[" + source + "]";
-        source += indent.substring(0, indent.length() - source.length());
+        if (source.length()<indent.length()){
+            source += indent.substring(0, indent.length() - source.length());
+        }
+        else{
+            source += " ";
+        }
         String str = null;
         if (obj!=null) str = obj.toString();
         System.out.println(source + str);
@@ -50,7 +55,10 @@ public class Console {
                 String className = el.getClassName();
                 int idx = className.lastIndexOf(".");
                 if (idx>0) className = className.substring(idx+1);
-
+                
+                idx = className.lastIndexOf("$");
+                if (idx>0) className = className.substring(0, idx);
+                
                 return className + ":" + el.getLineNumber();
             }
         }
