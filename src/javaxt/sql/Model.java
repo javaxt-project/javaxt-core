@@ -1,7 +1,10 @@
 package javaxt.sql;
+import javaxt.json.*;
 import java.sql.SQLException;
 import java.sql.PreparedStatement;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+import javaxt.io.Jar;
 
 //******************************************************************************
 //**  Model
@@ -12,35 +15,58 @@ import java.util.concurrent.ConcurrentHashMap;
  ******************************************************************************/
 
 public abstract class Model {
-    
+
     protected Long id;
-    
     protected final String tableName;
+    private final String modelName;
+    private final HashMap<String, String> fieldMap;
     private String[] keywords;
-    
-    private static ConcurrentHashMap<String, PreparedStatement> 
+
+    private static ConcurrentHashMap<String, PreparedStatement>
     sqlCache = new ConcurrentHashMap<String, PreparedStatement>();
-    
-    private static ConcurrentHashMap<String, ConnectionPool> 
+
+    private static ConcurrentHashMap<String, PreparedStatement>
+    insertStatements = new ConcurrentHashMap<String, PreparedStatement>();
+
+    private static ConcurrentHashMap<String, ConnectionPool>
     connPool = new ConcurrentHashMap<String, ConnectionPool>();
-    
-    private static ConcurrentHashMap<String, String[]> 
+
+    private static ConcurrentHashMap<String, String[]>
     reservedKeywords = new ConcurrentHashMap<String, String[]>();
+
+    private static ConcurrentHashMap<String, Field[]>
+    fields = new ConcurrentHashMap<String, Field[]>();
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
+  /** Legacy constructor. Relies on the init(long id, String...fieldNames)
+   *  method when initializing the model using a record in the database.
+   *  @deprecated This constructor will be removed in a future release.
+   */
     protected Model(String tableName){
-        
-      //Get SQL reserved keywords 
+        this(tableName, null);
+    }
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Used to create a new instance of this class.
+   *  @param tableName The name of the table in the database associated with
+   *  this model.
+   *  @param fieldMap Used to map fields to column names. The key is the
+   *  declared field name in the model and the value is the column name in the
+   *  database. Example: fieldMap.put("countryCode", country_code");
+   *  You do not need to include the "id" field.
+   */
+    protected Model(String tableName, HashMap<String, String> fieldMap){
         synchronized(reservedKeywords){
             keywords = reservedKeywords.get(this.getClass().getName());
         }
-        
-        
-      //Set table name
-        this.tableName = escape(tableName, keywords);
+        this.tableName = escape(tableName);
+        this.modelName = this.getClass().getSimpleName();
+        this.fieldMap = fieldMap;
     }
 
 
@@ -51,7 +77,7 @@ public abstract class Model {
         return id;
     }
 
-    
+
   //**************************************************************************
   //** setID
   //**************************************************************************
@@ -63,26 +89,69 @@ public abstract class Model {
   //**************************************************************************
   //** init
   //**************************************************************************
+  /** Used to initialize the model using a record in the database.
+   *  @param id Primary key in the database table associated with this model.
+   */
+    protected final void init(long id) throws SQLException {
+
+        ArrayList<String> fieldNames = new ArrayList<String>();
+        for (java.lang.reflect.Field f : this.getClass().getDeclaredFields()){
+            String fieldName = f.getName();
+            String columnName = fieldMap.get(fieldName);
+            if (columnName!=null){
+
+                Class c = f.getType();
+
+
+                if (ArrayList.class.isAssignableFrom(c)){
+                    //Do nothing, probably a model
+                    continue;
+                }
+
+                String className = c.getSimpleName();
+                if (className.equals("Geometry")){
+                    fieldNames.add("ST_AsText(" + columnName + ") as " + columnName);
+                }
+                else{
+                    fieldNames.add(columnName);
+                }
+            }
+        }
+        init(id, fieldNames.toArray(new String[fieldNames.size()]));
+    }
+
+
+  //**************************************************************************
+  //** init
+  //**************************************************************************
+  /** Used to initialize the model using a record in the database.
+   *  @param id Primary key in the database table associated with this model.
+   *  @param fieldNames A comma-delimited list of column names found in the
+   *  database table that backs this model. The column names will be used in
+   *  a select statement to populate the fields in the model. The column names
+   *  may include SQL functions in which case there must be an alias that maps
+   *  to a field. For example, "ST_AsText(coordinate) as coordinate".
+   *  @deprecated This method will be removed in a future release.
+   */
     protected final void init(long id, String...fieldNames) throws SQLException {
-        
-        
+
+
         StringBuilder sql = new StringBuilder("select ");
         for (int i=0; i<fieldNames.length; i++){
             if (i>0) sql.append(", ");
             String fieldName = fieldNames[i];
-            //TODO: Update escape function to escape fields inside of functions
-            sql.append(escape(fieldName, keywords));
+            sql.append(escape(fieldName));
         }
         sql.append(" from ");
         sql.append(tableName);
         sql.append(" where id=");
-        
-        
+
+
         try{
-            
+
           //Execute query using a prepared statement
             synchronized(sqlCache){
-                
+
               //Get or create a prepared statement from the sql cache
                 String query = sql.toString() + "?";
                 PreparedStatement stmt = sqlCache.get(query);
@@ -91,11 +160,11 @@ public abstract class Model {
                     stmt = conn.getConnection().prepareStatement(query);
                     sqlCache.put(query, stmt);
                     sqlCache.notify();
-                    
+
                     //TODO: Launch thread to close idle connections
                 }
-                
-                                
+
+
               //Execute prepared statement
                 stmt.setLong(1, id);
                 java.sql.ResultSet rs = stmt.executeQuery();
@@ -105,31 +174,34 @@ public abstract class Model {
                 }
 
                 update(rs);
+                this.id = id;
+
                 rs.close();
             }
 
         }
-        catch(IllegalArgumentException e){ 
-            throw e;
+        catch(IllegalArgumentException e){
+            throw new SQLException(modelName + " not found");
         }
-        catch(Exception e){ 
+        catch(Exception e){
 
-            
+
           //Execute query without a prepared statement
             Connection conn = null;
             try{
                 conn = getConnection(this.getClass());
-          
+
                 Recordset rs = new Recordset();
                 String query = sql.toString() + id;
                 rs.open(query, conn);
                 if (rs.EOF){
                     rs.close();
                     conn.close();
-                    throw new IllegalArgumentException();
+                    throw new SQLException(modelName + " not found");
                 }
 
                 update(rs);
+                this.id = id;
 
                 rs.close();
                 conn.close();
@@ -137,23 +209,167 @@ public abstract class Model {
             catch(SQLException ex){
                 if (conn!=null) conn.close();
                 throw ex;
-            }            
+            }
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** update
   //**************************************************************************
   /** Used to set/update fields using a record from the database.
    */
     protected abstract void update(Object rs) throws SQLException;
-    
+
+
+  //**************************************************************************
+  //** update
+  //**************************************************************************
+  /** Used to set/update fields using a JSON representation of this class.
+   */
+    protected abstract void update(JSONObject json) throws SQLException;
+
+
+  //**************************************************************************
+  //** save
+  //**************************************************************************
+  /** Used to persist the model in the database.
+   */
+    public void save() throws SQLException {
+
+
+      //Generate a list of key/value pairs
+        HashMap<String, Object> values = new HashMap<String, Object>();
+        {
+            LinkedHashMap<String, Object> fields = getFields();
+            Iterator<String> it = fields.keySet().iterator();
+            while (it.hasNext()){
+                String fieldName = it.next();
+                Object val = fields.get(fieldName);
+                if (val!=null){
+                    if (val instanceof Model){
+                        val = ((Model) val).getID();
+                    }
+                    else if (val instanceof JSONObject){
+                        JSONObject info = (JSONObject) val;
+                        if (info.isEmpty()) val = null;
+                        else{
+                            val = new javaxt.sql.Function(
+                                "?::jsonb", new Object[]{
+                                    info.toString()
+                                }
+                            );
+                        }
+                    }
+                    else if (val instanceof java.util.ArrayList){
+                      //Do nothing, the orm code generator writes code for this
+                        continue;
+                    }
+
+                }
+
+
+
+                String columnName = fieldMap.get(fieldName);
+                values.put(columnName, val);
+            }
+        }
+
+
+
+
+
+
+        if (id==null){ //insert new record
+
+            String className = this.getClass().getName();
+
+          //Generate list of fields
+            ArrayList<Field> fields = new ArrayList<Field>();
+            synchronized(this.fields){
+                for (Field field : this.fields.get(className)){
+                    String columnName = field.getName();
+                    if (columnName.equalsIgnoreCase("id")) continue;
+                    Object val = values.get(columnName);
+                    field.Value = new Value(val);
+                    fields.add(field);
+                }
+            }
+
+
+
+          //Get prepared statement
+            PreparedStatement stmt = null;
+            synchronized(insertStatements){
+                stmt = insertStatements.get(className);
+                if (stmt==null){
+                    Connection conn = getConnection(this.getClass());
+
+                    StringBuilder sql = new StringBuilder();
+                    sql.append("INSERT INTO " + tableName + " (");
+                    for (int i=0; i<fields.size(); i++){
+                        if (i>0) sql.append(",");
+                        String colName = escape(fields.get(i).getName());
+                        sql.append(colName);
+                    }
+                    sql.append(") VALUES (");
+                    for (int i=0; i<fields.size(); i++){
+                        if (i>0) sql.append(",");
+                        sql.append(Recordset.getQ(fields.get(i), conn));
+                    }
+                    sql.append(")");
+
+
+                    stmt = conn.getConnection().prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                    insertStatements.put(className, stmt);
+                    insertStatements.notify();
+                }
+            }
+
+
+
+          //Insert record
+            Recordset.update(stmt, fields);
+            stmt.executeUpdate();
+
+
+
+          //Get id
+            java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                id = new Value(generatedKeys.getString(1)).toLong();
+            }
+
+
+        }
+        else{ //update existing record
+
+            Connection conn = null;
+            try{
+                conn = getConnection(this.getClass());
+                Recordset rs = new Recordset();
+                rs.open("select * from " + tableName + " where id=" + id, conn, false);
+                Iterator<String> it = values.keySet().iterator();
+                while (it.hasNext()){
+                    String columnName = it.next();
+                    rs.setValue(columnName, values.get(columnName));
+                }
+                rs.update();
+                rs.close();
+                conn.close();
+            }
+            catch(SQLException e){
+                if (conn!=null) conn.close();
+                throw e;
+            }
+        }
+    }
+
 
   //**************************************************************************
   //** delete
   //**************************************************************************
-  /** Used to delete a object from the database.
+  /** Used to delete the model from the database.
    */
     public void delete() throws SQLException {
         if (id==null) return;
@@ -169,27 +385,60 @@ public abstract class Model {
         }
     }
 
-    
+
   //**************************************************************************
   //** toJson
   //**************************************************************************
-  /** Returns a JSON representation of the object.
+  /** Returns a JSON representation of this model.
    */
-    public abstract javaxt.json.JSONObject toJson();
-    
-    
+    public JSONObject toJson(){
+        JSONObject json = new JSONObject();
+        if (id!=null) json.set("id", id);
+        LinkedHashMap<String, Object> fields = getFields();
+        Iterator<String> it = fields.keySet().iterator();
+        while (it.hasNext()){
+            String fieldName = it.next();
+            Object val = fields.get(fieldName);
+            if (val!=null){
+
+              //Check if the val is a Model or an array of Models. If so,
+              //convert the val to JSON
+                if (val instanceof java.util.ArrayList){
+                    java.util.ArrayList list = (java.util.ArrayList) val;
+                    if (!list.isEmpty()){
+                        Class c = list.get(0).getClass();
+                        if (javaxt.sql.Model.class.isAssignableFrom(c)){
+                            JSONArray arr = new JSONArray();
+                            for (Object obj : list){
+                                arr.add(((Model) obj).toJson());
+                            }
+                            val = arr;
+                        }
+                    }
+                }
+                else if (val instanceof Model){
+                    val = ((Model) val).toJson();
+                }
+
+                json.set(fieldName, val);
+            }
+        }
+        return json;
+    }
+
+
   //**************************************************************************
   //** _get
   //**************************************************************************
   /** Used to find a model in the database using a given set of constraints.
-   *  Example: 
+   *  Example:
     <pre>
         _get(Contact.class, "firstname=", "John", "lastname=", "Smith");
         _get(Contact.class, 123);
     </pre>
    */
     protected static Object _get(Class c, Object...args) throws SQLException {
-        
+
         if (args.length==1){
             if ((args[0] instanceof Long) || (args[0] instanceof Integer)){
                 try{
@@ -207,12 +456,12 @@ public abstract class Model {
             }
         }
 
-        
-        
+
+
       //Build sql to find the model id
         String sql = getSQL(c, args);
-        
-        
+
+
       //Execute query
         Long id = null;
         Connection conn = null;
@@ -229,7 +478,7 @@ public abstract class Model {
             throw e;
         }
 
-        
+
       //Return model
         if (id!=null){
             try{ return c.getConstructor(long.class).newInstance(id); }
@@ -242,15 +491,15 @@ public abstract class Model {
   //**************************************************************************
   //** _find
   //**************************************************************************
-  /** Returns an array of models from the database using a given set of 
+  /** Returns an array of models from the database using a given set of
    *  constraints.
    */
     protected static Object[] _find(Class c, Object...args) throws SQLException {
-        
+
       //Build sql using args
         String sql = getSQL(c, args);
-        
-        
+
+
       //Execute query
         java.util.ArrayList<Long> ids = new java.util.ArrayList<Long>();
         Connection conn = null;
@@ -270,7 +519,7 @@ public abstract class Model {
             throw e;
         }
 
-        
+
       //Return model
         if (!ids.isEmpty()){
             java.util.ArrayList arr = new java.util.ArrayList(ids.size());
@@ -286,14 +535,14 @@ public abstract class Model {
         return new Object[0];
     }
 
-    
+
   //**************************************************************************
   //** getSQL
   //**************************************************************************
   /** Returns a sql statement used to generate a list of model IDs
    */
     private static String getSQL(Class c, Object...args){
-        
+
       //Get tableName
         String tableName = null;
         try{ tableName = ((Model) c.newInstance()).tableName; }
@@ -302,8 +551,8 @@ public abstract class Model {
         StringBuilder str = new StringBuilder("select ");
         str.append(tableName);
         str.append(".id from ");
-        str.append(tableName); 
-        
+        str.append(tableName);
+
         if (args.length>1){
             str.append(" where ");
 
@@ -337,8 +586,8 @@ public abstract class Model {
             return ((Recordset) rs).getValue(key);
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** getConnection
   //**************************************************************************
@@ -361,7 +610,8 @@ public abstract class Model {
   //**************************************************************************
   //** init
   //**************************************************************************
-  /** Used to associate a model with a connection pool.
+  /** Used to associate a model with a database connection pool. This allows
+   *  queries and other database metadata to be cached.
     <pre>
         for (Jar.Entry entry : jar.getEntries()){
             String name = entry.getName();
@@ -376,40 +626,81 @@ public abstract class Model {
     </pre>
    */
     public static void init(Class c, ConnectionPool connectionPool){
-        
+
+        String className = c.getName();
+
       //Associate model with the connection pool
         synchronized(connPool){
-            connPool.put(c.getName(), connectionPool);
+            connPool.put(className, connectionPool);
             connPool.notifyAll();
         }
-        
-        
-      //Get reserved keywords associated with the database
-        String[] keywords = null;
+
+
+      //Add database metadata
         Connection conn = null;
         try{
             conn = connectionPool.getConnection();
-            keywords = javaxt.sql.Database.getReservedKeywords(conn);
+
+
+          //Get reserved keywords associated with the database
+            String[] keywords = Database.getReservedKeywords(conn);
+            synchronized(reservedKeywords){
+                reservedKeywords.put(className, keywords);
+                reservedKeywords.notifyAll();
+            }
+
+
+          //Generate list of fields
+            String tableName = ((Model) c.newInstance()).tableName;
+            Recordset rs = new Recordset();
+            rs.open("select * from " + tableName + " where id is null", conn);
+            synchronized(fields){
+                fields.put(className, rs.getFields());
+                fields.notifyAll();
+            }
+            rs.close();
             conn.close();
         }
         catch(Exception e){
             if (conn!=null) conn.close();
-        }
-        
-        synchronized(reservedKeywords){
-            reservedKeywords.put(c.getName(), keywords);
-            reservedKeywords.notifyAll();
+            e.printStackTrace();
         }
     }
-    
-    
+
+
+  //**************************************************************************
+  //** init
+  //**************************************************************************
+  /** Used to associate all the models found in a JAR file with a database
+   *  connection pool. This allows queries and other database metadata to be
+   *  cached.
+   */
+    public static void init(javaxt.io.Jar jar, ConnectionPool connectionPool){
+        Jar.Entry[] jarEntries = jar.getEntries();
+        for (Jar.Entry entry : jarEntries){
+            String name = entry.getName();
+            if (name.endsWith(".class")){
+                name = name.substring(0, name.length()-6).replace("/", ".");
+                try{
+                    Class c = Class.forName(name);
+                    if (Model.class.isAssignableFrom(c)){
+                        init(c, connectionPool);
+                    }
+                }
+                catch(Exception e){
+                }
+            }
+        }
+    }
+
+
   //**************************************************************************
   //** escape
   //**************************************************************************
   /** Used to wrap column and table names in quotes if the name is a reserved
    *  SQL keyword.
    */
-    protected String escape(String colName, String[] keywords){
+    protected String escape(String colName){
         /*
         //TODO: Check whether the colName contains a function. Otherwise, the
         //following logic won't work...
@@ -426,5 +717,29 @@ public abstract class Model {
             }
         }
         return colName;
+    }
+
+
+  //**************************************************************************
+  //** getFields
+  //**************************************************************************
+  /** Returns a list of private fields in the class and any associated values.
+   */
+    private LinkedHashMap<String, Object> getFields(){
+        LinkedHashMap<String, Object> fields =
+        new LinkedHashMap<String, Object>();
+        for (java.lang.reflect.Field f : this.getClass().getDeclaredFields()){
+            String fieldName = f.getName();
+            if (fieldMap.containsKey(fieldName)){
+                Object val = null;
+                try{
+                    f.setAccessible(true);
+                    val = f.get(this);
+                }
+                catch(Exception e){}
+                fields.put(fieldName, val);
+            }
+        }
+        return fields;
     }
 }
