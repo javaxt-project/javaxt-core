@@ -31,8 +31,8 @@ public class Field {
          try{ Type = getValue(rsmd.getColumnTypeName(i)); } catch(Exception e){}
          try{ Class = getValue(rsmd.getColumnClassName(i)); } catch(Exception e){}
 
-         
-       //Special case. Discovered that the column name was returning a 
+
+       //Special case. Discovered that the column name was returning a
        //table prefix when performing a union quiries with SQLite
          if (Name!=null && Name.contains(".")){
             String[] arr = Name.split("\\.");
@@ -51,6 +51,18 @@ public class Field {
          }
     }
 
+    private Field(){}
+
+
+    public Field clone(){
+        Field field = new Field();
+        field.Name = Name;
+        field.Type = Type;
+        field.Table = Table;
+        field.Schema = Schema;
+        field.Class = Class;
+        return field;
+    }
 
   //**************************************************************************
   //** getName
@@ -90,7 +102,7 @@ public class Field {
   //** getValue
   //**************************************************************************
   /** Returns the value for this field. */
-    
+
     public Value getValue(){
         if (Value==null) Value = new Value(null);
         return Value;

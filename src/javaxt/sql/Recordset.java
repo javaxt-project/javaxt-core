@@ -10,7 +10,7 @@ import java.sql.SQLException;
  ******************************************************************************/
 
 public class Recordset {
-    
+
     private java.sql.ResultSet rs = null;
     private java.sql.Connection Conn = null;
     private java.sql.Statement stmt = null;
@@ -18,7 +18,7 @@ public class Recordset {
     private boolean isReadOnly = true;
     private String sqlString = null;
     //private Parser sqlParser = null;
-    
+
     private Connection Connection = null;
     private Driver driver = null;
     private boolean autoCommit = true;
@@ -28,50 +28,50 @@ public class Recordset {
 
 
    /**
-    * Returns a value that describes if the Recordset object is open, closed, 
+    * Returns a value that describes if the Recordset object is open, closed,
     * connecting, executing or retrieving data
     */
-    public int State = 0; 
-    
+    public int State = 0;
+
    /**
-    * Returns true if the current record position is after the last record, 
+    * Returns true if the current record position is after the last record,
     * otherwise false.
     */
-    public boolean EOF = false;  
-    
+    public boolean EOF = false;
+
    /**
-    * An array of fields. Each field contains information about a column in a 
-    * Recordset object. There is one Field object for each column in the 
+    * An array of fields. Each field contains information about a column in a
+    * Recordset object. There is one Field object for each column in the
     * Recordset.
     */
-    private Field[] Fields = null;   
-    
+    private Field[] Fields = null;
+
    /**
-    * Sets or returns the maximum number of records to return to a Recordset 
+    * Sets or returns the maximum number of records to return to a Recordset
     * object from a query.
     */
     public int MaxRecords = 1000000000;
 
    /**
-    * Returns the number of records in a Recordset object. This property is a 
+    * Returns the number of records in a Recordset object. This property is a
     * bit unreliable. Recommend using the getRecordCount() method instead.
     */
     public int RecordCount;
 
    /**
-    * Returns the time it took to execute a given query. Units are in 
+    * Returns the time it took to execute a given query. Units are in
     * milliseconds
     */
     public long QueryResponseTime;
-    
+
    /**
-    * Returns the total elapsed time between open and close operations. Units 
+    * Returns the total elapsed time between open and close operations. Units
     * are in milliseconds
     */
     public long EllapsedTime;
-    
+
    /**
-    * Returns the elapsed time it took to retrieve additional metadata not 
+    * Returns the elapsed time it took to retrieve additional metadata not
     * correctly supported by the jdbc driver. Units are in milliseconds.
     */
     public long MetadataQueryTime;
@@ -81,7 +81,7 @@ public class Recordset {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of this class. 
+  /** Creates a new instance of this class.
    */
     public Recordset(){
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -141,7 +141,7 @@ public class Recordset {
    *
    *  @param sql SQL Query. Example: "SELECT * FROM EMPLOYEE"
    *  @param conn An active connection to the database.
-   */    
+   */
     public java.sql.ResultSet open(String sql, Connection conn) throws SQLException {
         return open(sql,conn,true);
     }
@@ -170,7 +170,7 @@ public class Recordset {
         this.isReadOnly = ReadOnly;
         this.driver = Connection.getDatabase().getDriver();
         if (driver==null) driver = new Driver("","","");
-        
+
 
         if (Connection==null) throw new java.sql.SQLException("Connection is null.");
         if (Connection.isClosed()) throw new java.sql.SQLException("Connection is closed.");
@@ -233,7 +233,7 @@ public class Recordset {
                     else{
                         stmt = Conn.createStatement(rs.TYPE_SCROLL_INSENSITIVE, rs.CONCUR_READ_ONLY);
                     }
-                    
+
                 }
 
 
@@ -338,7 +338,7 @@ public class Recordset {
 
         try{
 
-          //Create Fields 
+          //Create Fields
             java.sql.ResultSetMetaData rsmd = rs.getMetaData();
             int cols = rsmd.getColumnCount();
             Fields = new Field[cols];
@@ -346,12 +346,12 @@ public class Recordset {
                  Fields[i-1] = new Field(i, rsmd);
             }
             rsmd = null;
-            
+
             x=-1;
 
             if (rs!=null){
                 if (rs.next()){
-                    
+
                     EOF = false;
                     for (int i=1; i<=cols; i++) {
                          Fields[i-1].Value = new Value(rs.getObject(i));
@@ -367,33 +367,33 @@ public class Recordset {
                 //MetadataQueryTime = mEnd-mStart;
                 MetadataQueryTime = 0;
             }
-            
-            
+
+
         }
         catch(java.sql.SQLException e){
             //e.printStackTrace();
             //throw e;
         }
-        
+
         return rs;
     }
 
 
 //  //**************************************************************************
 //  //** cancel
-//  //**************************************************************************  
+//  //**************************************************************************
 //  /** Cancels the current query and closes the recordset.
 //   */
 //    public void cancel(){
 //        State = 0;
 //        close();
 //    }
-    
+
 
   //**************************************************************************
   //** close
-  //**************************************************************************  
-  /** Closes the Recordset freeing up database and jdbc resources.   
+  //**************************************************************************
+  /** Closes the Recordset freeing up database and jdbc resources.
    */
     public void close(){
 
@@ -443,13 +443,13 @@ public class Recordset {
         EllapsedTime = endTime-startTime;
     }
 
-  
+
 
   //**************************************************************************
   //** getDatabase
   //**************************************************************************
   /**  Returns connection information to the database.   */
-    
+
     public Database getDatabase(){
         return this.Connection.getDatabase();
     }
@@ -468,7 +468,7 @@ public class Recordset {
     public void setFetchSize(int fetchSize){
         if (fetchSize>0) this.fetchSize = fetchSize;
     }
-    
+
   //**************************************************************************
   //** getConnection
   //**************************************************************************
@@ -477,7 +477,7 @@ public class Recordset {
     public Connection getConnection(){
         return Connection;
     }
-    
+
   //**************************************************************************
   //** Commit
   //**************************************************************************
@@ -493,17 +493,17 @@ public class Recordset {
             //System.out.println(e.toString());
         }
     }
-    
+
 
     private boolean InsertOnUpdate = false;
 
-    
+
   //**************************************************************************
   //** AddNew
   //**************************************************************************
   /** Used to prepare the driver to insert new records to the database. Used
    *  in conjunction with the update method.
-   */    
+   */
     public void addNew(){
         if (State==1){
             InsertOnUpdate = true;
@@ -518,7 +518,7 @@ public class Recordset {
 
   //**************************************************************************
   //** Update
-  //**************************************************************************  
+  //**************************************************************************
   /** Used to add or update a record in a table. Note that inserts can be
    *  batched using the setBatch() method to improve performance. When
    *  performing batch inserts, the update statements are queued and executed
@@ -637,7 +637,7 @@ public class Recordset {
                 }
                 r2.close();
 
-                
+
               //Warn user that there might be a problem with the update
                 if (numRecords>1){
                     StringBuffer msg = new StringBuffer();
@@ -686,6 +686,68 @@ public class Recordset {
 
 
       //Set values using a prepared statement
+        update(stmt, fields);
+
+
+      //Update
+        if (batchSize==1){
+            try{
+                stmt.executeUpdate();
+            }
+            catch(SQLException e){
+
+                StringBuffer err = new StringBuffer();
+                err.append("Error executing update:\n");
+                err.append(sql.toString());
+                err.append("\n");
+                //err.append("\n  Values:\n");
+                for (int i=0; i<fields.size(); i++) {
+                    if (i>0) err.append("\n");
+                    Field field = fields.get(i);
+                    err.append("  - " + field.getName() + ": ");
+                    String val = field.getValue().toString();
+                    if (val!=null && val.length()>100) val = val.substring(0, 100) + "...";
+                    err.append(val);
+                }
+
+                e.setNextException(new SQLException(err.toString()));
+                throw e;
+            }
+
+
+            if (InsertOnUpdate){
+                try{
+                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                    if (generatedKeys.next()) {
+                        this.GeneratedKey = new Value(generatedKeys.getString(1));
+                    }
+                }
+                catch(Exception e){
+                    //not all databases support auto generated keys
+                }
+                InsertOnUpdate = false;
+            }
+
+        }
+        else{
+            stmt.addBatch();
+            numBatches++;
+
+            if (numBatches==batchSize){
+                executeBatch();
+            }
+        }
+    }
+
+
+  //**************************************************************************
+  //** update
+  //**************************************************************************
+  /** Used to set values in a PreparedStatement for inserting or updating
+   *  records.
+   */
+    protected static void update(java.sql.PreparedStatement stmt, java.util.ArrayList<Field> fields) throws java.sql.SQLException {
+
         int id = 1;
         for (int i=0; i<fields.size(); i++) {
 
@@ -773,63 +835,13 @@ public class Recordset {
 
             id++;
         }
-
-
-      //Update
-        if (batchSize==1){
-            try{
-                stmt.executeUpdate();
-            }
-            catch(SQLException e){
-
-                StringBuffer err = new StringBuffer();
-                err.append("Error executing update:\n");
-                err.append(sql.toString());
-                err.append("\n");
-                //err.append("\n  Values:\n");
-                for (int i=0; i<fields.size(); i++) {
-                    if (i>0) err.append("\n");
-                    Field field = fields.get(i);
-                    err.append("  - " + field.getName() + ": ");
-                    String val = field.getValue().toString();
-                    if (val!=null && val.length()>100) val = val.substring(0, 100) + "...";
-                    err.append(val);
-                }
-
-                e.setNextException(new SQLException(err.toString()));
-                throw e;
-            }
-
-
-            if (InsertOnUpdate){
-                try{
-                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                    if (generatedKeys.next()) {
-                        this.GeneratedKey = new Value(generatedKeys.getString(1));
-                    }
-                }
-                catch(Exception e){
-                    //not all databases support auto generated keys
-                }
-                InsertOnUpdate = false;
-            }
-
-        }
-        else{
-            stmt.addBatch();
-            numBatches++;
-
-            if (numBatches==batchSize){
-                executeBatch();
-            }
-        }
     }
 
 
   //**************************************************************************
   //** escape
   //**************************************************************************
-    
+
     private String escape(String colName){
         String[] keywords = Database.getReservedKeywords(Connection);
         colName = colName.trim();
@@ -852,13 +864,15 @@ public class Recordset {
   /** Returns an SQL fragment used to generate prepared statements. Typically,
    *  this method simply returns a "?". However, if the value for the field
    *  contains a function, or contains a spatial data type, additional
-   *  processing is required to generate a valid SQL statement.
+   *  processing is required to generate a valid SQL statement. Note that
+   *  this method will update the Class and Value attributes for the Field
+   *  if the field value is a Geometry type.
    */
-    private String getQ(Field field){
+    protected static String getQ(Field field, Connection conn){
 
         if (field==null || field.getValue().isNull()) return "?";
-        
-        
+
+
       //Find out what kind of data we're dealing with
         Object value = field.getValue().toObject();
 
@@ -875,13 +889,13 @@ public class Recordset {
         java.lang.Package _package = value.getClass().getPackage();
         String packageName = _package==null ? "" : _package.getName();
         if (packageName.startsWith("javaxt.geospatial.geometry")){
-            String STGeomFromText = getSTGeomFromText(field);
+            String STGeomFromText = getSTGeomFromText(field, conn);
             field.Value = new Value(value.toString());
             field.Class = "java.lang.String";
             return STGeomFromText + "(?,4326)";
         }
         else if (packageName.startsWith("com.vividsolutions.jts.geom")){
-            String STGeomFromText = getSTGeomFromText(field);
+            String STGeomFromText = getSTGeomFromText(field, conn);
             field.Value = new Value(value.toString());
             field.Class = "java.lang.String";
             int srid = 4326; //getSRID();
@@ -899,12 +913,31 @@ public class Recordset {
             }
             return STGeomFromText + "(?," + srid + ")";
         }
-        
+
+
+      //Special case for JSON objects
+        /*
+        if (packageName.startsWith("javaxt.json") || packageName.startsWith("org.json")){
+            javaxt.sql.Driver driver = conn.getDatabase().getDriver();
+            if (driver.equals("PostgreSQL")){
+                Function function = new Function(
+                    "?::jsonb", new Object[]{
+                        value.toString()
+                    }
+                );
+                return function.getFunction();
+            }
+        }
+        */
 
 
         return "?";
     }
 
+
+    private String getQ(Field field){
+        return getQ(field, Connection);
+    }
 
   //**************************************************************************
   //** getSTGeomFromText
@@ -912,7 +945,8 @@ public class Recordset {
   /** Returns a vendor-specific STGeomFromText fragment for inserting/updating
    *  geometry data.
    */
-    private String getSTGeomFromText(Field field){
+    private static String getSTGeomFromText(Field field, Connection conn){
+        javaxt.sql.Driver driver = conn.getDatabase().getDriver();
         if (driver.equals("SQLServer")){
             String geo = field.Class.toLowerCase();
             if (!geo.equals("geometry") && !geo.equals("geography")){
@@ -921,7 +955,7 @@ public class Recordset {
                     Recordset rs = new Recordset();
                     rs.open("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
                             "WHERE TABLE_NAME='" + field.getTable() + "' AND COLUMN_NAME='" + field.getName() + "'",
-                    Connection);
+                    conn);
                     geo = rs.getValue(0).toString();
                     rs.close();
                 }
@@ -936,7 +970,7 @@ public class Recordset {
         else if (driver.equals("DB2")){
             return "db2GSE.ST_GeomFromText";
         }
-        
+
         return "ST_GeomFromText"; //PostgreSQL
     }
 
@@ -959,7 +993,7 @@ public class Recordset {
         if (batchSize>0) this.batchSize = batchSize;
     }
 
-    
+
     public int getBatchSize(){
         return batchSize;
     }
@@ -996,7 +1030,7 @@ public class Recordset {
   /** Returns an auto-generated key created after inserting a record in the
    *  database. If this Statement object did not generate any keys, an empty
    *  Value object is returned.
-   */    
+   */
     public Value getGeneratedKey(){
         return GeneratedKey;
     }
@@ -1008,13 +1042,17 @@ public class Recordset {
   /** Used to retrieve the an array of fields in the current record.
    */
     public Field[] getFields(){
-        return Fields;
+        Field[] arr = new Field[Fields.length];
+        for (int i=0; i<arr.length; i++){
+            arr[i] = Fields[i].clone();
+        }
+        return arr;
     }
 
 
   //**************************************************************************
   //** getField
-  //************************************************************************** 
+  //**************************************************************************
   /** Returns a specific field in the array of fields. Returns null if the
    *  field name is not found.
    */
@@ -1024,7 +1062,7 @@ public class Recordset {
         if (FieldName==null) return null;
         FieldName = FieldName.trim();
         if (FieldName.length()==0) return null;
-        
+
         String[] arr = FieldName.split("\\.");
 
         for (Field field : Fields) {
@@ -1049,7 +1087,7 @@ public class Recordset {
                 if (fieldName.equalsIgnoreCase(arr[0])) return field;
             }
         }
-        
+
         return null;
     }
 
@@ -1068,7 +1106,7 @@ public class Recordset {
             return null;
         }
     }
-    
+
   //**************************************************************************
   //** getValue
   //**************************************************************************
@@ -1126,8 +1164,8 @@ public class Recordset {
 
   //**************************************************************************
   //** SetValue
-  //**************************************************************************  
-    
+  //**************************************************************************
+
     public void setValue(String FieldName, Value FieldValue){
         if (State==1){
             for (int i=0; i<Fields.length; i++ ) {
@@ -1160,36 +1198,36 @@ public class Recordset {
 
   //**************************************************************************
   //** SetValue
-  //**************************************************************************  
+  //**************************************************************************
   /**  Set Value with a Boolean value */
-    
+
     public void setValue(String FieldName, boolean FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
-    
+
   //**************************************************************************
   //** SetValue
-  //**************************************************************************  
+  //**************************************************************************
   /**  Set Value with a Long value */
-    
+
     public void setValue(String FieldName, long FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
 
   //**************************************************************************
   //** SetValue
-  //**************************************************************************  
+  //**************************************************************************
   /**  Set Value with an Integer value */
-    
+
     public void setValue(String FieldName, int FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
-    
+
   //**************************************************************************
   //** SetValue
-  //**************************************************************************  
+  //**************************************************************************
   /**  Set Value with a Double value */
-    
+
     public void setValue(String FieldName, double FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
@@ -1216,13 +1254,13 @@ public class Recordset {
 
   //**************************************************************************
   //** MoveNext
-  //**************************************************************************  
+  //**************************************************************************
   /** Move the cursor to the next record in the recordset. */
-    
+
     public boolean moveNext(){
 
         if (EOF == true) return false;
-        
+
         if (x>=MaxRecords-1) {
             EOF = true;
             return false;
@@ -1248,24 +1286,24 @@ public class Recordset {
                 return false;
                 //System.out.println("ERROR MoveNext: " + e.toString());
             }
-        }        
+        }
         //return false;
     }
 
 
   //**************************************************************************
   //** Move
-  //**************************************************************************  
-  /**  Moves the cursor to n-number of rows in the database. Typically this 
-   *   method is called before iterating through a recordset. 
+  //**************************************************************************
+  /**  Moves the cursor to n-number of rows in the database. Typically this
+   *   method is called before iterating through a recordset.
    */
     public void move(int numRecords){
-        
+
         boolean tryAgain = false;
-        
+
         //Scroll to record using the standard absolute() method
         //Does NOT work with rs.TYPE_FORWARD_ONLY cursors
-        
+
         try{
             rs.absolute(numRecords);
             x+=numRecords;
@@ -1273,12 +1311,12 @@ public class Recordset {
         catch(Exception e){
             tryAgain = true;
             //System.err.println("ERROR Move: " + e.toString());
-        } 
-        
-        
+        }
+
+
         //Scroll to record using an iterator
         //Workaround for rs.TYPE_FORWARD_ONLY cursors
-        
+
         try{
             if (tryAgain){
                 int rowPosition = rs.getRow();
@@ -1294,8 +1332,8 @@ public class Recordset {
             }
         }
         catch(Exception e){}
-        
-        
+
+
       //Update Field
         try{
             for (int i=1; i<=Fields.length; i++) {
@@ -1305,7 +1343,7 @@ public class Recordset {
             }
         }
         catch(Exception e){}
-        
+
     }
 
 
@@ -1314,7 +1352,7 @@ public class Recordset {
   //**************************************************************************
   /** Used to populate the Table and Schema attributes for each Field in the
    *  Fields Array.
-   */    
+   */
     private void updateFields(){
 
         if (Fields==null) return;
@@ -1434,9 +1472,9 @@ public class Recordset {
   //**************************************************************************
   /** Used to retrieve the total record count. Note that this method may be
    *  slow.
-   */    
+   */
     public long getRecordCount(){
-        
+
         try{
             int currRow = rs.getRow(); rs.last(); int size = rs.getRow();
             rs.absolute(currRow); // go back to the old row
