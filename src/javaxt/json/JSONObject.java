@@ -9,27 +9,27 @@ import java.util.Map.Entry;
 //******************************************************************************
 /**
  *   Used to create and parse JSON documents. JSON documents are an unordered
- *   collection of name/value pairs. Its external form is a string wrapped in 
- *   curly braces with colons between the names and values, and commas between 
+ *   collection of name/value pairs. Its external form is a string wrapped in
+ *   curly braces with colons between the names and values, and commas between
  *   the values and names.
- * 
+ *
  *   @author json.org
  *   @version 2016-08-15
  *
  ******************************************************************************/
 
 public class JSONObject {
-    
+
     private final java.util.LinkedHashMap<String, Object> map;
 
-    
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
     public JSONObject() {
         map = new java.util.LinkedHashMap<String, Object>();
     }
-    
+
 
   //**************************************************************************
   //** Constructor
@@ -45,8 +45,8 @@ public class JSONObject {
         this();
         if (source!=null) init(new JSONTokener(source));
     }
-   
-    
+
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -56,7 +56,7 @@ public class JSONObject {
         this();
         if (source!=null) init(source);
     }
-    
+
     private void init(JSONTokener x) throws JSONException{
         char c;
         String key;
@@ -82,9 +82,9 @@ public class JSONObject {
             if (c != ':') {
                 throw x.syntaxError("Expected a ':' after a key");
             }
-            
+
             // Use syntaxError(..) to include error location
-            
+
             if (key != null) {
                 // Check if key exists
                 if (map.get(key) != null) {
@@ -116,7 +116,7 @@ public class JSONObject {
         }
     }
 
-    
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -125,8 +125,8 @@ public class JSONObject {
     public JSONObject(org.w3c.dom.Document xml) throws JSONException {
         this(javaxt.xml.DOM.getOuterNode(xml));
     }
-    
-    
+
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -140,14 +140,14 @@ public class JSONObject {
         else{
             json.set(node.getNodeName(), node.getTextContent());
         }
-        
+
         this.map = json.map;
     }
-    
-    
+
+
     private void traverse(org.w3c.dom.Node node, JSONObject json){
         if (node.getNodeType()==1){
-            if (javaxt.xml.DOM.hasChildren(node)) {                
+            if (javaxt.xml.DOM.hasChildren(node)) {
                 JSONObject _json = new JSONObject();
                 org.w3c.dom.NodeList xmlNodeList = node.getChildNodes();
                 for (int i=0; i<xmlNodeList.getLength(); i++){
@@ -160,8 +160,8 @@ public class JSONObject {
             }
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** getValue
   //**************************************************************************
@@ -172,7 +172,7 @@ public class JSONObject {
         return new JSONValue(map.get(key));
     }
 
-    
+
   //**************************************************************************
   //** has
   //**************************************************************************
@@ -192,7 +192,7 @@ public class JSONObject {
         return map.get(key)==null;
     }
 
-    
+
   //**************************************************************************
   //** isEmpty
   //**************************************************************************
@@ -201,38 +201,38 @@ public class JSONObject {
     public boolean isEmpty(){
         return map.isEmpty();
     }
-    
-    
+
+
   //**************************************************************************
   //** keys
   //**************************************************************************
-  /** Returns an enumeration of the keys of the JSONObject. Modifying this key 
+  /** Returns an enumeration of the keys of the JSONObject. Modifying this key
    *  Set will also modify the JSONObject. Use with caution.
    */
     public java.util.Iterator<String> keys() {
         return this.keySet().iterator();
     }
-    
-    
+
+
   //**************************************************************************
   //** keySet
   //**************************************************************************
-  /** Returns a set of keys of the JSONObject. Modifying this key Set will 
+  /** Returns a set of keys of the JSONObject. Modifying this key Set will
    *  also modify the JSONObject. Use with caution.
    */
     public java.util.Set<String> keySet() {
         return this.map.keySet();
     }
 
-    
+
   //**************************************************************************
   //** entrySet
   //**************************************************************************
     private java.util.Set<Entry<String, Object>> entrySet() {
         return this.map.entrySet();
     }
-    
-    
+
+
   //**************************************************************************
   //** length
   //**************************************************************************
@@ -249,11 +249,11 @@ public class JSONObject {
   /** Used to set the value for a given key.
    */
     public void set(String key, Object value) throws JSONException {
-        
+
         if (value instanceof Value){
             value = ((Value) value).toObject();
         }
-        
+
         if (value instanceof String){
             String str = (String) value;
             str = str.trim();
@@ -261,7 +261,7 @@ public class JSONObject {
             put(key, str);
         }
         else{
-            
+
             /*
           //Test whether the value is supported
             if (value instanceof JSONObject || value instanceof JSONArray ||
@@ -279,8 +279,8 @@ public class JSONObject {
             put(key, value);
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** put
   //**************************************************************************
@@ -297,29 +297,29 @@ public class JSONObject {
         if (value!=null) {
             testValidity(value);
             map.put(key, value);
-        } 
+        }
         else {
             map.remove(key);
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** remove
   //**************************************************************************
-  /** Remove a name and its value, if present. Returns the value that was 
+  /** Remove a name and its value, if present. Returns the value that was
    *  associated with the name, or null if there was no value.
    */
     public Object remove(String key) {
         return map.remove(key);
     }
 
-    
+
   //**************************************************************************
   //** equals
   //**************************************************************************
-  /** Returns true if the given object is a JSONObject and the JSONObject 
-   *  contains the same key/value pairs. The comparison is made by cloning 
+  /** Returns true if the given object is a JSONObject and the JSONObject
+   *  contains the same key/value pairs. The comparison is made by cloning
    *  the two JSONObjects using the toString() method. Example:
    *  JSONObject j1 = new JSONObject(this.toString());
    *  Note that the order of the key/value pairs is not important.
@@ -328,12 +328,12 @@ public class JSONObject {
         if (obj instanceof JSONObject){
             JSONObject json = (JSONObject) obj;
             if (json.length()==this.length()){
-                
-                
+
+
                 JSONObject j1 = new JSONObject(this.toString());
                 JSONObject j2 = new JSONObject(json.toString());
-                
-                
+
+
                 java.util.Iterator<String> it = j1.keySet().iterator();
                 while (it.hasNext()){
                     String key = it.next();
@@ -352,8 +352,8 @@ public class JSONObject {
         }
         return false;
     }
-    
-    
+
+
   //**************************************************************************
   //** toString
   //**************************************************************************
@@ -365,13 +365,13 @@ public class JSONObject {
     public String toString() {
         try {
             return this.toString(0);
-        } 
+        }
         catch (Exception e) {
             return null;
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** toString
   //**************************************************************************
@@ -390,7 +390,7 @@ public class JSONObject {
         }
     }
 
-    
+
   //**************************************************************************
   //** writeValue
   //**************************************************************************
@@ -398,7 +398,7 @@ public class JSONObject {
             int indentFactor, int indent) throws JSONException, IOException {
         if (value == null || value.equals(null)) {
             writer.write("null");
-        } 
+        }
         else if (value instanceof Number) {
             // not all Numbers may match actual JSON Numbers. i.e. fractions or Imaginary
             final String numberAsString = numberToString((Number) value);
@@ -428,10 +428,14 @@ public class JSONObject {
         }
         else if (value instanceof Enum<?>) {
             writer.write(quote(((Enum<?>)value).name()));
-        } 
+        }
+        else if (value instanceof javaxt.sql.Model) {
+            JSONObject json = ((javaxt.sql.Model) value).toJson();
+            json.write(writer, indentFactor, indent);
+        }
         else if (value instanceof JSONObject) {
             ((JSONObject) value).write(writer, indentFactor, indent);
-        } 
+        }
         else if (value instanceof JSONArray) {
             ((JSONArray) value).write(writer, indentFactor, indent);
 //        } else if (value instanceof Map) {
@@ -442,7 +446,7 @@ public class JSONObject {
 //            new JSONArray(coll).write(writer, indentFactor, indent);
 //        } else if (value.getClass().isArray()) {
 //            new JSONArray(value).write(writer, indentFactor, indent);
-        } 
+        }
         else {
             quote(value.toString(), writer);
         }
@@ -507,8 +511,8 @@ public class JSONObject {
             throw new JSONException(exception);
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** indent
   //**************************************************************************
@@ -518,7 +522,7 @@ public class JSONObject {
         }
     }
 
-    
+
   //**************************************************************************
   //** testValidity
   //**************************************************************************
@@ -537,8 +541,8 @@ public class JSONObject {
             }
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** numberToString
   //**************************************************************************
@@ -564,8 +568,8 @@ public class JSONObject {
         }
         return string;
     }
-        
-    
+
+
   //**************************************************************************
   //** quote
   //**************************************************************************
@@ -649,18 +653,18 @@ public class JSONObject {
 //**  JSONTokener
 //******************************************************************************
 /**
- *   A JSONTokener takes a source string and extracts characters and tokens 
+ *   A JSONTokener takes a source string and extracts characters and tokens
  *   from it. It is used by the JSONObject and JSONArray constructors to parse
  *   JSON source strings.
- * 
+ *
  *   @author json.org
  *   @version 2014-05-03
  *
  ******************************************************************************/
 
 class JSONTokener {
-    
-    
+
+
     /** current read character position on the current line. */
     private long character;
     /** flag to indicate if the end of the input has been found. */
@@ -697,7 +701,7 @@ class JSONTokener {
         this.line = 1;
     }
 
-    
+
 
     /**
      * Back up one character. This provides a sort of lookahead capability,
@@ -749,7 +753,7 @@ class JSONTokener {
 
     /**
      * Checks if the end of the input has been reached.
-     *  
+     *
      * @return true if at the end of the file and we didn't step back
      */
     private boolean end() {
@@ -1128,9 +1132,9 @@ class JSONTokener {
         return " at " + this.index + " [character " + this.character + " line " +
                 this.line + "]";
     }
-    
-    
-    
+
+
+
   //**************************************************************************
   //** stringToValue
   //**************************************************************************
@@ -1180,15 +1184,15 @@ class JSONTokener {
         }
         return string;
     }
-    
-    
+
+
   //**************************************************************************
   //** isDecimalNotation
   //**************************************************************************
-  /** Tests if the value should be treated as a decimal. It makes no test if 
+  /** Tests if the value should be treated as a decimal. It makes no test if
    *  there are actual digits.
-   * 
-   *  @return true if the string is "-0" or if it contains '.', 'e', or 'E', 
+   *
+   *  @return true if the string is "-0" or if it contains '.', 'e', or 'E',
    *  false otherwise.
    */
     private static boolean isDecimalNotation(final String val) {

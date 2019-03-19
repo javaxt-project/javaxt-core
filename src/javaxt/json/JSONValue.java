@@ -5,24 +5,24 @@ package javaxt.json;
 //******************************************************************************
 /**
  *   Used to represent a value associated with a key in a JSONObject or an
- *   entry in a JSONArray. The value can be converted into a number of Java 
+ *   entry in a JSONArray. The value can be converted into a number of Java
  *   primatives (strings, integers, doubles, booleans, etc).
  *
  ******************************************************************************/
 
 public class JSONValue extends javaxt.utils.Value {
 
-    
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of this class. 
+  /** Creates a new instance of this class.
    */
     public JSONValue(Object value){
         super(value);
     }
 
-    
+
   //**************************************************************************
   //** toJSONObject
   //**************************************************************************
@@ -35,11 +35,14 @@ public class JSONValue extends javaxt.utils.Value {
             if (obj instanceof JSONObject) {
                 return (JSONObject) obj;
             }
+            else if (obj instanceof javaxt.sql.Model){
+                return ((javaxt.sql.Model) obj).toJson();
+            }
         }
         return null;
     }
-    
-    
+
+
   //**************************************************************************
   //** toJSONArray
   //**************************************************************************
@@ -55,12 +58,12 @@ public class JSONValue extends javaxt.utils.Value {
         }
         return null;
     }
-    
-    
+
+
   //**************************************************************************
   //** get
   //**************************************************************************
-  /** Returns the value associated with an index in a JSONArray, assuming the  
+  /** Returns the value associated with an index in a JSONArray, assuming the
    *  underlying object represented by this class is a JSONArray. This is
    *  shorthand for value.toJSONArray().get(i);
    */
@@ -73,8 +76,8 @@ public class JSONValue extends javaxt.utils.Value {
         }
         return new JSONValue(null);
     }
-    
-    
+
+
   //**************************************************************************
   //** get
   //**************************************************************************
