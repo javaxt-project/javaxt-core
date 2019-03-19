@@ -12,15 +12,15 @@ import java.io.InputStreamReader;
  ******************************************************************************/
 
 public class Console {
-    
+
     private String me = this.getClass().getName();
     private String indent = "                       "; // 25 spaces
-    
-    
+
+
   //**************************************************************************
   //** log
   //**************************************************************************
-  /** Prints a message to the standard output stream. Accepts strings, nulls, 
+  /** Prints a message to the standard output stream. Accepts strings, nulls,
    *  and all other Java objects.
    */
     public void log(Object obj){
@@ -36,16 +36,16 @@ public class Console {
         if (obj!=null) str = obj.toString();
         System.out.println(source + str);
     }
-    
-    
+
+
   //**************************************************************************
   //** getSource
   //**************************************************************************
-  /** Returns the class name and line number that was used to call the log() 
+  /** Returns the class name and line number that was used to call the log()
    *  method.
    */
     private String getSource(){
-        
+
       //Create an exception
         Exception e = new Exception();
 
@@ -55,18 +55,18 @@ public class Console {
                 String className = el.getClassName();
                 int idx = className.lastIndexOf(".");
                 if (idx>0) className = className.substring(idx+1);
-                
-                idx = className.lastIndexOf("$");
+
+                idx = className.indexOf("$");
                 if (idx>0) className = className.substring(0, idx);
-                
+
                 return className + ":" + el.getLineNumber();
             }
         }
 
         return "";
     }
-    
-    
+
+
   //**************************************************************************
   //** getUserName
   //**************************************************************************
@@ -76,20 +76,20 @@ public class Console {
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         try {
             username = br.readLine();
-        } 
+        }
         catch (IOException e) {
             System.out.println("Error trying to read your name!");
             //System.exit(1);
         }
         return username;
     }
-    
-    
+
+
   //**************************************************************************
   //** getPassword
   //**************************************************************************
     public static String getPassword(String prompt) {
- 
+
         String password = "";
         ConsoleEraser consoleEraser = new ConsoleEraser();
         System.out.print(prompt);
@@ -102,14 +102,14 @@ public class Console {
             System.out.println("Error trying to read your password!");
             //System.exit(1);
         }
- 
+
         consoleEraser.halt();
         System.out.print("\b");
- 
+
         return password;
     }
- 
-    
+
+
   //**************************************************************************
   //** ConsoleEraser Class
   //**************************************************************************
@@ -130,12 +130,12 @@ public class Console {
             running = false;
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** parseArgs
   //**************************************************************************
-  /** Converts command line inputs into key/value pairs. 
+  /** Converts command line inputs into key/value pairs.
    */
     public static java.util.HashMap<String, String> parseArgs(String[] args){
         java.util.HashMap<String, String> map = new java.util.HashMap<String, String>();
