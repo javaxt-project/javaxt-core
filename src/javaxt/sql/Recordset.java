@@ -868,7 +868,7 @@ public class Recordset {
    *  this method will update the Class and Value attributes for the Field
    *  if the field value is a Geometry type.
    */
-    protected static String getQ(Field field, Connection conn){
+    private String getQ(Field field){
 
         if (field==null || field.getValue().isNull()) return "?";
 
@@ -889,13 +889,13 @@ public class Recordset {
         java.lang.Package _package = value.getClass().getPackage();
         String packageName = _package==null ? "" : _package.getName();
         if (packageName.startsWith("javaxt.geospatial.geometry")){
-            String STGeomFromText = getSTGeomFromText(field, conn);
+            String STGeomFromText = getSTGeomFromText(field, Connection);
             field.Value = new Value(value.toString());
             field.Class = "java.lang.String";
             return STGeomFromText + "(?,4326)";
         }
         else if (packageName.startsWith("com.vividsolutions.jts.geom")){
-            String STGeomFromText = getSTGeomFromText(field, conn);
+            String STGeomFromText = getSTGeomFromText(field, Connection);
             field.Value = new Value(value.toString());
             field.Class = "java.lang.String";
             int srid = 4326; //getSRID();
@@ -915,29 +915,9 @@ public class Recordset {
         }
 
 
-      //Special case for JSON objects
-        /*
-        if (packageName.startsWith("javaxt.json") || packageName.startsWith("org.json")){
-            javaxt.sql.Driver driver = conn.getDatabase().getDriver();
-            if (driver.equals("PostgreSQL")){
-                Function function = new Function(
-                    "?::jsonb", new Object[]{
-                        value.toString()
-                    }
-                );
-                return function.getFunction();
-            }
-        }
-        */
-
-
         return "?";
     }
 
-
-    private String getQ(Field field){
-        return getQ(field, Connection);
-    }
 
   //**************************************************************************
   //** getSTGeomFromText
@@ -945,7 +925,7 @@ public class Recordset {
   /** Returns a vendor-specific STGeomFromText fragment for inserting/updating
    *  geometry data.
    */
-    private static String getSTGeomFromText(Field field, Connection conn){
+    protected static String getSTGeomFromText(Field field, Connection conn){
         javaxt.sql.Driver driver = conn.getDatabase().getDriver();
         if (driver.equals("SQLServer")){
             String geo = field.Class.toLowerCase();

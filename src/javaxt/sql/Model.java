@@ -238,40 +238,43 @@ public abstract class Model {
     public void save() throws SQLException {
 
 
-      //Generate a list of key/value pairs
-        HashMap<String, Object> values = new HashMap<String, Object>();
-        {
-            LinkedHashMap<String, Object> fields = getFields();
-            Iterator<String> it = fields.keySet().iterator();
-            while (it.hasNext()){
-                String fieldName = it.next();
-                Object val = fields.get(fieldName);
-                if (val!=null){
-                    if (val instanceof Model){
-                        val = ((Model) val).getID();
-                    }
-                    else if (val instanceof JSONObject){
-                        JSONObject info = (JSONObject) val;
-                        if (info.isEmpty()) val = null;
-                        else{
-                            val = new javaxt.sql.Function(
-                                "?::jsonb", new Object[]{
-                                    info.toString()
-                                }
-                            );
-                        }
-                    }
-                    else if (val instanceof java.util.ArrayList){
-                      //Do nothing, the orm code generator writes code for this
-                        continue;
-                    }
+      //Get list if fields and thier associated values
+        LinkedHashMap<java.lang.reflect.Field, Object> fields = getFields();
+        Iterator<java.lang.reflect.Field> it;
 
+
+      //Itentify and remove fields that we do not want to update in the database
+        ArrayList<java.lang.reflect.Field> arr = new ArrayList<java.lang.reflect.Field>();
+        it = fields.keySet().iterator();
+        while (it.hasNext()){
+            java.lang.reflect.Field f = it.next();
+            String fieldName = f.getName();
+            Class fieldType = f.getType();
+
+            if (fieldType.equals(java.util.ArrayList.class)){
+                arr.add(f);
+            }
+
+            if (fieldName.equalsIgnoreCase("id")){
+                arr.add(f);
+            }
+        }
+        for (java.lang.reflect.Field f : arr){
+            fields.remove(f);
+        }
+
+
+      //Update values as needed
+        for (Map.Entry<java.lang.reflect.Field, Object> entry : fields.entrySet()) {
+            Object val = entry.getValue();
+            if (val!=null){
+                if (val instanceof Model){
+                    entry.setValue(((Model) val).getID());
                 }
-
-
-
-                String columnName = fieldMap.get(fieldName);
-                values.put(columnName, val);
+                else if (val instanceof JSONObject){
+                    JSONObject json = (JSONObject) val;
+                    if (json.isEmpty()) entry.setValue(null);
+                }
             }
         }
 
@@ -279,26 +282,18 @@ public abstract class Model {
 
 
 
-
         if (id==null){ //insert new record
 
-            String className = this.getClass().getName();
 
-          //Generate list of fields
-            ArrayList<Field> fields = new ArrayList<Field>();
+            String className = this.getClass().getName();
+            Field[] dbFields = null;
             synchronized(this.fields){
-                for (Field field : this.fields.get(className)){
-                    String columnName = field.getName();
-                    if (columnName.equalsIgnoreCase("id")) continue;
-                    Object val = values.get(columnName);
-                    field.Value = new Value(val);
-                    fields.add(field);
-                }
+                dbFields = this.fields.get(className);
             }
 
 
 
-          //Get prepared statement
+          //Get or create prepared statement
             PreparedStatement stmt = null;
             synchronized(insertStatements){
                 stmt = insertStatements.get(className);
@@ -307,15 +302,47 @@ public abstract class Model {
 
                     StringBuilder sql = new StringBuilder();
                     sql.append("INSERT INTO " + tableName + " (");
-                    for (int i=0; i<fields.size(); i++){
-                        if (i>0) sql.append(",");
-                        String colName = escape(fields.get(i).getName());
-                        sql.append(colName);
+                    it = fields.keySet().iterator();
+                    while (it.hasNext()){
+                        java.lang.reflect.Field f = it.next();
+                        String columnName = fieldMap.get(f.getName());
+                        sql.append(escape(columnName));
+                        if (it.hasNext()) sql.append(",");
                     }
                     sql.append(") VALUES (");
-                    for (int i=0; i<fields.size(); i++){
-                        if (i>0) sql.append(",");
-                        sql.append(Recordset.getQ(fields.get(i), conn));
+                    it = fields.keySet().iterator();
+                    while (it.hasNext()){
+                        java.lang.reflect.Field f = it.next();
+                        Class fieldType = f.getType();
+                        String packageName = fieldType.getPackage()==null ? "" :
+                                             fieldType.getPackage().getName();
+
+                        String q = "?";
+                        if (packageName.startsWith("javaxt.json") ||
+                            packageName.startsWith("org.json")){
+                            javaxt.sql.Driver driver = conn.getDatabase().getDriver();
+                            if (driver.equals("PostgreSQL")){
+                                q = "?::jsonb";
+                            }
+                        }
+                        else if (packageName.startsWith("javaxt.geospatial.geometry") ||
+                            packageName.startsWith("com.vividsolutions.jts.geom")){
+
+
+                            String columnName = fieldMap.get(f.getName());
+                            String STGeomFromText = null;
+                            for (Field field : dbFields){
+                                if (field.getName().equals(columnName)){
+                                    STGeomFromText = Recordset.getSTGeomFromText(field, conn);
+                                    break;
+                                }
+                            }
+                            q = STGeomFromText + "(?,?)";
+                        }
+
+
+                        sql.append(q);
+                        if (it.hasNext()) sql.append(",");
                     }
                     sql.append(")");
 
@@ -328,10 +355,63 @@ public abstract class Model {
 
 
 
-          //Insert record
-            Recordset.update(stmt, fields);
-            stmt.executeUpdate();
+          //Generate list of database fields for insert
+            ArrayList<Field> updates = new ArrayList<Field>();
+            it = fields.keySet().iterator();
+            while (it.hasNext()){
+                java.lang.reflect.Field f = it.next();
+                Class fieldType = f.getType();
+                String packageName = fieldType.getPackage()==null ? "" :
+                                     fieldType.getPackage().getName();
 
+
+
+              //Get value. Replace with function as needed
+                Object val = fields.get(f);
+                if (packageName.startsWith("javaxt.geospatial.geometry") ||
+                    packageName.startsWith("com.vividsolutions.jts.geom")){
+                    int srid = 4326; //getSRID();
+                    try{
+                        java.lang.reflect.Method method = fieldType.getMethod("getSRID");
+                        if (method!=null){
+                            Object obj = method.invoke(val, null);
+                            if (obj!=null){
+                                srid = (Integer) obj;
+                                if (srid==0) srid = 4326;
+                            }
+                        }
+                    }
+                    catch(Exception e){
+                    }
+                    val = new Function(null, new Object[]{
+                        val == null ? null : val.toString(),
+                        srid
+                    });
+                }
+                else if (packageName.startsWith("javaxt.json") ||
+                    packageName.startsWith("org.json")){
+                    val = new Function(null, new Object[]{
+                        val == null ? null : val.toString()
+                    });
+                }
+
+
+
+
+                String columnName = fieldMap.get(f.getName());
+                for (Field field : dbFields){
+                    if (field.getName().equals(columnName)){
+                        field.Value = new Value(val);
+                        updates.add(field);
+                        break;
+                    }
+                }
+            }
+
+
+          //Insert record
+            Recordset.update(stmt, updates);
+            stmt.executeUpdate();
 
 
           //Get id
@@ -349,10 +429,11 @@ public abstract class Model {
                 conn = getConnection(this.getClass());
                 Recordset rs = new Recordset();
                 rs.open("select * from " + tableName + " where id=" + id, conn, false);
-                Iterator<String> it = values.keySet().iterator();
+                it = fields.keySet().iterator();
                 while (it.hasNext()){
-                    String columnName = it.next();
-                    rs.setValue(columnName, values.get(columnName));
+                    java.lang.reflect.Field f = it.next();
+                    String columnName = fieldMap.get(f.getName());
+                    rs.setValue(columnName, fields.get(f));
                 }
                 rs.update();
                 rs.close();
@@ -394,11 +475,14 @@ public abstract class Model {
     public JSONObject toJson(){
         JSONObject json = new JSONObject();
         if (id!=null) json.set("id", id);
-        LinkedHashMap<String, Object> fields = getFields();
-        Iterator<String> it = fields.keySet().iterator();
+
+        LinkedHashMap<java.lang.reflect.Field, Object> fields = getFields();
+        Iterator<java.lang.reflect.Field> it = fields.keySet().iterator();
         while (it.hasNext()){
-            String fieldName = it.next();
-            Object val = fields.get(fieldName);
+            java.lang.reflect.Field f = it.next();
+            String fieldName = f.getName();
+            Object val = fields.get(f);
+
             if (val!=null){
 
               //Check if the val is a Model or an array of Models. If so,
@@ -725,9 +809,9 @@ public abstract class Model {
   //**************************************************************************
   /** Returns a list of private fields in the class and any associated values.
    */
-    private LinkedHashMap<String, Object> getFields(){
-        LinkedHashMap<String, Object> fields =
-        new LinkedHashMap<String, Object>();
+    private LinkedHashMap<java.lang.reflect.Field, Object> getFields(){
+        LinkedHashMap<java.lang.reflect.Field, Object> fields =
+        new LinkedHashMap<java.lang.reflect.Field, Object>();
         for (java.lang.reflect.Field f : this.getClass().getDeclaredFields()){
             String fieldName = f.getName();
             if (fieldMap.containsKey(fieldName)){
@@ -737,7 +821,7 @@ public abstract class Model {
                     val = f.get(this);
                 }
                 catch(Exception e){}
-                fields.put(fieldName, val);
+                fields.put(f, val);
             }
         }
         return fields;
