@@ -1025,6 +1025,7 @@ public class Recordset {
         Field[] arr = new Field[Fields.length];
         for (int i=0; i<arr.length; i++){
             arr[i] = Fields[i].clone();
+            arr[i].Value = Fields[i].Value;
         }
         return arr;
     }
