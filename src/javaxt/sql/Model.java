@@ -243,7 +243,7 @@ public abstract class Model {
         Iterator<java.lang.reflect.Field> it;
 
 
-      //Itentify and remove fields that we do not want to update in the database
+      //Identify and remove fields that we do not want to update in the database
         ArrayList<java.lang.reflect.Field> arr = new ArrayList<java.lang.reflect.Field>();
         it = fields.keySet().iterator();
         while (it.hasNext()){
@@ -286,7 +286,7 @@ public abstract class Model {
 
 
             String className = this.getClass().getName();
-            Field[] dbFields = null;
+            Field[] dbFields;
             synchronized(this.fields){
                 dbFields = this.fields.get(className);
             }
@@ -294,7 +294,7 @@ public abstract class Model {
 
 
           //Get or create prepared statement
-            PreparedStatement stmt = null;
+            PreparedStatement stmt;
             synchronized(insertStatements){
                 stmt = insertStatements.get(className);
                 if (stmt==null){
@@ -397,14 +397,19 @@ public abstract class Model {
 
 
 
-
+                boolean foundField = false;
                 String columnName = fieldMap.get(f.getName());
                 for (Field field : dbFields){
                     if (field.getName().equals(columnName)){
                         field.Value = new Value(val);
                         updates.add(field);
+                        foundField = true;
                         break;
                     }
+                }
+
+                if (!foundField){
+                    throw new SQLException("Model/Schema mismatch. Failed to find " + columnName + " in the database.");
                 }
             }
 
