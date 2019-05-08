@@ -517,6 +517,27 @@ public abstract class Model {
 
 
   //**************************************************************************
+  //** equals
+  //**************************************************************************
+    public boolean equals(Object obj){
+        if (id!=null){
+            if (this.getClass().isAssignableFrom(obj.getClass())){
+                return obj.hashCode()==hashCode();
+            }
+        }
+        return false;
+    }
+
+
+  //**************************************************************************
+  //** hashCode
+  //**************************************************************************
+    public int hashCode(){
+        return id==null ? -1 : (int) (id ^ (id >>> 32));
+    }
+
+
+  //**************************************************************************
   //** _get
   //**************************************************************************
   /** Used to find a model in the database using a given set of constraints.
@@ -765,19 +786,9 @@ public abstract class Model {
    *  cached.
    */
     public static void init(javaxt.io.Jar jar, ConnectionPool connectionPool){
-        Jar.Entry[] jarEntries = jar.getEntries();
-        for (Jar.Entry entry : jarEntries){
-            String name = entry.getName();
-            if (name.endsWith(".class")){
-                name = name.substring(0, name.length()-6).replace("/", ".");
-                try{
-                    Class c = Class.forName(name);
-                    if (Model.class.isAssignableFrom(c)){
-                        init(c, connectionPool);
-                    }
-                }
-                catch(Exception e){
-                }
+        for (Class c : jar.getClasses()){
+            if (javaxt.sql.Model.class.isAssignableFrom(c)){
+                init(c, connectionPool);
             }
         }
     }

@@ -13,19 +13,19 @@ import java.util.zip.*;
 //**  Jar Class - By Peter Borissow
 //******************************************************************************
 /**
- *   Used to find entries in a jar file associated with a given class or 
- *   package. 
+ *   Used to find entries in a jar file associated with a given class or
+ *   package.
  *
- *   The original motivation behind this class was to support a requirement to 
- *   extract and update config files stored in Java packages. For console apps, 
- *   the config file is stored in the jar (zip) file. For web apps, chances are 
+ *   The original motivation behind this class was to support a requirement to
+ *   extract and update config files stored in Java packages. For console apps,
+ *   the config file is stored in the jar (zip) file. For web apps, chances are
  *   that the package has been un-zipped and the config file is laying around
  *   on disk. This class was designed to support both use cases.
  *
  ******************************************************************************/
 
 public class Jar {
-    
+
     private java.io.File file;
     private java.lang.Package Package;
 
@@ -124,7 +124,7 @@ public class Jar {
   //**************************************************************************
   //** getFile
   //**************************************************************************
-  /** Returns a java.io.File representation of the jar file or directory where 
+  /** Returns a java.io.File representation of the jar file or directory where
    *  the jar file has been extracted.
    */
     public java.io.File getFile(){
@@ -228,11 +228,11 @@ public class Jar {
   //** getEntries
   //**************************************************************************
   /**  Used to return a list of all the entries found in the jar file.
-   */    
+   */
     public Entry[] getEntries(){
         java.util.ArrayList<Entry> entries = new java.util.ArrayList<Entry>();
         try{
-            
+
             if (file.isDirectory()){
                 Directory dir = new Directory(file);
                 java.util.List items = dir.getChildren(true);
@@ -262,7 +262,7 @@ public class Jar {
   //** getEntry
   //**************************************************************************
   /**  Used to retrieve a single entry from the jar file. */
-    
+
     public Entry getEntry(String Entry){
         return getEntry(Package.getName(),Entry);
     }
@@ -271,23 +271,23 @@ public class Jar {
   //**************************************************************************
   //** getEntry
   //**************************************************************************
-  /**  Used to retrieve a single entry from the jar file. 
-   *  @param Package Name of the package or directory in the jar file 
+  /**  Used to retrieve a single entry from the jar file.
+   *  @param Package Name of the package or directory in the jar file
    *  (e.g. "javaxt.io"). Null values and zero length strings default to the
-   *  the root directory. 
-   *  @param Entry Name of the class/file found in the given package  
+   *  the root directory.
+   *  @param Entry Name of the class/file found in the given package
    *  (e.g. "Jar.class").
    */
     public Entry getEntry(String Package, String Entry){
 
         ZipInputStream in = null;
         try{
-            
+
             if (file.isDirectory()){
                 return new Entry(new java.io.File(file, Entry));
             }
             else{
-            
+
               //Update package name and entry
                 if (Package!=null){
                     Package = Package.trim();
@@ -320,7 +320,7 @@ public class Jar {
             }
             //e.printStackTrace();
         }
-        
+
         return null;
     }
 
@@ -329,7 +329,7 @@ public class Jar {
   //** getEntries
   //**************************************************************************
   /**  Used to retrieve a single entry from the jar file. */
-    
+
     public Entry getEntry(java.lang.Class Class) {
         String ClassName = Class.getName();
         String PackageName = Class.getPackage().getName();
@@ -339,10 +339,33 @@ public class Jar {
 
 
   //**************************************************************************
+  //** getClasses
+  //**************************************************************************
+  /** Returns all the classes in the jar file. Returns an empty array if the
+   *  jar file has not been loaded or if there are no classes in the file.
+   */
+    public Class[] getClasses(){
+        java.util.ArrayList<Class> classes = new java.util.ArrayList<Class>();
+        for (Jar.Entry entry : getEntries()){
+            String name = entry.getName();
+            if (name.endsWith(".class")){
+                name = name.substring(0, name.length()-6).replace("/", ".");
+                try{
+                    classes.add(Class.forName(name));
+                }
+                catch(Exception e){
+                }
+            }
+        }
+        return classes.toArray(new Class[classes.size()]);
+    }
+
+
+  //**************************************************************************
   //** toString
   //**************************************************************************
   /**  Returns the path to the jar file. */
-    
+
     public String toString(){
         return file.toString();
     }
@@ -352,7 +375,7 @@ public class Jar {
   //** getResource
   //**************************************************************************
   /** Returns the URL associated with a given path in the jar file.
-   *  @param cl ClassLoader used to find the given path/resource. If the 
+   *  @param cl ClassLoader used to find the given path/resource. If the
    *  ClassLoader is null or fails to find the requested path, an alternate
    *  ClassLoader is used (e.g. ClassLoader's Parent, ContextClassLoader,
    *  SystemClassLoader).
@@ -441,7 +464,7 @@ public class Jar {
                 else if (path.startsWith("jar:http")){
                     path = path.substring(path.indexOf("http"));
                     path = path.substring(0,path.toLowerCase().indexOf(".jar")+4);
-                    
+
                 }
             }
             else{
@@ -465,13 +488,13 @@ public class Jar {
     public class Entry{
         private ZipEntry zipEntry = null;
         private java.io.File fileEntry = null;
-        
+
       /** Constructor for zipped jar files. */
         private Entry(ZipEntry zipEntry){
             this.zipEntry = zipEntry;
         }
-        
-      /** Constructor for unzipped jar files. */  
+
+      /** Constructor for unzipped jar files. */
         private Entry(java.io.File fileEntry){
             this.fileEntry = fileEntry;
         }
@@ -508,12 +531,12 @@ public class Jar {
                 return fileEntry.length();
             }
         }
-        
+
 
         public byte[] getBytes(){
             ZipFile zip = null;
             try{
-                
+
                 if (fileEntry==null){
                     zip = new ZipFile(file);
                     java.io.DataInputStream is = new java.io.DataInputStream(zip.getInputStream(zipEntry));
@@ -567,7 +590,7 @@ public class Jar {
                     out.close();
                 }
                 else{
-                    
+
                   //Simply copy the file to the destination
                     if (destination.isFile()){
                         new File(fileEntry).copyTo(new File(destination),false);
@@ -581,8 +604,8 @@ public class Jar {
                 e.printStackTrace();
             }
         }
-        
-        
+
+
         public void setText(String text){
             try{
                 if (fileEntry==null){
@@ -590,13 +613,13 @@ public class Jar {
                     ByteArrayInputStream byteInput = new ByteArrayInputStream(text.getBytes());
                     ZipOutputStream zipOutput = new ZipOutputStream(byteOutput);
                     ZipInputStream zipInput = new ZipInputStream(new FileInputStream(file));
-                    
-                    
+
+
                     ZipEntry zipEntry = null;
                     while((zipEntry = zipInput.getNextEntry())!=null){
-                        
+
                         if (zipEntry.getName().equals(this.zipEntry.getName())){
-                            
+
                           //Write Updated Config File
                             zipOutput.putNextEntry(new ZipEntry(this.zipEntry.getName()));
                             byte[] buf = new byte[1024];
@@ -614,11 +637,11 @@ public class Jar {
                                 zipOutput.write(buf, 0, len);
                             }
                         }
-                        
+
                         zipInput.closeEntry();
                         zipOutput.closeEntry();
                     }
-                    
+
                     zipInput.close();
                     zipOutput.close();
 
@@ -626,9 +649,9 @@ public class Jar {
                     FileOutputStream fos = new FileOutputStream(file);
                     fos.write(byteOutput.toByteArray());
                     fos.close();
-                    
+
                     byteOutput.close();
-                    
+
                 }
                 else{
                     new File(fileEntry).write(text);
@@ -643,7 +666,7 @@ public class Jar {
             return getText("UTF-8");
         }
 
-      /** Used to extract the contents to a string. Returns null if the 
+      /** Used to extract the contents to a string. Returns null if the
        *  extraction failed.
        *  @param charsetName Name of the character encoding used to read the
        *  file. Examples include UTF-8 and ISO-8859-1
@@ -677,7 +700,7 @@ public class Jar {
             }
 
         }
-        
+
         public String toString(){
             return getName();
         }

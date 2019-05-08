@@ -25,6 +25,7 @@ public class Recordset {
 
     private Value GeneratedKey;
 
+    private java.util.ArrayList keys = new java.util.ArrayList();
 
 
    /**
@@ -430,6 +431,7 @@ public class Recordset {
         stmt = null;
         driver = null;
         sqlString = null;
+        keys.clear();
 
         if (Fields!=null){
             for (Field f : Fields){
@@ -580,31 +582,42 @@ public class Recordset {
 
           //Find primary key for the table. This slows things down
           //quite a bit but we need it for the "where" clause.
-            java.util.ArrayList<Field> keys = new java.util.ArrayList<Field>();
-            try{
-                java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
-                java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
-                if (r2.next()) {
-                    Table table = new Table(r2, dbmd);
-                    Key[] arr = table.getPrimaryKeys();
-                    if (arr!=null){
-                        for (int i=0; i<arr.length; i++){
-                            Key key = arr[i];
-                            Field field = getField(key.getColumn());
-                            if (field!=null) keys.add(field);
+            if (keys.isEmpty()){
+                try{
+                    java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
+                    java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
+                    if (r2.next()) {
+                        Table table = new Table(r2, dbmd);
+                        Key[] arr = table.getPrimaryKeys();
+                        if (arr!=null){
+                            for (int i=0; i<arr.length; i++){
+                                Key key = arr[i];
+                                Field field = getField(key.getColumn());
+                                if (field!=null) keys.add(field);
+                            }
                         }
                     }
+                    r2.close();
                 }
-                r2.close();
+                catch(Exception e){
+                }
             }
-            catch(Exception e){
-            }
+
+
 
           //Build the where clause
             if (!keys.isEmpty()){
                 sql.append(" WHERE ");
                 for (int i=0; i<keys.size(); i++){
-                    Field field = keys.get(i);
+                    Object key = keys.get(i);
+                    Field field;
+                    if (key instanceof String){
+                        field = getField((String) key);
+                        keys.set(i, field);
+                    }
+                    else{
+                        field = (Field) key;
+                    }
                     fields.add(field);
                     if (i>0) sql.append(" AND ");
                     String colName = escape(field.getName());
@@ -964,18 +977,69 @@ public class Recordset {
   //**************************************************************************
   //** setBatchSize
   //**************************************************************************
-  /** Used to set the number of records to insert in a batch. By default, this
-   *  value is set to 1 so that records are inserted one at a time. By setting
-   *  a larger number, more records are inserted at a time which can
-   *  significantly improve performance.
+  /** Used to set the number of records to insert or update in a batch. By
+   *  default, this value is set to 1 so that records are inserted/updated one
+   *  at a time. By setting a larger number, more records are inserted at a
+   *  time which can significantly improve performance.
    */
     public void setBatchSize(int batchSize){
         if (batchSize>0) this.batchSize = batchSize;
     }
 
 
+  //**************************************************************************
+  //** getBatchSize
+  //**************************************************************************
+  /** Returns the number of records that will be inserted or updated in a
+   *  batch. By default, this value is set to 1 so that records are inserted/
+   *  updated one at a time.
+   */
     public int getBatchSize(){
         return batchSize;
+    }
+
+
+  //**************************************************************************
+  //** setUpdateKeys
+  //**************************************************************************
+  /** Used to identify unique fields in a table for updates. Typically, this
+   *  is the primary key(s) or a column with a unique constraint. In most
+   *  cases, you do not need to call this method when updating records.
+   *  Instead, an attempt is made to find the primary keys for the table using
+   *  recordset metadata. However, this lookup may slow things down a bit and
+   *  doesn't work on tables that don't have a primary key.
+   *  @param keys List of column names (String) or javaxt.sql.Field
+   */
+    public void setUpdateKeys(Object...keys){
+        for (Object key : keys){
+            if (key instanceof String){
+                if (isOpen()){
+                    this.keys.add(getField((String) key));
+                }
+                else{
+                    this.keys.add(key);
+                }
+            }
+            else if (key instanceof Field){
+                this.keys.add(key);
+            }
+            else{
+                throw new IllegalArgumentException("Unsupported key type: " + key.getClass());
+            }
+        }
+    }
+
+
+  //**************************************************************************
+  //** setUpdateKey
+  //**************************************************************************
+  /** Used to identify a unique field in a table for updates. Typically, this
+   *  is the primary key or a column with a unique constraint. Please see
+   *  setUpdateKeys() for more information.
+   *  @param key Column name (String) or javaxt.sql.Field
+   */
+    public void setUpdateKey(Object key){
+        setUpdateKeys(key);
     }
 
 
