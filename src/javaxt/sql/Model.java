@@ -282,7 +282,7 @@ public abstract class Model {
 
 
 
-        if (id==null){ //insert new record
+        if (id==null){ //insert new record using prepared statement (faster than recordset)
 
 
             String className = this.getClass().getName();
@@ -432,13 +432,36 @@ public abstract class Model {
             Connection conn = null;
             try{
                 conn = getConnection(this.getClass());
+
+                javaxt.sql.Driver driver = conn.getDatabase().getDriver();
+                if (driver==null) driver = new Driver("","","");
+
                 Recordset rs = new Recordset();
                 rs.open("select * from " + tableName + " where id=" + id, conn, false);
+                if (rs.EOF){
+                    rs.addNew();
+                    rs.setValue("id", id);
+                }
                 it = fields.keySet().iterator();
                 while (it.hasNext()){
                     java.lang.reflect.Field f = it.next();
                     String columnName = fieldMap.get(f.getName());
-                    rs.setValue(columnName, fields.get(f));
+                    Object val = fields.get(f);
+                    if (val instanceof JSONObject || val instanceof JSONArray){
+                        if (driver.equals("PostgreSQL")){
+                            rs.setValue(columnName, new javaxt.sql.Function(
+                                "?::jsonb", new Object[]{
+                                    val.toString()
+                                }
+                            ));
+                        }
+                        else{
+                            rs.setValue(columnName, val.toString());
+                        }
+                    }
+                    else{
+                        rs.setValue(columnName, val);
+                    }
                 }
                 rs.update();
                 rs.close();

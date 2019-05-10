@@ -542,12 +542,23 @@ public class Recordset {
 
       //Get table name
         String tableName = Fields[0].getTable();
+        String schemaName = Fields[0].getSchema();
         if (tableName==null){
             updateFields();
             tableName = Fields[0].getTable();
+            schemaName = Fields[0].getSchema();
+        }
+        else{
+            if (schemaName==null){
+                updateFields();
+                schemaName = Fields[0].getSchema();
+            }
         }
         //if (tableName.contains(" ")) tableName = "[" + tableName + "]";
         tableName = escape(tableName);
+        schemaName = escape(schemaName);
+        if (schemaName!=null) tableName = schemaName + "." + tableName;
+
 
 
       //Construct a SQL insert/update statement
@@ -856,6 +867,7 @@ public class Recordset {
   //**************************************************************************
 
     private String escape(String colName){
+        if (colName==null) return null;
         String[] keywords = Database.getReservedKeywords(Connection);
         colName = colName.trim();
         if (colName.contains(" ") && !colName.startsWith("[")){
@@ -1434,41 +1446,65 @@ public class Recordset {
 
 
        //Match selected tables to tables found in this database
-         java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
-         for (Table table : Database.getTables(Connection)){
-             for (String selectedTable : selectedTables){
-                 if (selectedTable.contains(".")) selectedTable = selectedTable.substring(selectedTable.indexOf("."));
-                 if (selectedTable.equalsIgnoreCase(table.getName())){
-                     tables.add(table);
-                 }
-             }
-         }
+        java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
+        Table[] arr = Database.getTables(Connection);
+        for (String selectedTable : selectedTables){
+            String tableName;
+            String schemaName;
+            int idx = selectedTable.indexOf(".");
+            if (idx>-1){
+                tableName = selectedTable.substring(idx+1);
+                schemaName = selectedTable.substring(0, idx);
+            }
+            else{
+                tableName = selectedTable;
+                schemaName = null;
+            }
+
+            for (Table table : arr){
+                if (tableName.equalsIgnoreCase(table.getName())){
+
+                    if (schemaName==null){
+                        tables.add(table);
+                        break;
+                    }
+                    else{
+                        if (schemaName.equalsIgnoreCase(table.getSchema())){
+                            tables.add(table);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+
 
 
       //Iterate through all the fields and update the Table and Schema attributes
         for (Field field : Fields){
 
-             if (field.getTable()==null){
+            if (field.getTable()==null){
 
-               //Update Table and Schema
-                 Column[] columns = getColumns(field, tables);
-                 if (columns!=null){
-                     Column column = columns[0]; //<-- Need to implement logic to
-                     field.setTableName(column.getTable().getName());
-                     field.setSchemaName(column.getTable().getSchema());
-                 }
-             }
+              //Update Table and Schema
+                Column[] columns = getColumns(field, tables);
+                if (columns!=null){
+                    Column column = columns[0]; //<-- Need to implement logic to
+                    field.setTableName(column.getTable().getName());
+                    field.setSchemaName(column.getTable().getSchema());
+                }
+            }
 
-             if (field.getSchema()==null) {
+            if (field.getSchema()==null) {
 
-               //Update Schema
-                 for (Table table : tables){
+              //Update Schema
+                for (Table table : tables){
                     if (table.getName().equalsIgnoreCase(field.getTable())){
                         field.setSchemaName(table.getSchema());
                         break;
-                     }
-                 }
-             }
+                    }
+                }
+            }
         }
 
         tables.clear();
