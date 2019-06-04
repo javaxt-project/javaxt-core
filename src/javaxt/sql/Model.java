@@ -137,11 +137,14 @@ public abstract class Model {
 
 
         StringBuilder sql = new StringBuilder("select ");
+        boolean addID = true;
         for (int i=0; i<fieldNames.length; i++){
             if (i>0) sql.append(", ");
             String fieldName = fieldNames[i];
+            if (fieldName.equalsIgnoreCase("id")) addID = false;
             sql.append(escape(fieldName));
         }
+        if (addID) sql.append(", id");
         sql.append(" from ");
         sql.append(tableName);
         sql.append(" where id=");
@@ -743,8 +746,8 @@ public abstract class Model {
   //**************************************************************************
   //** init
   //**************************************************************************
-  /** Used to associate a model with a database connection pool. This allows
-   *  queries and other database metadata to be cached.
+  /** Used to initialize a Model and associate it with a database connection
+   *  pool. This allows queries and other database metadata to be cached.
     <pre>
         for (Jar.Entry entry : jar.getEntries()){
             String name = entry.getName();
@@ -758,7 +761,7 @@ public abstract class Model {
         }
     </pre>
    */
-    public static void init(Class c, ConnectionPool connectionPool){
+    public static void init(Class c, ConnectionPool connectionPool) throws SQLException {
 
         String className = c.getName();
 
@@ -796,7 +799,9 @@ public abstract class Model {
         }
         catch(Exception e){
             if (conn!=null) conn.close();
-            e.printStackTrace();
+            SQLException ex = new SQLException("Failed to initialize Model: " + className);
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
         }
     }
 
@@ -804,11 +809,11 @@ public abstract class Model {
   //**************************************************************************
   //** init
   //**************************************************************************
-  /** Used to associate all the models found in a JAR file with a database
-   *  connection pool. This allows queries and other database metadata to be
-   *  cached.
+  /** Used to initialize all the Models found in a jar file and associate them
+   *  with a database connection pool. This allows queries and other database
+   *  metadata to be cached.
    */
-    public static void init(javaxt.io.Jar jar, ConnectionPool connectionPool){
+    public static void init(javaxt.io.Jar jar, ConnectionPool connectionPool) throws SQLException {
         for (Class c : jar.getClasses()){
             if (javaxt.sql.Model.class.isAssignableFrom(c)){
                 init(c, connectionPool);

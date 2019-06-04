@@ -2,6 +2,7 @@ package javaxt.utils;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.text.DecimalFormat;
 
 //******************************************************************************
 //**  Console
@@ -14,7 +15,8 @@ import java.io.InputStreamReader;
 public class Console {
 
     private String me = this.getClass().getName();
-    private String indent = "                       "; // 25 spaces
+    private static final String indent = "                       "; // 25 spaces
+    private static final DecimalFormat df = new DecimalFormat("#.##");
 
 
   //**************************************************************************
@@ -33,7 +35,15 @@ public class Console {
             source += " ";
         }
         String str = null;
-        if (obj!=null) str = obj.toString();
+        if (obj!=null){
+            if (obj instanceof Double){
+                df.setMaximumFractionDigits(8);
+                str = df.format((Double) obj);
+            }
+            else{
+                str = obj.toString();
+            }
+        }
         System.out.println(source + str);
     }
 
