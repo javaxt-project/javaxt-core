@@ -149,7 +149,7 @@ public class Request {
   //**************************************************************************
   //** initHeaders
   //**************************************************************************
-    
+
     private void initHeaders(){
         this.setUseCache(false);
         this.setHeader("Accept", "*/*");
@@ -183,8 +183,8 @@ public class Request {
   //**************************************************************************
   //** getInitialURL
   //**************************************************************************
-  /** Returns the URL used to instantiate this class. This URL may be 
-   *  different from the URL used to execute the request. See getURL() for  
+  /** Returns the URL used to instantiate this class. This URL may be
+   *  different from the URL used to execute the request. See getURL() for
    *  more information.
    */
     public java.net.URL getInitialURL(){
@@ -196,9 +196,9 @@ public class Request {
   //** setRequestMethod
   //**************************************************************************
   /** Used to specify the request method ("GET", "POST", "PUT", "DELETE", etc).
-   *  By default, requests are made using "GET" when fetching data and "POST" 
-   *  when writing data to the server. This method is used to override these 
-   *  defaults (e.g. "PUT" and "DELETE" for REST services). 
+   *  By default, requests are made using "GET" when fetching data and "POST"
+   *  when writing data to the server. This method is used to override these
+   *  defaults (e.g. "PUT" and "DELETE" for REST services).
    */
     public void setRequestMethod(String method){
         if (method!=null){
@@ -240,9 +240,9 @@ public class Request {
   /** Used to enable/disable certificate validation for HTTPS Connections.
    *  By default, certificates are validated via a Certificate Authority (CA).
    *  However, there are times where you may not want to validate a site's
-   *  certificate (e.g. connecting to a intranet site or a development server 
-   *  with self-signed certificate). In these cases, you can bypass the 
-   *  validation process by setting this method to false. 
+   *  certificate (e.g. connecting to a intranet site or a development server
+   *  with self-signed certificate). In these cases, you can bypass the
+   *  validation process by setting this method to false.
    */
     public void validateSSLCertificates(boolean validateCertificates){
         this.validateCertificates = validateCertificates;
@@ -264,9 +264,9 @@ public class Request {
   //** setCredentials
   //**************************************************************************
   /** Used to set the username and password used to authenticate the client.
-   *  The credentials are used in the "Authorization" request header and 
-   *  encoded using "Basic" authentication. Note that credentials encoded 
-   *  using "Basic" authentication can be easily decoded. As a general rule, 
+   *  The credentials are used in the "Authorization" request header and
+   *  encoded using "Basic" authentication. Note that credentials encoded
+   *  using "Basic" authentication can be easily decoded. As a general rule,
    *  do not pass credentials to sites that are not secured using SSL.
    */
     public void setCredentials(String username, String password){
@@ -278,9 +278,9 @@ public class Request {
   //**************************************************************************
   //** setUserName
   //**************************************************************************
-  /** Used to set the username used to authenticate the client. See 
+  /** Used to set the username used to authenticate the client. See
    *  setCredentials() for more information.
-   */    
+   */
     public void setUserName(String username){
         this.username = username;
     }
@@ -289,9 +289,9 @@ public class Request {
   //**************************************************************************
   //** setPassword
   //**************************************************************************
-  /** Used to set the password used to authenticate the client. See 
+  /** Used to set the password used to authenticate the client. See
    *  setCredentials() for more information.
-   */ 
+   */
     public void setPassword(String password){
         this.password = password;
     }
@@ -300,12 +300,15 @@ public class Request {
   //**************************************************************************
   //** getCredentials
   //**************************************************************************
-  /** Used to get a Base64 encoded string representing the username and 
+  /** Used to get a Base64 encoded string representing the username and
    *  password. The string is used for "Basic" authentication.
-   */ 
+   */
     private String getCredentials() throws Exception {
         if (username==null || password==null) return null;
-        else return javaxt.utils.Base64.encode((username + ":" + password));
+        else return javaxt.utils.Base64.encode(
+            (username + ":" + password),
+            javaxt.utils.Base64.DONT_BREAK_LINES //important for long credentials
+        );
     }
 
 
@@ -422,29 +425,29 @@ public class Request {
   //**************************************************************************
   //** write
   //**************************************************************************
-  /** Used to post an array of form inputs to a server. Form inputs can 
+  /** Used to post an array of form inputs to a server. Form inputs can
    *  include text or binary data, including files. Payload is normally
    *  "multipart/form-data" encoded.
    */
-    public void write(javaxt.html.Input[] inputs){        
-        
+    public void write(javaxt.html.Input[] inputs){
+
       //Generate boundary
         String boundary = "---------------------------";
         for (int i=0; i<14; i++) boundary += new java.util.Random().nextInt(10);
         int boundarySize = boundary.length();
-        
+
         try{
-            
+
           //Compute payload size and generate content metadata for each input
             long size = 0;
             java.util.ArrayList<byte[]> metadata = new java.util.ArrayList<byte[]>();
             for (int i=0; i<inputs.length; i++){
-                
+
                 javaxt.html.Input input = inputs[i];
                 String contentType = "";
                 String fileName = "";
                 long inputLength = 0;
-                
+
                 if (input.isFile()){
                     javaxt.io.File file = (javaxt.io.File) input.getValue();
                     fileName = "; filename=\"" + file.getName() + "\"";
@@ -454,7 +457,7 @@ public class Request {
                 else{
                     inputLength = input.getSize();
                 }
-                
+
                 String contentDisposition = "Content-Disposition: form-data; name=\"" + input.getName() + "\"" + fileName;
                 byte[] md = (contentDisposition + "\r\n" + contentType + "\r\n").getBytes("UTF-8");
                 metadata.add(md);
@@ -463,7 +466,7 @@ public class Request {
             }
             size+=(boundarySize+8); //CRLF + 2 hyphens + boundary + 2 hyphens + CRLF
 
-            
+
           //Set request headers
             setHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
             setHeader("Content-Length", size+"");
@@ -472,19 +475,19 @@ public class Request {
           //Open socket
             if (conn==null) conn = getConnection(true);
 
-            
+
           //Write content
             java.io.OutputStream outputStream = null;
             try{
                 outputStream = conn.getOutputStream();
-                for (int i=0; i<inputs.length; i++){                    
+                for (int i=0; i<inputs.length; i++){
 
                   //Write boundary and input metadata
                     byte[] bd = ((i>0?"\r\n":"") + "--" + boundary + "\r\n").getBytes("UTF-8");
                     byte[] md = metadata.get(i);
                     outputStream.write(bd);
                     outputStream.write(md);
-                    
+
                   //Write input value
                     if (inputs[i].isFile()){
                         javaxt.io.File file = (javaxt.io.File) inputs[i].getValue();
@@ -493,22 +496,22 @@ public class Request {
                         int x=0;
                         while ( (x = inputStream.read(b)) != -1) {
                             outputStream.write(b,0,x);
-                        }            
+                        }
                         inputStream.close();
                     }
                     else{
                         outputStream.write(inputs[i].toByteArray());
                     }
                 }
-                
+
               //Write footer and close outputstream
                 byte[] bd = ("\r\n--" + boundary + "--\r\n").getBytes("UTF-8");
                 outputStream.write(bd);
-                outputStream.close();                
+                outputStream.close();
             }
             catch(IOException e){
                 if (outputStream!=null){
-                    try{outputStream.close();} 
+                    try{outputStream.close();}
                     catch(Exception ex){}
                 }
             }
@@ -596,7 +599,7 @@ public class Request {
    */
     private URLConnection connect(boolean doOutput){
         try {
-            
+
           //Set flag used to indicate whether this is an SSL request
             boolean ssl = url.getProtocol().equalsIgnoreCase("https");
 
@@ -630,7 +633,7 @@ public class Request {
 
           //Encode whitespaces and other illegal chars using the javaxt URL class
             url = new javaxt.utils.URL(url).toURL();
-            
+
 
           //Open connection
             URLConnection conn;
@@ -641,13 +644,13 @@ public class Request {
                 conn = url.openConnection(HttpProxy);
             }
 
-            
+
           //Set request method as needed
             if (method!=null){
                 HttpsURLConnection con = (HttpsURLConnection)conn;
                 con.setRequestMethod(method);
             }
-            
+
 
           //Set timeouts
             if (connectionTimeout>0){
@@ -709,6 +712,7 @@ public class Request {
 
         }
         catch (Exception e) {
+            //e.printStackTrace();
             return null;
         }
     }
@@ -721,16 +725,16 @@ public class Request {
    */
     private URLConnection getConnection(boolean doOutput){
 
-        
-      //If we're writing data to the socket (e.g. "POST") and maxRedirects<0, 
-      //simply open a connection and let the caller figure out what to do with 
+
+      //If we're writing data to the socket (e.g. "POST") and maxRedirects<0,
+      //simply open a connection and let the caller figure out what to do with
       //the response.
         if (doOutput && maxRedirects<1){
             URLConnection conn = this.connect(true);
             requestHeaders = conn.getRequestProperties();
             return conn;
         }
-        
+
 
       //If we're still here, perform a "GET" request and look for 3XX series
       //response codes. Follow redirects as needed. Note that once the
@@ -840,7 +844,7 @@ public class Request {
 
     }
 
-    
+
 
   //**************************************************************************
   //** getExpiration
@@ -960,7 +964,7 @@ public class Request {
       //Convert the list into a string array
         return values.toArray(new String[values.size()]);
     }
-    
+
 
     protected String getResponseHeader(String headerName){
         String[] arr = getResponseHeaders(headerName);

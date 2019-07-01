@@ -26,6 +26,8 @@ public class Console {
    *  and all other Java objects.
    */
     public void log(Object obj){
+
+      //Get source
         String source = getSource();
         source = "[" + source + "]";
         if (source.length()<indent.length()){
@@ -34,6 +36,35 @@ public class Console {
         else{
             source += " ";
         }
+
+
+      //Get string representation of the object
+        String str = null;
+        if (obj!=null){
+            if (obj.getClass().isArray()){
+                Object[] arr = (Object[]) obj;
+                StringBuilder sb = new StringBuilder("[");
+                for (int i=0; i<arr.length; i++){
+                    String s = format(arr[i]);
+                    if (i>0) sb.append(",");
+                    sb.append(s);
+                }
+                sb.append("]");
+                str = sb.toString();
+            }
+            else{
+                str = format(obj);
+            }
+        }
+
+        System.out.println(source + str);
+    }
+
+    
+  //**************************************************************************
+  //** format
+  //**************************************************************************
+    private String format(Object obj){
         String str = null;
         if (obj!=null){
             if (obj instanceof Double){
@@ -44,7 +75,7 @@ public class Console {
                 str = obj.toString();
             }
         }
-        System.out.println(source + str);
+        return str;
     }
 
 

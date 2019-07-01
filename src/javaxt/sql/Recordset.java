@@ -772,6 +772,10 @@ public class Recordset {
    */
     protected static void update(java.sql.PreparedStatement stmt, java.util.ArrayList<Field> fields) throws java.sql.SQLException {
 
+        try{ stmt.clearParameters(); }
+        catch(Exception e){}
+
+
         int id = 1;
         for (int i=0; i<fields.size(); i++) {
 

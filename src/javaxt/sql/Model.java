@@ -289,73 +289,18 @@ public abstract class Model {
 
 
             String className = this.getClass().getName();
+
+
+          //Get a copy of the database fields for this class. Note that the
+          //field value is updated so we need to clone the fields
             Field[] dbFields;
             synchronized(this.fields){
-                dbFields = this.fields.get(className);
-            }
-
-
-
-          //Get or create prepared statement
-            PreparedStatement stmt;
-            synchronized(insertStatements){
-                stmt = insertStatements.get(className);
-                if (stmt==null){
-                    Connection conn = getConnection(this.getClass());
-
-                    StringBuilder sql = new StringBuilder();
-                    sql.append("INSERT INTO " + tableName + " (");
-                    it = fields.keySet().iterator();
-                    while (it.hasNext()){
-                        java.lang.reflect.Field f = it.next();
-                        String columnName = fieldMap.get(f.getName());
-                        sql.append(escape(columnName));
-                        if (it.hasNext()) sql.append(",");
-                    }
-                    sql.append(") VALUES (");
-                    it = fields.keySet().iterator();
-                    while (it.hasNext()){
-                        java.lang.reflect.Field f = it.next();
-                        Class fieldType = f.getType();
-                        String packageName = fieldType.getPackage()==null ? "" :
-                                             fieldType.getPackage().getName();
-
-                        String q = "?";
-                        if (packageName.startsWith("javaxt.json") ||
-                            packageName.startsWith("org.json")){
-                            javaxt.sql.Driver driver = conn.getDatabase().getDriver();
-                            if (driver.equals("PostgreSQL")){
-                                q = "?::jsonb";
-                            }
-                        }
-                        else if (packageName.startsWith("javaxt.geospatial.geometry") ||
-                            packageName.startsWith("com.vividsolutions.jts.geom")){
-
-
-                            String columnName = fieldMap.get(f.getName());
-                            String STGeomFromText = null;
-                            for (Field field : dbFields){
-                                if (field.getName().equals(columnName)){
-                                    STGeomFromText = Recordset.getSTGeomFromText(field, conn);
-                                    break;
-                                }
-                            }
-                            q = STGeomFromText + "(?,?)";
-                        }
-
-
-                        sql.append(q);
-                        if (it.hasNext()) sql.append(",");
-                    }
-                    sql.append(")");
-
-
-                    stmt = conn.getConnection().prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
-                    insertStatements.put(className, stmt);
-                    insertStatements.notify();
+                Field[] _dbFields = this.fields.get(className);
+                dbFields = new Field[_dbFields.length];
+                for (int i=0; i<dbFields.length; i++){
+                    dbFields[i] = _dbFields[i].clone();
                 }
             }
-
 
 
           //Generate list of database fields for insert
@@ -417,17 +362,85 @@ public abstract class Model {
             }
 
 
-          //Insert record
-            Recordset.update(stmt, updates);
-            stmt.executeUpdate();
+
+          //Create new record. Note that PreparedStatements are not thread-safe
+          //and we are only caching one PreparedStatement per model. As a
+          //result, we can only insert one record per model at a time. If
+          //needed, we could add an option to allow users to specify the number
+          //of PreparedStatement per model.
+            synchronized(insertStatements){
+
+              //Get or create prepared statement
+                PreparedStatement stmt = insertStatements.get(className);
+                if (stmt==null){
+                    Connection conn = getConnection(this.getClass());
+
+                    StringBuilder sql = new StringBuilder();
+                    sql.append("INSERT INTO " + tableName + " (");
+                    it = fields.keySet().iterator();
+                    while (it.hasNext()){
+                        java.lang.reflect.Field f = it.next();
+                        String columnName = fieldMap.get(f.getName());
+                        sql.append(escape(columnName));
+                        if (it.hasNext()) sql.append(",");
+                    }
+                    sql.append(") VALUES (");
+                    it = fields.keySet().iterator();
+                    while (it.hasNext()){
+                        java.lang.reflect.Field f = it.next();
+                        Class fieldType = f.getType();
+                        String packageName = fieldType.getPackage()==null ? "" :
+                                             fieldType.getPackage().getName();
+
+                        String q = "?";
+                        if (packageName.startsWith("javaxt.json") ||
+                            packageName.startsWith("org.json")){
+                            javaxt.sql.Driver driver = conn.getDatabase().getDriver();
+                            if (driver.equals("PostgreSQL")){
+                                q = "?::jsonb";
+                            }
+                        }
+                        else if (packageName.startsWith("javaxt.geospatial.geometry") ||
+                            packageName.startsWith("com.vividsolutions.jts.geom")){
 
 
-          //Get id
-            java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-            if (generatedKeys.next()) {
-                id = new Value(generatedKeys.getString(1)).toLong();
+                            String columnName = fieldMap.get(f.getName());
+                            String STGeomFromText = null;
+                            for (Field field : dbFields){
+                                if (field.getName().equals(columnName)){
+                                    STGeomFromText = Recordset.getSTGeomFromText(field, conn);
+                                    break;
+                                }
+                            }
+                            q = STGeomFromText + "(?,?)";
+                        }
+
+
+                        sql.append(q);
+                        if (it.hasNext()) sql.append(",");
+                    }
+                    sql.append(")");
+
+
+
+                    stmt = conn.getConnection().prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                    insertStatements.put(className, stmt);
+                    insertStatements.notify();
+                }
+
+
+              //Insert record
+                Recordset.update(stmt, updates);
+                stmt.executeUpdate();
+
+
+              //Get id
+                java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    id = new Value(generatedKeys.getString(1)).toLong();
+                }
+
             }
-
 
         }
         else{ //update existing record

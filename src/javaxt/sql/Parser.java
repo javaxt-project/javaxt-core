@@ -15,13 +15,13 @@ package javaxt.sql;
  ******************************************************************************/
 
 public class Parser {
-    
+
     private java.util.HashMap sql = new java.util.HashMap();
 
     private static String[] sqlOperators =
     new String[]{"IS NULL","IS NOT NULL","BETWEEN","CONTAINS","LIKE","<>","<=",">=","=","<",">","IN","MATCHES","SOME","NOT EXISTS","EXISTS"};
-   
-    private static String[] sqlKeywords = 
+
+    private static String[] sqlKeywords =
     new String[]{"SELECT","FROM","WHERE","ORDER BY","GROUP BY","HAVING"};
 
     private static String[] joinTypes = new String[]{
@@ -45,7 +45,7 @@ public class Parser {
     private OrderByStatement[] orderByStatements = null;
     private GroupByStatement[] groupByStatements = null;
     private FromStatement fromStatement = null;
-    
+
     public String getSelectString() { return (String)sql.get("SELECT"); }
     public String getFromString()   { return (String)sql.get("FROM"); }
     public String getWhereString()  { return (String)sql.get("WHERE"); }
@@ -53,12 +53,67 @@ public class Parser {
     public String getGroupByString() { return (String)sql.get("GROUP BY"); }
     public String getHavingString() { return (String)sql.get("HAVING"); }
 
+    
+  //**************************************************************************
+  //** clone
+  //**************************************************************************
+    public Parser clone(){
+        Parser parser = new Parser();
+        java.util.HashMap sql = new java.util.HashMap();
+        java.util.Iterator it = this.sql.keySet().iterator();
+        while (it.hasNext()){
+            Object key = it.next();
+            Object val = this.sql.get(key);
+            sql.put(key, val);
+        }
+        parser.sql = sql;
+        parser.fromStatement = fromStatement;
 
-    
+        if (selectStatements!=null){
+            SelectStatement[] arr = new SelectStatement[selectStatements.length];
+            for (int i=0; i<arr.length; i++){
+                arr[i] = selectStatements[i];
+            }
+            parser.selectStatements = arr;
+        }
+
+        if (whereStatements!=null){
+            WhereStatement[] arr = new WhereStatement[whereStatements.length];
+            for (int i=0; i<arr.length; i++){
+                arr[i] = whereStatements[i];
+            }
+            parser.whereStatements = arr;
+        }
+
+        if (orderByStatements!=null){
+            OrderByStatement[] arr = new OrderByStatement[orderByStatements.length];
+            for (int i=0; i<arr.length; i++){
+                arr[i] = orderByStatements[i];
+            }
+            parser.orderByStatements = arr;
+        }
+
+        if (groupByStatements!=null){
+            GroupByStatement[] arr = new GroupByStatement[groupByStatements.length];
+            for (int i=0; i<arr.length; i++){
+                arr[i] = groupByStatements[i];
+            }
+            parser.groupByStatements = arr;
+        }
+
+        return parser;
+    }
+
+
   //**************************************************************************
-  //** Creates a new instance of sql
+  //** Constructor
   //**************************************************************************
-    
+    private Parser(){}
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
     public Parser(String sql){
 
       //Validate input sql
@@ -177,7 +232,7 @@ public class Parser {
 
                 }
             }
-                    
+
 
 
             if (i==(s.length()-1)){
@@ -192,7 +247,7 @@ public class Parser {
         }//end parsing text
     }
 
-    
+
 //  //**************************************************************************
 //  //** addWhere
 //  //**************************************************************************
@@ -239,7 +294,7 @@ public class Parser {
   //** toString
   //**************************************************************************
   /**  Returns an sql String, including any updates */
-    
+
     public String toString() {
 
         String selectClause = this.getSelectString();
@@ -285,14 +340,14 @@ public class Parser {
 
 
   //**************************************************************************
-  //** getSelectStatements 
+  //** getSelectStatements
   //**************************************************************************
-  /** Used to break down the select clause into individual elements. For 
-   *  example, "Select FirstName, LastName from Contacts" would return an 
+  /** Used to break down the select clause into individual elements. For
+   *  example, "Select FirstName, LastName from Contacts" would return an
    *  array with 2 entries: "FirstName" and "LastName".
    */
     public SelectStatement[] getSelectStatements(){
-        
+
         if (selectStatements!=null) return selectStatements;
         else{
             String[] array = this.split(getSelectString());
@@ -308,8 +363,8 @@ public class Parser {
   //**************************************************************************
   //** SelectStatement
   //**************************************************************************
-  /** Used to represent an individual select statement found in the select 
-   *  clause. 
+  /** Used to represent an individual select statement found in the select
+   *  clause.
    */
     public class SelectStatement{
 
@@ -318,26 +373,26 @@ public class Parser {
         private String statement;
         private String columnName;
         private boolean isFunction = false;
-        private java.util.List exposedElements = new java.util.LinkedList();        
+        private java.util.List exposedElements = new java.util.LinkedList();
 
         public SelectStatement(String statement){
-            
+
             this.field = statement;
             this.statement = statement;
             this.columnName = stripFunctions(statement);
-            
-            
-            
+
+
+
           //Find the alias, defined by the "AS" keyword
             if (statement.toUpperCase().contains("AS")){
-        
+
                 boolean insideSingleQuotes = false;
                 boolean insideDoubleQuotes = false;
                 boolean insideParenthesis = false;
                 int parenthesis = 0;
                 String s = statement;
                 String c = "";
-                
+
                 for (int i = 0; i < s.length(); i++){
 
                     c = s.substring(i,i+1);
@@ -368,39 +423,39 @@ public class Parser {
                         if (c.equalsIgnoreCase("A") && (i+3)<s.length()){
                             String keyword = s.substring(i,i+2);
                             if (keyword.equalsIgnoreCase("AS")){
-                                
+
                                 String as = s.substring(i+2);
-                                
+
                                 String prevChar = "";
                                 String nextChar = "";
                                 if (i-1>=0 && i+3<=s.length()){
                                     prevChar = s.substring(i-1,i);
                                     nextChar = s.substring(i+2,i+3);
                                 }
-                                
+
                                 if ((prevChar.equals(" ") || prevChar.equals(")") || prevChar.equals("]") || prevChar.equals("\"")) &&
                                     (nextChar.equals(" ") || nextChar.equals("(") || nextChar.equals("[") || nextChar.equals("\"")))
                                 {
                                     this.alias = removeParentheses(as);
                                     this.field = s.substring(0,i-1).trim();
-                                    this.columnName = stripFunctions(field);                                    
+                                    this.columnName = stripFunctions(field);
                                 }
-                                
+
                             }
                         }
                     }
 
 
-                }//end parsing text       
+                }//end parsing text
 
-                
+
             }//end if
-            
 
-          //Check whether the field equals the column name. If not, then there 
+
+          //Check whether the field equals the column name. If not, then there
           //is a function present in the expression
             if (!field.equals(columnName)) isFunction = true;
-            
+
 
           //Iterate throught the list of operands and identify any exposed columns (columns that are not wrapped in quotes)
             String[] elements = new String[]{columnName, alias};
@@ -421,25 +476,25 @@ public class Parser {
                     }
                 }
             }
-        
+
         }//end constructor
-        
+
         public String getField(){
             return field;
         }
-        
+
         public String getAlias(){
             return alias;
         }
-        
+
         public String getColumnName(){
             return columnName;
         }
-        
+
         public boolean isFunction(){
             return isFunction;
         }
-        
+
         public String toString(){
             return statement;
         }
@@ -454,7 +509,7 @@ public class Parser {
     private FromStatement getFromStatement(){
 
         if (fromStatement!=null) return fromStatement;
-        
+
         String fromClause = getFromString();
 
         fromClause = fromClause.replace("(", " ");
@@ -488,28 +543,28 @@ public class Parser {
 
                 phrase.append(c);
 
-                if (!insideDoubleQuotes && !insideSingleQuotes){                   
-                    
+                if (!insideDoubleQuotes && !insideSingleQuotes){
+
                     for (int j=0; j<joinTypes.length; j++){
                         String joinType = joinTypes[j];
                         if (joinType.startsWith(c.toUpperCase()) && (i+joinType.length())<=s.length()){
                             String keyword = s.substring(i,i+joinType.length());
 
                             if (keyword.equalsIgnoreCase(joinType)){
-                                
-                                
+
+
                                 String entry = phrase.substring(0, phrase.length()-1).trim();
-                                if (entry.length()>0){ 
-                                    
+                                if (entry.length()>0){
+
                                     phrase = new StringBuffer();
                                     i = i + (keyword.length()-1);
-                                    
+
                                     fromStatement.addEntry(entry);
 
                                     //System.out.println("(+) " + entry + " (" + keyword + ")");
 
                                 }
-                                
+
                                 break;
                             }
 
@@ -532,7 +587,7 @@ public class Parser {
 
         }
         else{
-            String[] tables = fromClause.split(",");        
+            String[] tables = fromClause.split(",");
             for (int i=0; i<tables.length; i++){
                 String tableName = tables[i].trim();
                 fromStatement.addTable(tableName);
@@ -578,7 +633,7 @@ public class Parser {
                 this.addTable(tableName);
 
 
-                joinCondition = entry.substring(entry.toUpperCase().indexOf(" ON ") + 4).trim();                
+                joinCondition = entry.substring(entry.toUpperCase().indexOf(" ON ") + 4).trim();
                 WhereStatement statement = new WhereStatement(joinCondition);
                 this.addColumn(statement.getLeftOperand());
                 this.addColumn(statement.getRightOperand());
@@ -615,8 +670,8 @@ public class Parser {
     public String[] getTables(){
         return getFromStatement().getTables();
     }
-    
-    
+
+
   //**************************************************************************
   //** getWhereStatements
   //**************************************************************************
@@ -624,30 +679,30 @@ public class Parser {
    *  Returns an empty array if no where statements are found.
    */
     public WhereStatement[] getWhereStatements(){
-        
+
         if (this.whereStatements!=null) return this.whereStatements;
-        
+
         String whereClause = this.getWhereString();
         if (whereClause==null || whereClause.trim().length()<=0) {
             return new WhereStatement[0];
         }
         else{
-     
+
           //Create a list of sql fragments to parse
-            java.util.List list = new java.util.LinkedList(); 
-            
+            java.util.List list = new java.util.LinkedList();
+
           //Add Where Clause to the list of sql fragments to parse
             list.add(whereClause);
-            
+
           //Iterate through all the sql fragments and extract individual statements
-            for (int x=0; x<list.size(); x++){            
+            for (int x=0; x<list.size(); x++){
 
                 boolean insideSingleQuotes = false;
                 boolean insideDoubleQuotes = false;
                 boolean insideParenthesis = false;
 
                 int parenthesis = 0;
-                
+
                 String s = list.get(x).toString().trim();
                 String c = "";
 
@@ -658,7 +713,7 @@ public class Parser {
                 System.out.println("-----------------------------------------");
                 */
 
-                
+
                 StringBuffer phrase = new StringBuffer();
 
                 for (int i = 0; i < s.length(); i++){
@@ -703,7 +758,7 @@ public class Parser {
                         }
 
                         if (keyword!=null){
-                            
+
                             String entry = phrase.substring(0, phrase.length()-1).trim();
                             entry = removeParentheses(entry);
                             if (entry.length()>0){
@@ -717,28 +772,28 @@ public class Parser {
 
 
 
-                    if (i==(s.length()-1)){                   
+                    if (i==(s.length()-1)){
                         if (phrase.toString().trim().equals(s)){ //<--might need to check the size of the list as well
                         }
                         else{
-                            
+
                             String entry = phrase.toString().trim();
                             //entry = phrase.substring(0, phrase.length()-1).trim();
                             entry = removeParentheses(entry);
                             list.add(entry);
-                            list.remove(x); 
-                            
+                            list.remove(x);
+
                             //System.out.println("(+) " + entry + " *");
                             //System.out.println("(-) " + s);
                         }
                     }
 
-                }//end parsing text                       
+                }//end parsing text
 
             }
 
 
-          //Create a list of possible SQL Operators found in the Where clause    
+          //Create a list of possible SQL Operators found in the Where clause
             java.util.List operators = new java.util.LinkedList();
             for (int i=0; i<this.sqlOperators.length; i++){
                 String operator = this.sqlOperators[i];
@@ -750,8 +805,8 @@ public class Parser {
             for (int i=0; i<sqlOperators.length; i++){
                 sqlOperators[i] = (String) operators.get(i);
             }
-            
-            
+
+
           //Iterate through all the where statements and create an array
             WhereStatement[] statements = new WhereStatement[list.size()];
             for (int i=0; i<list.size(); i++){
@@ -763,7 +818,7 @@ public class Parser {
             return statements;
         }
     }
-    
+
 
   //**************************************************************************
   //** WhereStatement
@@ -773,20 +828,20 @@ public class Parser {
    *  in the "FROM" clause.
    */
     public class WhereStatement {
-        
+
         private String statement = null;
         private String leftOperand = null;
         private String rightOperand = null;
         private String operator = null;
         private java.util.List exposedColumns = new java.util.LinkedList();
-        
+
         public WhereStatement(String statement) {
             this(statement, sqlOperators);
         }
-        
+
         public WhereStatement(String statement, String[] sqlOperators) {
             this.statement = statement;
-            
+
             if (statement!=null){
 
               //Trim down the list of sql operators
@@ -801,7 +856,7 @@ public class Parser {
                 for (int i=0; i<sqlOperators.length; i++){
                     sqlOperators[i] = (String) array.get(i);
                 }
-                
+
 
                 boolean insideSingleQuotes = false;
                 boolean insideDoubleQuotes = false;
@@ -810,8 +865,8 @@ public class Parser {
                 String s = statement;
                 String c = "";
                 StringBuffer phrase = new StringBuffer();
-                java.util.List list = new java.util.LinkedList(); 
-                
+                java.util.List list = new java.util.LinkedList();
+
                 for (int i = 0; i < s.length(); i++){
 
                     c = s.substring(i,i+1);
@@ -845,7 +900,7 @@ public class Parser {
                             String sqlOperator = sqlOperators[j];
 
                             if (sqlOperator.toUpperCase().startsWith(c.toUpperCase()) && (i+sqlOperator.length())<=s.length()){
-                               
+
                                 String keyword = s.substring(i,i+sqlOperator.length());
                                 if (keyword.equalsIgnoreCase(sqlOperator)){
 
@@ -886,15 +941,15 @@ public class Parser {
                         }
                     }
 
-                    
-                    if (i==(s.length()-1)){                   
+
+                    if (i==(s.length()-1)){
                         if (phrase.toString().trim().equals(s)){
                         }
                         else{
-                            
+
                             String entry = phrase.toString().trim();
                             if (entry.length()>0){
-                                
+
                                 if (!entry.equalsIgnoreCase("null")){
                                     list.add(entry);
                                 }
@@ -904,19 +959,19 @@ public class Parser {
 
                                 this.rightOperand = entry;
                             }
-                            
+
                         }
                     }
-                    
-                    
+
+
                 }//end parsing text
 
-                
+
               //Iterate throught the list of operands and identify any exposed columns (columns that are not wrapped in quotes)
                 exposedColumns = new java.util.LinkedList();
                 for (int i=0; i<list.size(); i++){
                     String entry = (String) list.get(i);
-                    if (entry!=null){    
+                    if (entry!=null){
                         entry = stripFunctions(entry);
                         if (isExposed(entry)){
                             exposedColumns.add(entry);
@@ -927,19 +982,19 @@ public class Parser {
 
             }
         }
-        
+
         public String getLeftOperand(){
             return leftOperand;
         }
-        
+
         public String getRightOperand(){
             return rightOperand;
         }
-        
+
         public String getOperator(){
             return operator;
         }
-        
+
         public String toString(){
             return statement;
         }
@@ -965,7 +1020,7 @@ public class Parser {
             return true;
         }
     }
-    
+
 
   //**************************************************************************
   //** getOrderByStatements
@@ -1010,7 +1065,7 @@ public class Parser {
             else{
                 columnName = orderBy;
             }
-            
+
             isExposed = isExposed(columnName);
         }
         public String getColumnName(){ return columnName; }
@@ -1064,7 +1119,7 @@ public class Parser {
   //**************************************************************************
   //** getExposedDataElements
   //**************************************************************************
-  /**  Used to retrieve a list of database elements (tables, columns, etc.) 
+  /**  Used to retrieve a list of database elements (tables, columns, etc.)
    *   found in the sql string that are not wrapped in quotes.
    */
     protected String[] getExposedDataElements(){
@@ -1143,7 +1198,7 @@ public class Parser {
         return array;
     }
 
-    
+
   //**************************************************************************
   //** addQuotes
   //**************************************************************************
@@ -1160,7 +1215,7 @@ public class Parser {
         String havingClause = this.getHavingString();
 
         java.util.HashSet exposedElements = new java.util.HashSet();
-        
+
       //Update the "SELECT" clause
         SelectStatement[] selectStatements = getSelectStatements();
         for (int i=0; i<selectStatements.length; i++){
@@ -1266,7 +1321,7 @@ public class Parser {
         }
         */
 
-        
+
 
       //Set local variables;
         boolean insideSingleQuotes = false;
@@ -1280,7 +1335,7 @@ public class Parser {
         StringBuffer newSQL = new StringBuffer();
 
 
-        
+
 
         for (int i = 0; i < s.length(); i++){
 
@@ -1355,7 +1410,7 @@ public class Parser {
                             }
 
                         }
-                    
+
                     }
 
 
@@ -1375,7 +1430,7 @@ public class Parser {
             }
 
         }//end parsing text
-        
+
         return newSQL.toString();
     }
 
@@ -1397,7 +1452,7 @@ public class Parser {
     }
 
 
-    
+
   //**************************************************************************
   //** stripFunctions (getColumnName)
   //**************************************************************************
@@ -1411,10 +1466,10 @@ public class Parser {
 
         boolean FunctionsPresent = true;
 
-        if ( 
-             (InStr(str, "(") > 0 && InStr(str, ")") > 0) && 
-             (InStr(str, "(") < InStr(str, ")")) 
-           ) 
+        if (
+             (InStr(str, "(") > 0 && InStr(str, ")") > 0) &&
+             (InStr(str, "(") < InStr(str, ")"))
+           )
         {
 
             while (FunctionsPresent){
@@ -1424,7 +1479,7 @@ public class Parser {
 
                 /*
                 'Special Case and one BIG assumption:
-                'if the resultant str has a comma, then the 
+                'if the resultant str has a comma, then the
                 'function has multiple parameters. The assumption
                 'is that the first parameter is the column name
                  */
@@ -1443,12 +1498,12 @@ public class Parser {
 
         return str;
     }
-    
+
 
   //**************************************************************************
   //** Legacy VB String Functions
   //**************************************************************************
-    
+
     private int InStr(String str, String ch){return str.indexOf(ch)+1;}
     private int InStrRev(String str, String ch){return str.lastIndexOf(ch)+1;}
     private int Len(String str){return str.length();}
@@ -1463,21 +1518,21 @@ public class Parser {
             return false;
         }
     }
-    
+
 
   //**************************************************************************
   //** removeParentheses
   //**************************************************************************
   /**  Used to remove the outer paratheses surrounding a block of text. */
-        
+
     private String removeParentheses(String text){
-        
-        text = text.trim();        
-        
+
+        text = text.trim();
+
         if (text.startsWith("(") && text.endsWith(")")){
-        
+
             boolean insideSingleQuotes = false;
-            boolean insideDoubleQuotes = false;        
+            boolean insideDoubleQuotes = false;
             boolean insideParenthesis = false;
 
             int parenthesis = 0;
@@ -1488,7 +1543,7 @@ public class Parser {
 
             for (int i = 0; i < s.length(); i++){
 
-                c = s.substring(i,i+1); 
+                c = s.substring(i,i+1);
 
                 if (c.equals("\"")){
                     if (!insideDoubleQuotes) insideDoubleQuotes = true;
@@ -1499,7 +1554,7 @@ public class Parser {
                     else insideSingleQuotes = false;
                 }
 
-                
+
                 if ((c.equals("(") && !insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)) {
                     insideParenthesis = true;
                     parenthesis = 0;
@@ -1510,18 +1565,18 @@ public class Parser {
                 if ((c.equals(")") && insideParenthesis) && (!insideDoubleQuotes && !insideSingleQuotes)){
                     parenthesis = parenthesis - 1;
                     if (parenthesis==0) {
-                        
+
                         insideParenthesis = false;
-                        
+
                         if (i+1 < s.length()){
                             String nextString = s.substring(i+1).trim();
                             if (!nextString.startsWith("(")) gaps++;
                         }
-                        
+
                     }
                 }
             }
-            
+
             if (gaps==0) text = text.substring(1, text.length()-1).trim();
 
         }
@@ -1622,7 +1677,7 @@ public class Parser {
 
     public void debug(){
 
-      
+
       //Print SQL Statements
         System.out.println();
         System.out.println("-----------------------------------------");
