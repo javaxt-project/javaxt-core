@@ -337,6 +337,29 @@ public class Recordset {
         endTime = System.currentTimeMillis();
         QueryResponseTime = endTime-startTime;
 
+        init();
+
+        return rs;
+    }
+
+
+  //**************************************************************************
+  //** open
+  //**************************************************************************
+  /** Used to initialize a Recordset using a standard Java ResultSet
+   */
+    public void open(java.sql.ResultSet resultSet){
+        rs = resultSet;
+        init();
+    }
+
+
+  //**************************************************************************
+  //** init
+  //**************************************************************************
+  /** Used to initialize fields
+   */
+    private void init(){
         try{
 
           //Create Fields
@@ -375,20 +398,7 @@ public class Recordset {
             //e.printStackTrace();
             //throw e;
         }
-
-        return rs;
     }
-
-
-//  //**************************************************************************
-//  //** cancel
-//  //**************************************************************************
-//  /** Cancels the current query and closes the recordset.
-//   */
-//    public void cancel(){
-//        State = 0;
-//        close();
-//    }
 
 
   //**************************************************************************
@@ -404,8 +414,18 @@ public class Recordset {
             if (State==1) executeBatch();
             if (rs!=null) rs.close();
             if (stmt!=null){
-                try{ stmt.cancel(); }
-                catch(Exception e){}
+
+              //PostgreSQL (possibly others) will continue executing a long
+              //query even after closing the recordset. The only way to stop
+              //a long-running query is to cancel the statement. Note that
+              //cancelling a statement in SQLite calls sqlite3_interrupt()
+              //which causes issues when inserting, updating, or deleting
+              //records.
+                if (driver.equals("PostgreSQL")){
+                    try{ stmt.cancel(); }
+                    catch(Exception e){}
+                }
+
                 try{ stmt.close(); }
                 catch(Exception e){}
             }
@@ -421,8 +441,8 @@ public class Recordset {
         try{
             Conn.setAutoCommit(autoCommit);
         }
-        catch(java.sql.SQLException e){
-            e.printStackTrace();
+        catch(Exception e){
+            //e.printStackTrace();
         }
 
 

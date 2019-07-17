@@ -24,6 +24,21 @@ public class JSONValue extends javaxt.utils.Value {
 
 
   //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /** Returns the value as a string. Returns null if the string is null or
+   *  empty or if there was a problem converting the value to a string.
+   */
+    public String toString(){
+        String str = super.toString();
+        if (str!=null){
+            if (str.trim().length()==0) return null;
+        }
+        return str;
+    }
+
+
+  //**************************************************************************
   //** toJSONObject
   //**************************************************************************
   /** Returns the value as a JSONObject. Returns a null if there was a problem

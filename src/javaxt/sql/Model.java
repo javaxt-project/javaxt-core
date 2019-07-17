@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.sql.PreparedStatement;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.*;
-import javaxt.io.Jar;
 
 //******************************************************************************
 //**  Model
@@ -289,18 +288,8 @@ public abstract class Model {
 
 
             String className = this.getClass().getName();
-
-
-          //Get a copy of the database fields for this class. Note that the
-          //field value is updated so we need to clone the fields
             Field[] dbFields;
-            synchronized(this.fields){
-                Field[] _dbFields = this.fields.get(className);
-                dbFields = new Field[_dbFields.length];
-                for (int i=0; i<dbFields.length; i++){
-                    dbFields[i] = _dbFields[i].clone();
-                }
-            }
+            synchronized(this.fields){ dbFields = this.fields.get(className); }
 
 
           //Generate list of database fields for insert
@@ -349,6 +338,7 @@ public abstract class Model {
                 String columnName = fieldMap.get(f.getName());
                 for (Field field : dbFields){
                     if (field.getName().equals(columnName)){
+                        field = field.clone();
                         field.Value = new Value(val);
                         updates.add(field);
                         foundField = true;
@@ -832,6 +822,16 @@ public abstract class Model {
                 init(c, connectionPool);
             }
         }
+    }
+
+
+  //**************************************************************************
+  //** getTableName
+  //**************************************************************************
+  /** Returns the name of the table backing a given Model
+   */
+    public static String getTableName(Model model){
+        return model.tableName;
     }
 
 

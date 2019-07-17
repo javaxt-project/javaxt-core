@@ -9,15 +9,15 @@ import java.util.Locale;
 //**  File Class
 //******************************************************************************
 /**
- *   Used to represent a single file on a file system. In many ways, this class 
- *   is an extension of the java.io.File class. However, unlike the java.io.File 
+ *   Used to represent a single file on a file system. In many ways, this class
+ *   is an extension of the java.io.File class. However, unlike the java.io.File
  *   class, this object provides functions that are relevant and specific to
- *   files (not directories). 
+ *   files (not directories).
  *
  ******************************************************************************/
 
 public class File implements Comparable {
-    
+
     private java.io.File file; //<--DO NOT USE DIRECTLY! Use getFile() instead.
     private String name = "";
     private String path = "";
@@ -28,14 +28,14 @@ public class File implements Comparable {
     public final String LineSeperator = System.getProperty("line.separator");
     private static final boolean isWindows = Directory.isWindows;
     private int bufferSize = 1024*1024; //1MB
-    
-    
+
+
   //**************************************************************************
   //** Constructor
-  //************************************************************************** 
-  /** Creates a new File instance by converting the given pathname string into 
-   *  an abstract pathname. 
-   */    
+  //**************************************************************************
+  /** Creates a new File instance by converting the given pathname string into
+   *  an abstract pathname.
+   */
     public File(String Path) {
 	if (Path == null) {
 	    throw new NullPointerException();
@@ -62,7 +62,7 @@ public class File implements Comparable {
   /** Instantiates this class using a java.io.File. Please use the Directory
    *  class for directories. Example:
    * <pre>if (file.isDirectory()) new Directory(file);</pre>
-   */        
+   */
     public File(java.io.File File) {
 	if (File==null) {
 	    throw new NullPointerException();
@@ -72,25 +72,32 @@ public class File implements Comparable {
             throw new IllegalArgumentException("Invalid Path.");
         }
 
-        this.file = File;
-        init(file.getAbsolutePath());
+
+        try{
+            this.file = File.getCanonicalFile();
+            init(file.getCanonicalPath());
+        }
+        catch(Exception e){
+            this.file = File;
+            init(file.getAbsolutePath());
+        }
     }
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new File instance from a parent abstract pathname and a child 
-   *  pathname string. 
+  /** Creates a new File instance from a parent abstract pathname and a child
+   *  pathname string.
    */
     public File(java.io.File Parent, String Child){
         this(Parent.getPath(), Child);
     }
-    
+
     public File(Directory Parent, String Child){
         this(Parent.getPath(), Child);
     }
-        
+
     public File(String Parent, String Child){
 	if (Parent == null || Child == null) {
 	    throw new NullPointerException();
@@ -100,7 +107,7 @@ public class File implements Comparable {
         Parent = Parent.replace("\\", "/");
         Child = Child.replace("\\", "/");
 
-      //Combine the Parent and Child into a single path. This is done in 
+      //Combine the Parent and Child into a single path. This is done in
       //case the Child variable contains additional path information.
         if (!Parent.endsWith("/")) Parent += "/";
         if (Child.startsWith("/")) Child = Child.substring(1);
@@ -129,10 +136,10 @@ public class File implements Comparable {
         else path = path.replace("/", PathSeparator);
 
         if (!path.endsWith(PathSeparator)) path += PathSeparator;
-        
-        
+
+
       //Special case for relative paths
-        if (path.startsWith(".")){ 
+        if (path.startsWith(".")){
             try{
                 init(new java.io.File(path + name).getCanonicalPath());
             }
@@ -145,9 +152,9 @@ public class File implements Comparable {
 
   //**************************************************************************
   //** Get File Name
-  //************************************************************************** 
+  //**************************************************************************
   /**  Returns the name of the file, excluding the path. */
-    
+
     public String getName(){
         return name;
     }
@@ -155,10 +162,10 @@ public class File implements Comparable {
 
   //**************************************************************************
   //** Get File Name
-  //************************************************************************** 
-  /**  Returns the name of the file, excluding the path. 
+  //**************************************************************************
+  /**  Returns the name of the file, excluding the path.
    *
-   *   @param IncludeFileExtension If true, includes the file extension. 
+   *   @param IncludeFileExtension If true, includes the file extension.
    *   Otherwise, will return the file name without the extension.
    */
     public String getName(boolean IncludeFileExtension){
@@ -172,9 +179,9 @@ public class File implements Comparable {
 
   //**************************************************************************
   //** Get File Path
-  //**************************************************************************  
-  /**  Used to retrieve the path to the file, excluding the file name. Appends 
-   *   a file separator to the end of the string. 
+  //**************************************************************************
+  /**  Used to retrieve the path to the file, excluding the file name. Appends
+   *   a file separator to the end of the string.
    */
     public String getPath(){
         return path;
@@ -183,7 +190,7 @@ public class File implements Comparable {
 
   //**************************************************************************
   //** Get Directory
-  //************************************************************************** 
+  //**************************************************************************
   /**  Returns the file's parent directory. Same as getParentDirectory() */
 
     public Directory getDirectory(){
@@ -217,17 +224,17 @@ public class File implements Comparable {
   //** getFile
   //**************************************************************************
   /**  Returns the java.io.File representation of this object. */
-    
+
     private java.io.File getFile(){
         if (file==null) file = new java.io.File(path + name);
         return file;
     }
 
-    
+
   //**************************************************************************
   //** Get File Extension
-  //**************************************************************************  
-  /**  Returns the file's extension, excluding the last dot/period 
+  //**************************************************************************
+  /**  Returns the file's extension, excluding the last dot/period
    *   (e.g. "C:\image.jpg" will return "jpg"). Returns a zero-length string
    *   if there is no extension.
    */
@@ -451,10 +458,10 @@ public class File implements Comparable {
   //** Delete File
   //**************************************************************************
   /**  Used to delete the file. Warning: this operation is irrecoverable. */
-    
+
     public boolean delete(){
         java.io.File file = getFile();
-        if (file!=null){            
+        if (file!=null){
             if (file.delete()){
                 attr=null;
                 return true;
@@ -473,8 +480,8 @@ public class File implements Comparable {
     public void setBufferSize(int numBytes){
         bufferSize = numBytes;
     }
-    
-    
+
+
   //**************************************************************************
   //** Move File
   //**************************************************************************
@@ -535,16 +542,16 @@ public class File implements Comparable {
    *  successfully.
    */
     public boolean copyTo(javaxt.io.File Destination, boolean Overwrite){
-        
+
       //Validate Input/Output
         java.io.File File = getFile();
         if (File.exists()==false) return false;
         if (Destination.exists() && Overwrite==false) return false;
         if (File.equals(Destination.toFile())) return false;
-        
+
       //Create New Path
         Destination.getParentDirectory().create();
-        
+
       //Copy File
         ReadableByteChannel inputChannel = null;
         WritableByteChannel outputChannel = null;
@@ -579,7 +586,7 @@ public class File implements Comparable {
         }
     }
 
-    
+
   //**************************************************************************
   //** Rename File
   //**************************************************************************
@@ -629,7 +636,7 @@ public class File implements Comparable {
         }
         catch (Exception e){
             return null;
-        }        
+        }
     }
 
 
@@ -687,19 +694,19 @@ public class File implements Comparable {
         }
         return null;
     }
-    
-    
+
+
   //**************************************************************************
   //** getBufferedImage
   //**************************************************************************
-    
+
     public java.awt.image.BufferedImage getBufferedImage(){
         Image img = getImage();
         if (img!=null) return img.getBufferedImage();
         return null;
     }
-    
-    
+
+
   //**************************************************************************
   //** getImage
   //**************************************************************************
@@ -711,7 +718,7 @@ public class File implements Comparable {
         else return null;
     }
 
-    
+
   //**************************************************************************
   //** getText
   //**************************************************************************
@@ -829,7 +836,7 @@ public class File implements Comparable {
         }
     }
 
-    
+
   //**************************************************************************
   //** getSHA1
   //**************************************************************************
@@ -849,7 +856,7 @@ public class File implements Comparable {
         return getHash("MD5");
     }
 
-    
+
   //**************************************************************************
   //** getHash
   //**************************************************************************
@@ -883,12 +890,12 @@ public class File implements Comparable {
         }
         return r.toString();
     }
-    
+
 
   //**************************************************************************
   //** write
   //**************************************************************************
-  /** Creates a new file using the given ByteArrayOutputStream. Note that this 
+  /** Creates a new file using the given ByteArrayOutputStream. Note that this
    *  method will convert the ByteArrayOutputStream to a byte array using the
    *  toByteArray() method which may result in memory issues.
    */
@@ -896,16 +903,16 @@ public class File implements Comparable {
         write(bas.toByteArray());
     }
 
-    
+
   //**************************************************************************
   //** write
   //**************************************************************************
-  /** Creates a new file using the given byte array. 
+  /** Creates a new file using the given byte array.
    */
     public void write(byte[] bytes){
         java.io.File File = getFile();
         attr = null;
-        if (File!=null){                
+        if (File!=null){
             FileOutputStream output = null;
             try {
                 File.getParentFile().mkdirs();
@@ -924,13 +931,13 @@ public class File implements Comparable {
   //**************************************************************************
   //** write
   //**************************************************************************
-  /** Creates a new file using the given InputStream. Note that the caller is 
+  /** Creates a new file using the given InputStream. Note that the caller is
    *  responsible for closing the input stream after the method is complete.
    */
     public void write(InputStream input){
         java.io.File File = getFile();
         attr = null;
-        if (File!=null){                
+        if (File!=null){
             FileOutputStream output = null;
             try {
                 File.getParentFile().mkdirs();
@@ -939,8 +946,8 @@ public class File implements Comparable {
                 int i = 0;
                 while((i=input.read(buf))!=-1) {
                   output.write(buf, 0, i);
-                }              
-                
+                }
+
             }
             catch (Exception e){}
             finally {
@@ -949,7 +956,7 @@ public class File implements Comparable {
             }
         }
     }
-    
+
 
   //**************************************************************************
   //** Write Text
@@ -962,7 +969,7 @@ public class File implements Comparable {
         write(Text, "UTF-8");
     }
 
-    
+
   //**************************************************************************
   //** Write Text
   //**************************************************************************
@@ -975,18 +982,18 @@ public class File implements Comparable {
     public void write(String Text, String charsetName){
         java.io.File File = getFile();
         attr = null;
-        if (File!=null){                
+        if (File!=null){
             Writer output = null;
             try {
                 File.getParentFile().mkdirs();
-                
+
                 if (charsetName==null){
                     output = new BufferedWriter( new FileWriter(File) );
                 }
                 else{
                     output = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(File), charsetName));
                 }
-                
+
                 output.write( Text );
             }
             catch (Exception e){}
@@ -1001,7 +1008,7 @@ public class File implements Comparable {
   //**************************************************************************
   //** Write XML
   //**************************************************************************
-  /**  Used to write an XML DOM Document to a file. 
+  /**  Used to write an XML DOM Document to a file.
    */
     public void write(org.w3c.dom.Document xml){
         write(javaxt.xml.DOM.getText(xml), xml.getXmlEncoding());
@@ -1018,7 +1025,7 @@ public class File implements Comparable {
         java.io.File File = getFile();
         attr = null;
         if (File!=null){
-        
+
             Writer output = null;
             try {
                 File.getParentFile().mkdirs();
@@ -1036,19 +1043,19 @@ public class File implements Comparable {
 
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** Write Image
   //**************************************************************************
   /** Used to write an image to a file. */
-    
+
     public void write(java.awt.image.BufferedImage Image){
         java.io.File File = getFile();
         attr = null;
-        if (File!=null){      
+        if (File!=null){
             try{
-                
+
                 File.getParentFile().mkdirs();
                 java.awt.image.RenderedImage rendImage = Image;
                 javax.imageio.ImageIO.write(rendImage,getExtension(),File);
@@ -1059,15 +1066,15 @@ public class File implements Comparable {
         }
     }
 
-    
-    
-    
+
+
+
   //**************************************************************************
   //** MapPath
   //**************************************************************************
-    
+
     public String MapPath(String RelPath){
-        
+
       //Update currDir
         String currDir = getPath();
         currDir = currDir.replace("\\","/");
@@ -1077,36 +1084,36 @@ public class File implements Comparable {
 
 
         RelPath = RelPath.replace("\\","/");
-        
-        
+
+
         if (RelPath.startsWith("/")){
             return (currDir + RelPath.substring(1)).replace("/", PathSeparator);
         }
 
-        
+
         String[] arrRelPath = RelPath.split("/");
         String[] arrAbsPath = currDir.split("/");
-        
-        
-        
+
+
+
         int x = -1;
         RelPath = "";
         String Dir = "";
         for (int i=0; i<arrRelPath.length; i++) {
             Dir = arrRelPath[i];
             if (Dir.equals("..")){
-                x = x + 1;               
+                x = x + 1;
             }
             else if (Dir.equals(".")){
                 //do nothing?
             }
             else{
                 RelPath = RelPath + "\\" + arrRelPath[i];
-            }                      
-            
+            }
+
         }
-                
-        
+
+
         //x = x + 1 'because currDir has a "\" at the end of it
         Dir = "";
         int ubound = 0;
@@ -1114,36 +1121,36 @@ public class File implements Comparable {
             Dir = Dir + arrAbsPath[i] + "\\";
         }
 
-        
+
         //trim off last "\"
         //Dir = left(Dir, len(Dir) - 1);
         Dir = Dir.substring(0,Dir.length()-1);
-        
+
         //replace any leftover "/" characters
         Dir = Dir + RelPath.replace("/", "\\");
-        
-        
+
+
         Dir = Dir.replace((CharSequence) "\\", (CharSequence) PathSeparator);
-        
+
         return Dir;
     }
-    
-    
-    
+
+
+
   //**************************************************************************
   //** getInputStream
   //**************************************************************************
   /**  Returns a new FileInputStream Object */
-    
+
     public FileInputStream getInputStream() throws IOException{
         return new FileInputStream(getFile());
     }
-    
+
   //**************************************************************************
   //** getInputStream
   //**************************************************************************
   /**  Returns a new FileOutputStream Object */
-    
+
     public FileOutputStream getOutputStream() throws IOException{
         attr = null;
         return new FileOutputStream(getFile());
@@ -1154,11 +1161,11 @@ public class File implements Comparable {
   //** toString
   //**************************************************************************
   /**  Returns the full file path (including the file name) */
-    
+
     public String toString(){
         return path + name;
     }
- 
+
 
     @Override
     public int hashCode(){
@@ -1177,7 +1184,7 @@ public class File implements Comparable {
   //**************************************************************************
   //** equals
   //**************************************************************************
-  
+
     public boolean equals(Object obj){
         if (obj instanceof javaxt.io.File || obj instanceof java.io.File){
             return obj.hashCode()==this.hashCode();
@@ -1200,34 +1207,34 @@ public class File implements Comparable {
   //** IsValidPath -- NOT USED!
   //**************************************************************************
   /**  Checks whether PathToFile is a valid */
-    
+
     private boolean isValidPath(String PathToFile){
-        
+
         if (PathToFile==null) return false;
         if (PathToFile.length()<1) return false;
-  
+
         //if (File.isDirectory()) return false;
-        
+
         String FileName = getName();
         if (FileName.length()<1) return false;
         if (FileName.length()>260) return false;
-        
+
         PathToFile = toString();
         PathToFile = PathToFile.replace((CharSequence) "\\", "/");
-        String[] Path = PathToFile.split("/");                
+        String[] Path = PathToFile.split("/");
         String[] arr = new String[]{ "/", "?", "<", ">", "\\", ":", "*", "|", "\"" };
-        
+
         for (int i=0; i<Path.length; i++){
              for (int j=0; j<arr.length; j++){
                   if (arr[j].equals(":") && i==0 & Path[i].length()==2){ //&& File.pathSeparator.equals(":")
-                    //skip check b/c we've got something like "C:\" in the path                      
+                    //skip check b/c we've got something like "C:\" in the path
                   }
                   else{
                       if (Path[i].contains((CharSequence) arr[j])) return false;
                   }
              }
         }
-        
+
 
         return true;
 
@@ -1263,7 +1270,7 @@ public class File implements Comparable {
         if (ext.equals("js")) return "text/javascript";
         if (ext.equals("txt")) return "text/plain";
         if (ext.equals("csv")) return "text/csv";
-        
+
       //JSON
         if (ext.equals("json")) return "application/json";
 
@@ -1362,7 +1369,7 @@ public class File implements Comparable {
   //**************************************************************************
   //** getContentType
   //**************************************************************************
-  /** Returns the mime type associated with the file extension. This method 
+  /** Returns the mime type associated with the file extension. This method
    *  only covers the most common/popular mime types. The returned mime type
    *  is NOT authoritative.
    */
@@ -1396,7 +1403,7 @@ public class File implements Comparable {
   //** getCreationTime
   //**************************************************************************
   /** Returns a timestamp of when the file was first created. Returns a null
-   *  if the timestamp is not available. 
+   *  if the timestamp is not available.
    */
     public java.util.Date getCreationTime(){
         try{
@@ -1412,7 +1419,7 @@ public class File implements Comparable {
   //** getLastAccessTime
   //**************************************************************************
   /** Returns a timestamp of when the file was last accessed. Returns a null
-   *  if the timestamp is not available. 
+   *  if the timestamp is not available.
    */
     public java.util.Date getLastAccessTime(){
         try{
@@ -1445,8 +1452,8 @@ public class File implements Comparable {
   //**************************************************************************
   /** Returns file attributes such as when the file was first created and when
    *  it was last accessed. File attributes are cached for up to one second.
-   *  This provides users the ability to retrieve multiple attributes at once. 
-   *  Without caching, we would have to ping the file system every time we call 
+   *  This provides users the ability to retrieve multiple attributes at once.
+   *  Without caching, we would have to ping the file system every time we call
    *  getLastAccessTime(), getLastAccessTime(), getLastWriteTime(), etc. The
    *  cached attributes are automatically updated when the file is updated or
    *  deleted by this class.
@@ -1508,8 +1515,8 @@ public class File implements Comparable {
                 Jar jar = new Jar(Jar.class);
                 Jar.Entry entry = jar.getEntry(null, dllName);
                 long checksum = entry.checksum();
-                
-                
+
+
               //Construct list of possible file locations for the dll
                 java.util.ArrayList<java.io.File> files = new java.util.ArrayList<java.io.File>();
                 files.add(new java.io.File(jar.getFile().getParentFile(), dllName));
@@ -1527,7 +1534,7 @@ public class File implements Comparable {
 
               //Try to load dll
                 for (java.io.File dll : files){
-                    
+
                     if (dll.exists()){
 
                       //Check whether the dll equals the jar entry. Extract as needed.
@@ -1574,7 +1581,7 @@ public class File implements Comparable {
               //one of the directories).
               //dllLoaded = false;
             }
-            
+
             return dllLoaded;
         }
         else{//not windows...
@@ -1582,12 +1589,12 @@ public class File implements Comparable {
         }
     }
 
-    
+
     /** Used to determine whether the JVM is running on Mac OS X. */
-    private static final boolean isOSX = 
+    private static final boolean isOSX =
             System.getProperty("os.name").toLowerCase().contains("os x");
-    
-    private static final boolean isSolaris = 
+
+    private static final boolean isSolaris =
             System.getProperty("os.name").toLowerCase().contains("sunos");
 
   /** Used to track load status. Null = no load attempted, True = successfully
@@ -1608,18 +1615,18 @@ public class File implements Comparable {
 
      /** JNI entry point to retrieve a list of network drives mounted to the host. */
     protected static native String GetNetworkDrives() throws Exception;
-    
+
      /** JNI entry point to retrieve a list of files and directories. */
     protected static native String GetFiles(String lpPathName) throws Exception;
-    
+
 
 
 //******************************************************************************
 //**  FileAttributes Class
 //******************************************************************************
 /**
- *  Used to encapsulate extended file attributes. On unix and linux machines, 
- *  this class is used to parse the output from ls. On windows, this class 
+ *  Used to encapsulate extended file attributes. On unix and linux machines,
+ *  this class is used to parse the output from ls. On windows, this class
  *  uses a JNI to return WIN32_FILE_ATTRIBUTE_DATA:
  *
  <pre>
@@ -1662,7 +1669,7 @@ public static class FileAttributes {
                     else throw e;
                 }
 
-                
+
               //Parse dates
                 java.text.SimpleDateFormat ftFormatter =
                 new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS");
@@ -1672,7 +1679,7 @@ public static class FileAttributes {
 
 
               //Compute file size using the nFileSizeHigh and nFileSizeLow attributes
-              //Note that nFileSizeHigh will be zero unless the file size is greater 
+              //Note that nFileSizeHigh will be zero unless the file size is greater
               //than MAXDWORD (4.2 Gig)
                 long MAXDWORD = 4294967296L;
                 long nFileSizeHigh = attributes[4];
@@ -1735,7 +1742,7 @@ public static class FileAttributes {
 
             }
             else{
-                
+
               //Failed to load the javaxt-core.dll. Fall back to the java.io.File object.
                 java.io.File f = new java.io.File(path);
                 if (!f.exists()) throw new java.io.FileNotFoundException(path);
@@ -1744,7 +1751,7 @@ public static class FileAttributes {
                 if (!f.canWrite()) flags.add("READONLY");
                 if (f.isHidden()) flags.add("HIDDEN");
                 if (f.isDirectory()) flags.add("DIRECTORY");
-                
+
             }
         }
         else{//UNIX or LINIX Operating System
@@ -1757,11 +1764,11 @@ public static class FileAttributes {
           //Execute ls command to get last access time and creation time
             if (isOSX){
                 String[] params = new String[]{"ls", "-lauT", path};
-                javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
-                cmd.run();                        
+                javaxt.io.Shell cmd = new javaxt.io.Shell(params);
+                cmd.run();
                 java.util.Iterator<String> it = cmd.getOutput().iterator();
                 ftLastAccessTime = parseOSXDate(it);
-                
+
                 params = new String[]{"ls", "-laUT", path};
                 cmd = new javaxt.io.Shell(params);
                 cmd.run();
@@ -1770,15 +1777,15 @@ public static class FileAttributes {
             }
             else if (isSolaris){
                 String[] params = new String[]{"ls", "-lauE", path};
-                javaxt.io.Shell cmd = new javaxt.io.Shell(params);            
-                cmd.run();                        
+                javaxt.io.Shell cmd = new javaxt.io.Shell(params);
+                cmd.run();
                 java.util.Iterator<String> it = cmd.getOutput().iterator();
                 ftLastAccessTime = parseFullDate(it);
             }
             else{//Linux (e.g. Ubuntu)
                 String[] params = new String[]{"ls", "-lau", "--full-time", path};
                 javaxt.io.Shell cmd = new javaxt.io.Shell(params);
-                cmd.run();                        
+                cmd.run();
                 java.util.Iterator<String> it = cmd.getOutput().iterator();
                 ftLastAccessTime = parseFullDate(it);
 
@@ -1789,7 +1796,7 @@ public static class FileAttributes {
                 ftCreationTime = parseFullDate(it);
             }
 
-      
+
           //Set other attributes including last modified date
             size = f.length();
             ftLastWriteTime = new java.util.Date(f.lastModified());
@@ -1799,14 +1806,14 @@ public static class FileAttributes {
             try{
                 if (!f.getCanonicalFile().equals(f.getAbsoluteFile())){
                     flags.add("REPARSE_POINT");
-                    link = f.getCanonicalFile(); 
+                    link = f.getCanonicalFile();
                 }
             }
             catch(Exception e){
             }
         }
 
-        
+
       //Check whether the file is a Windows shortcut (.lnk file) and parse as needed
         if (!isDirectory() && link==null){
             if (path.toLowerCase().endsWith(".lnk")){
@@ -1817,9 +1824,9 @@ public static class FileAttributes {
                 }
             }
         }
-        
+
     }
-    
+
     /** Used to extract a date from a ls output using the "--full-time" option. */
     private java.util.Date parseFullDate(java.util.Iterator<String> it){
         while (it.hasNext()){
@@ -1938,13 +1945,13 @@ public static class FileAttributes {
   /** A file or directory that has an associated reparse point, or a file that
    *  is a symbolic link.
    */
-    private static final int FILE_ATTRIBUTE_REPARSE_POINT = 1024; 
+    private static final int FILE_ATTRIBUTE_REPARSE_POINT = 1024;
 
   /** A file or directory that is compressed. For a file, all of the data in
    *  the file is compressed. For a directory, compression is the default for
    *  newly created files and subdirectories.
    */
-    private static final int FILE_ATTRIBUTE_COMPRESSED = 2048; 
+    private static final int FILE_ATTRIBUTE_COMPRESSED = 2048;
 
   /** The data of a file is not available immediately. This attribute indicates
    *  that the file data is physically moved to offline storage. This attribute
