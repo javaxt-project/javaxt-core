@@ -287,9 +287,13 @@ public abstract class Model {
         if (id==null){ //insert new record using prepared statement (faster than recordset)
 
 
+          //Get database fields associated with the model
             String className = this.getClass().getName();
             Field[] dbFields;
             synchronized(this.fields){ dbFields = this.fields.get(className); }
+            if (dbFields==null) throw new SQLException(
+                "Failed to retrieve metadata for " + className + ". " +
+                "The model may not have been initialized. See Model.init()");
 
 
           //Generate list of database fields for insert

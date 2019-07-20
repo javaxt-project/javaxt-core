@@ -349,6 +349,8 @@ public class Recordset {
   /** Used to initialize a Recordset using a standard Java ResultSet
    */
     public void open(java.sql.ResultSet resultSet){
+        startTime = System.currentTimeMillis();
+        EOF = true;
         rs = resultSet;
         init();
     }
