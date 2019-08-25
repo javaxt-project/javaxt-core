@@ -53,7 +53,7 @@ public class Parser {
     public String getGroupByString() { return (String)sql.get("GROUP BY"); }
     public String getHavingString() { return (String)sql.get("HAVING"); }
 
-    
+
   //**************************************************************************
   //** clone
   //**************************************************************************
@@ -274,18 +274,76 @@ public class Parser {
 
 
   //**************************************************************************
+  //** setSelect
+  //**************************************************************************
+  /** Used to update the select clause. Returns an updated SQL statement.
+   */
+    public String setSelect(String selectClause){
+        if (selectClause==null) selectClause = "*";
+        else{
+            selectClause = selectClause.trim();
+            if (selectClause.length()==0) selectClause = "*";
+        }
+        sql.put("SELECT", selectClause);
+        selectStatements = null;
+        getSelectStatements();
+        return this.toString();
+    }
+
+    
+  //**************************************************************************
   //** setWhere
   //**************************************************************************
   /** Used to update the where clause in the SQL String. The entire where
-   *  clause will be replaced with the given string. The input select clause
-   *  is accepted "AS IS". Returns an updated SQL statement.
+   *  clause will be replaced with the given string. Returns an updated SQL
+   *  statement.
    */
     public String setWhere(String whereClause){
-        if (whereClause==null) whereClause = "";
-        else whereClause = whereClause.trim();
+        if (whereClause!=null){
+            whereClause = whereClause.trim();
+            if (whereClause.length()==0) whereClause = null;
+        }
         sql.put("WHERE", whereClause);
         this.whereStatements = null;
         getWhereStatements();
+        return this.toString();
+    }
+
+
+  //**************************************************************************
+  //** setOrderBy
+  //**************************************************************************
+  /** Used to update the order by clause in the SQL String. The entire order
+   *  by clause will be replaced with the given string. Returns an updated SQL
+   *  statement.
+   */
+    public String setOrderBy(String orderByClause){
+        if (orderByClause!=null){
+            orderByClause = orderByClause.trim();
+            if (orderByClause.length()==0) orderByClause = null;
+        }
+        sql.put("ORDER BY", orderByClause);
+        this.orderByStatements = null;
+        getOrderByStatements();
+        return this.toString();
+    }
+
+
+  //**************************************************************************
+  //** setGroupBy
+  //**************************************************************************
+  /** Used to update the group by clause in the SQL String. The entire group
+   *  by clause will be replaced with the given string. Returns an updated SQL
+   *  statement.
+   */
+    public String setGroupBy(String groupByClause){
+        if (groupByClause!=null){
+            groupByClause = groupByClause.trim();
+            if (groupByClause.length()==0) groupByClause = null;
+        }
+        sql.put("GROUP BY", groupByClause);
+        this.groupByStatements = null;
+        getGroupByStatements();
         return this.toString();
     }
 
@@ -312,7 +370,8 @@ public class Parser {
         }
         else{
             StringBuffer sql = new StringBuffer();
-            sql.append("SELECT " + selectClause + " FROM " + fromClause);
+            sql.append("SELECT "); sql.append(selectClause);
+            sql.append(" FROM "); sql.append(fromClause);
             if (whereClause!=null) sql.append(" WHERE " + whereClause);
             if (orderByClause!=null) sql.append(" ORDER BY " + orderByClause);
             if (groupByClause!=null) sql.append(" GROUP BY " + groupByClause);
@@ -322,21 +381,7 @@ public class Parser {
     }
 
 
-  //**************************************************************************
-  //** Set Select String
-  //**************************************************************************
-  /**  Used to update the select clause. The input select clause is accepted
-   *   "AS IS". Returns an updated SQL statement.
-   */
-    public String setSelect(String selectClause){
-        if (selectClause==null) selectClause = "*";
-        else selectClause = selectClause.trim();
-        if (selectClause.length()==0) selectClause = "*";
-        sql.put("SELECT", selectClause);
-        selectStatements = null;
-        getSelectStatements();
-        return this.toString();
-    }
+
 
 
   //**************************************************************************
