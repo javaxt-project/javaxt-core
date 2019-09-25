@@ -9,7 +9,7 @@ import javaxt.utils.Value;
 /**
  *   A JSONArray is an ordered sequence of values. Its external text form is a
  *   string wrapped in square brackets with commas separating the values.
- * 
+ *
  *   @author json.org
  *   @version 2016-08-15
  *
@@ -19,7 +19,7 @@ public class JSONArray implements Iterable<Object> {
 
     private final java.util.ArrayList<Object> arr;
 
-    
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -29,7 +29,7 @@ public class JSONArray implements Iterable<Object> {
         arr = new java.util.ArrayList<Object>();
     }
 
-    
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -38,8 +38,8 @@ public class JSONArray implements Iterable<Object> {
     public JSONArray(String source) throws JSONException {
         this(new JSONTokener(source));
     }
-    
-    
+
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -48,7 +48,7 @@ public class JSONArray implements Iterable<Object> {
         if (x.nextClean() != '[') {
             throw x.syntaxError("A JSONArray text must start with '['");
         }
-        
+
         char nextChar = x.nextClean();
         if (nextChar == 0) {
             // array is unclosed. No ']' found, instead EOF
@@ -97,7 +97,7 @@ public class JSONArray implements Iterable<Object> {
         return arr.iterator();
     }
 
-    
+
   //**************************************************************************
   //** length
   //**************************************************************************
@@ -106,8 +106,8 @@ public class JSONArray implements Iterable<Object> {
     public int length() {
         return arr.size();
     }
-    
-    
+
+
   //**************************************************************************
   //** isEmpty
   //**************************************************************************
@@ -116,8 +116,8 @@ public class JSONArray implements Iterable<Object> {
     public boolean isEmpty(){
         return arr.isEmpty();
     }
-    
-    
+
+
   //**************************************************************************
   //** get
   //**************************************************************************
@@ -134,14 +134,14 @@ public class JSONArray implements Iterable<Object> {
   /** Appends an object to the array.
    */
     public void add(Object object) throws JSONException {
-        
+
         if (object instanceof Value){
             object = ((Value) object).toObject();
         }
 
-        
+
         JSONObject.testValidity(object);
-        
+
         arr.add(object);
     }
 
@@ -149,7 +149,7 @@ public class JSONArray implements Iterable<Object> {
   //**************************************************************************
   //** remove
   //**************************************************************************
-  /** Remove entry. Returns the value that was associated with the index, or 
+  /** Remove entry. Returns the value that was associated with the index, or
    *  null if there was no value.
    */
     public Object remove(int index) {
@@ -158,11 +158,11 @@ public class JSONArray implements Iterable<Object> {
             : null;
     }
 
-    
+
   //**************************************************************************
   //** equals
   //**************************************************************************
-  /** Returns true if the given object is a JSONArray and the JSONArray 
+  /** Returns true if the given object is a JSONArray and the JSONArray
    *  contains the same entries as this array. Order is important.
    */
     public boolean equals(Object obj){
@@ -184,32 +184,32 @@ public class JSONArray implements Iterable<Object> {
         }
         return false;
     }
-    
+
 
   //**************************************************************************
   //** toString
   //**************************************************************************
   /** Returns a printable, displayable, transmittable representation of the
-   *  array. For compactness, no unnecessary whitespace is added. If it is not 
-   *  possible to produce a syntactically correct JSON text then null will be 
+   *  array. For compactness, no unnecessary whitespace is added. If it is not
+   *  possible to produce a syntactically correct JSON text then null will be
    *  returned instead.
    */
     @Override
     public String toString() {
         try {
             return this.toString(0);
-        } 
+        }
         catch (Exception e) {
             return null;
         }
     }
 
-    
+
   //**************************************************************************
   //** toString
   //**************************************************************************
   /** Returns a printable, displayable, transmittable representation of the
-   *  array. 
+   *  array.
    */
     public String toString(int indentFactor) {
         try{
@@ -230,7 +230,7 @@ public class JSONArray implements Iterable<Object> {
   /** Write the contents of the JSONArray as JSON text to a writer.
    */
     protected Writer write(Writer writer, int indentFactor, int indent)
-            throws JSONException {
+        throws JSONException {
         try {
             boolean commanate = false;
             int length = this.length();
@@ -238,12 +238,13 @@ public class JSONArray implements Iterable<Object> {
 
             if (length == 1) {
                 try {
-                    JSONObject.writeValue(writer, arr.get(0),
-                            indentFactor, indent);
-                } catch (Exception e) {
+                    JSONObject.writeValue(writer, arr.get(0), indentFactor, indent);
+                }
+                catch (Exception e) {
                     throw new JSONException("Unable to write JSONArray value at index: 0", e);
                 }
-            } else if (length != 0) {
+            }
+            else if (length != 0) {
                 final int newindent = indent + indentFactor;
 
                 for (int i = 0; i < length; i += 1) {
@@ -255,9 +256,9 @@ public class JSONArray implements Iterable<Object> {
                     }
                     JSONObject.indent(writer, newindent);
                     try {
-                        JSONObject.writeValue(writer, arr.get(i),
-                                indentFactor, newindent);
-                    } catch (Exception e) {
+                        JSONObject.writeValue(writer, arr.get(i), indentFactor, newindent);
+                    }
+                    catch (Exception e) {
                         throw new JSONException("Unable to write JSONArray value at index: " + i, e);
                     }
                     commanate = true;
@@ -269,12 +270,13 @@ public class JSONArray implements Iterable<Object> {
             }
             writer.write(']');
             return writer;
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new JSONException(e);
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** opt
   //**************************************************************************

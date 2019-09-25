@@ -21,11 +21,11 @@ public class Value extends javaxt.utils.Value {
         super(value);
     }
 
-    
+
   //**************************************************************************
   //** toTimeStamp
   //**************************************************************************
-  /** Returns the value as a java.sql.Timestamp. Returns a null if there was a 
+  /** Returns the value as a java.sql.Timestamp. Returns a null if there was a
    *  problem converting the value to a Timestamp or if the value is null.
    */
     public java.sql.Timestamp toTimeStamp(){
@@ -44,12 +44,12 @@ public class Value extends javaxt.utils.Value {
         return null;
     }
 
-    
+
   //**************************************************************************
   //** toArray
   //**************************************************************************
-  /** If the value is a java.sql.Array, returns the output from the 
-   *  java.sql.Array.getArray() method. Returns a null if there was a problem 
+  /** If the value is a java.sql.Array, returns the output from the
+   *  java.sql.Array.getArray() method. Returns a null if there was a problem
    *  converting the value to a java.sql.Array or if the value is null.
    */
     public Object toArray(){
@@ -64,12 +64,12 @@ public class Value extends javaxt.utils.Value {
 
         return null;
     }
-    
-    
+
+
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /** Returns the value as a String. Returns a null if there was a problem 
+  /** Returns the value as a String. Returns a null if there was a problem
    *  converting the value to a String or if the value is null.
    */
     public String toString(){
@@ -103,7 +103,7 @@ public class Value extends javaxt.utils.Value {
                 return obj.toString();
             }
         }
-        
+
         return null;
     }
 }

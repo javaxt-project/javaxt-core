@@ -376,7 +376,8 @@ public class JSONObject {
   //** toString
   //**************************************************************************
   /** Returns a pretty-printed JSON text of this JSONObject.
-   * @param indentFactor The number of spaces to add to each level of indentation.
+   *  @param indentFactor The number of spaces to add to each level of
+   *  indentation.
    */
     public String toString(int indentFactor) {
         try{
@@ -426,6 +427,10 @@ public class JSONObject {
         else if (value instanceof java.util.Calendar) {
             writer.write(quote(new javaxt.utils.Date(((java.util.Calendar) value)).toISOString()));
         }
+        else if (value instanceof java.sql.Clob){
+          //Special case: Use javaxt.sql.Value to stringify Clobs
+            writer.write(quote(new javaxt.sql.Value(value).toString()));
+        }
         else if (value instanceof Enum<?>) {
             writer.write(quote(((Enum<?>)value).name()));
         }
@@ -474,10 +479,12 @@ public class JSONObject {
                 }
                 try{
                     writeValue(writer, entry.getValue(), indentFactor, indent);
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     throw new JSONException("Unable to write JSONObject value for key: " + key, e);
                 }
-            } else if (length != 0) {
+            }
+            else if (length != 0) {
                 final int newindent = indent + indentFactor;
                 for (final Entry<String,?> entry : this.entrySet()) {
                     if (commanate) {
@@ -495,7 +502,8 @@ public class JSONObject {
                     }
                     try {
                         writeValue(writer, entry.getValue(), indentFactor, newindent);
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         throw new JSONException("Unable to write JSONObject value for key: " + key, e);
                     }
                     commanate = true;
@@ -507,7 +515,8 @@ public class JSONObject {
             }
             writer.write('}');
             return writer;
-        } catch (IOException exception) {
+        }
+        catch (IOException exception) {
             throw new JSONException(exception);
         }
     }

@@ -341,7 +341,7 @@ public abstract class Model {
                 boolean foundField = false;
                 String columnName = fieldMap.get(f.getName());
                 for (Field field : dbFields){
-                    if (field.getName().equals(columnName)){
+                    if (field.getName().equalsIgnoreCase(columnName)){
                         field = field.clone();
                         field.Value = new Value(val);
                         updates.add(field);

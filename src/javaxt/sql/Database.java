@@ -9,18 +9,18 @@ import javax.sql.ConnectionPoolDataSource;
 //******************************************************************************
 /**
  *   Object used to represent all of the information required to connect to a
- *   database. 
+ *   database.
  *
  ******************************************************************************/
 
 public class Database implements Cloneable {
-    
+
     private String name; //name of the catalog used to store tables, views, etc.
     private String host;
     private Integer port;
     private String username;
     private String password;
-    private Driver driver; 
+    private Driver driver;
     private java.util.Properties properties;
     private String querystring;
     private ConnectionPoolDataSource ConnectionPoolDataSource;
@@ -28,7 +28,7 @@ public class Database implements Cloneable {
     private static final Class<?>[] integerType = { Integer.TYPE };
     private ConnectionPool connectionPool;
     private int maxConnections = 15;
-    
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
@@ -64,7 +64,7 @@ public class Database implements Cloneable {
   //** Constructor
   //**************************************************************************
   /**  Creates a new instance of Database using a jdbc connection. */
-    
+
     public Database(java.sql.Connection conn){
         try{
             DatabaseMetaData dbmd = conn.getMetaData();
@@ -79,9 +79,9 @@ public class Database implements Cloneable {
     }
 
 
-    
+
   //**************************************************************************
-  //** Constructor 
+  //** Constructor
   //**************************************************************************
   /** Creates a new instance of a Database using a jdbc connection string.
    *  Username and password may be appended to the end of the connection string
@@ -99,10 +99,10 @@ public class Database implements Cloneable {
     public Database(String connStr){
         parseURL(connStr);
     }
-    
+
 
   //**************************************************************************
-  //** parseURL 
+  //** parseURL
   //**************************************************************************
   /** Used to parse a JDBC connection string (url)
    */
@@ -165,7 +165,7 @@ public class Database implements Cloneable {
 
 
   //**************************************************************************
-  //** setName 
+  //** setName
   //**************************************************************************
   /** Sets the name of the catalog used to store tables, views, etc. */
 
@@ -183,7 +183,7 @@ public class Database implements Cloneable {
         return name;
     }
 
-    
+
   //**************************************************************************
   //** setHost
   //**************************************************************************
@@ -222,36 +222,36 @@ public class Database implements Cloneable {
             }
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** getHost
   //**************************************************************************
-  /** Returns the name or IP address of the server or a physical path to the 
+  /** Returns the name or IP address of the server or a physical path to the
    *  database file.
    */
     public String getHost(){
         return host;
     }
 
-    
+
   //**************************************************************************
   //** setPort
   //**************************************************************************
-    
+
     public void setPort(int port){
         this.port = port;
     }
-    
+
     public Integer getPort(){
         return port;
     }
 
-    
+
   //**************************************************************************
   //** setDriver
   //**************************************************************************
-    
+
     public void setDriver(Driver driver){
         this.driver = driver;
     }
@@ -266,7 +266,7 @@ public class Database implements Cloneable {
     public void setDriver(String driver){ //throw exception?
         this.driver = Driver.findDriver(driver);
     }
-    
+
 
     public void setDriver(java.sql.Driver driver){
         this.driver = new Driver(driver);
@@ -275,42 +275,42 @@ public class Database implements Cloneable {
     public void setDriver(Class driver){
         this.driver = Driver.findDriver(driver.getCanonicalName());
     }
-    
-    
+
+
   //**************************************************************************
   //** getDriver
   //**************************************************************************
-    
+
     public Driver getDriver(){
         return driver;
     }
 
-    
+
   //**************************************************************************
   //** setUserName
   //**************************************************************************
-    
+
     public void setUserName(String username){
         this.username = username;
     }
-    
+
     public String getUserName(){
         return username;
     }
-    
+
   //**************************************************************************
   //** setPassword
   //**************************************************************************
-    
+
     public void setPassword(String password){
         this.password = password;
     }
-    
+
     public String getPassword(){
         return password;
     }
 
-    
+
     public void setProperties(java.util.Properties properties){
         this.properties = properties;
     }
@@ -318,7 +318,7 @@ public class Database implements Cloneable {
     public java.util.Properties getProperties(){
         return properties;
     }
-    
+
   //**************************************************************************
   //** getConnectionString
   //**************************************************************************
@@ -326,16 +326,16 @@ public class Database implements Cloneable {
    *  Username and password are appended to the end of the url.
    */
     public String getConnectionString(){
-                    
+
       //Set User Info
         String path = getURL();
         if (username!=null) path += ";user=" + username;
-        if (password!=null) path += ";password=" + password;      
+        if (password!=null) path += ";password=" + password;
         return path;
-        
+
     }
 
-    
+
   //**************************************************************************
   //** getURL
   //**************************************************************************
@@ -379,12 +379,12 @@ public class Database implements Cloneable {
       //Set Path
         String path = "";
         path = driver.getProtocol() + "://";
-        
-                
+
+
       //Special case for Sybase
         if (vendor.equals("Sybase")){
             if (path.toLowerCase().contains((CharSequence) "tds:")==false){
-                path = driver.getProtocol() + "Tds:"; 
+                path = driver.getProtocol() + "Tds:";
             }
         }
         else if (vendor.equals("Derby") || vendor.equals("SQLite")){
@@ -409,16 +409,16 @@ public class Database implements Cloneable {
       //Assemble Connection String
         return path + server + database; // + props.toString()
     }
-    
-    
+
+
   //**************************************************************************
   //** getConnection
   //**************************************************************************
-  /** Used to open a connection to the database. If a connection pool has been 
-   *  initialized (initConnectionPool), then an open connection is returned 
-   *  from the pool. Otherwise, a new connection is created. In either case, 
-   *  the connection must be closed when you are finished with it. 
-   */     
+  /** Used to open a connection to the database. If a connection pool has been
+   *  initialized (initConnectionPool), then an open connection is returned
+   *  from the pool. Otherwise, a new connection is created. In either case,
+   *  the connection must be closed when you are finished with it.
+   */
     public Connection getConnection() throws SQLException {
         if (connectionPool==null){
             Connection connection = new Connection();
@@ -434,13 +434,13 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** initConnectionPool
   //**************************************************************************
-  /** Used to initialize a connection pool. Subsequent called to the 
+  /** Used to initialize a connection pool. Subsequent called to the
    *  getConnection() method will return connections from the pool.
-   */  
+   */
     public void initConnectionPool() throws SQLException {
         if (connectionPool!=null) return;
         connectionPool = new ConnectionPool(this, maxConnections);
-        
+
       //Create Shutdown Hook to clean up the connection pool on exit
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
@@ -456,28 +456,28 @@ public class Database implements Cloneable {
             }
         });
     }
-    
-    
+
+
   //**************************************************************************
   //** terminateConnectionPool
   //**************************************************************************
   /** Used to terminate the connection pool, closing all active connections.
    */
     public void terminateConnectionPool() throws SQLException {
-        if (connectionPool!=null){ 
+        if (connectionPool!=null){
             connectionPool.close();
             connectionPool = null;
         }
     }
-    
+
 
   //**************************************************************************
   //** setConnectionPoolSize
   //**************************************************************************
   /** Used to specify the size of the connection pool. The pool size must be
-   *  set before initializing the connection pool. If the pool size is not 
+   *  set before initializing the connection pool. If the pool size is not
    *  defined, the connection pool will default to 15.
-   */  
+   */
     public void setConnectionPoolSize(int maxConnections){
         if (connectionPool!=null) return;
         this.maxConnections = maxConnections;
@@ -567,7 +567,7 @@ public class Database implements Cloneable {
 
         }
         else if (driver.equals("sqlserver")){ //mssql
-        
+
             className = ("com.microsoft.sqlserver.jdbc.SQLServerXADataSource");
 
             methods.put("setDatabaseName", name);
@@ -660,15 +660,15 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getTables
   //**************************************************************************
-  /** Used to retrieve an array of tables found in this database. 
-   */    
+  /** Used to retrieve an array of tables found in this database.
+   */
     public static Table[] getTables(Connection conn){
         try{
             java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
             ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"});
             while (rs.next()) {
-                tables.add(new Table(rs, dbmd));  
+                tables.add(new Table(rs, dbmd));
             }
             rs.close();
             rs = null;
@@ -701,7 +701,7 @@ public class Database implements Cloneable {
         }
     }
 
-    
+
   //**************************************************************************
   //** getReservedKeywords
   //**************************************************************************
@@ -717,11 +717,14 @@ public class Database implements Cloneable {
         else if (driver.equals("SQLServer")){
             return msKeywords;
         }
+        else if (driver.equals("H2")){
+            return h2Keywords;
+        }
         else if (driver.equals("PostgreSQL")){
-          
+
           //Try to get reserved keywords from the database. Note that in PostgreSQL
-          //"non-reserved" keywords are key words that are explicitly known to  
-          //the parser but are allowed as column or table names. Therefore, we  
+          //"non-reserved" keywords are key words that are explicitly known to
+          //the parser but are allowed as column or table names. Therefore, we
           //will ignore "non-reserved" keywords from our query.
             if (pgKeywords==null){
                 java.util.HashSet<String> arr = new java.util.HashSet<String>();
@@ -750,14 +753,14 @@ public class Database implements Cloneable {
                 }
                 pgKeywords = keywords;
             }
-            
+
             return pgKeywords;
         }
         else{
             return ansiKeywords;
         }
     }
-    
+
 
     public static void displayDbProperties(Connection conn){
 
@@ -807,8 +810,8 @@ public class Database implements Cloneable {
         str.append("ConnStr: " + this.getConnectionString());
         return str.toString();
     }
-    
-    
+
+
   //**************************************************************************
   //** clone
   //**************************************************************************
@@ -818,8 +821,8 @@ public class Database implements Cloneable {
         db.querystring = querystring;
         return db;
     }
-    
-    
+
+
   /** Firebird reserved keywords. */
     private static final String[] fbKeywords = new String[]{
         "ADD","ADMIN","ALL","ALTER","AND","ANY","AS","AT","AVG","BEGIN","BETWEEN",
@@ -844,8 +847,8 @@ public class Database implements Cloneable {
         "UPDATE","UPPER","USER","USING","VALUE","VALUES","VARCHAR","VARIABLE","VARYING",
         "VIEW","WHEN","WHERE","WHILE","WITH","YEAR"
     };
-    
-    
+
+
   /** SQLServer reserved keywords. Source:
    *  https://msdn.microsoft.com/en-us/library/ms189822.aspx
    */
@@ -878,6 +881,23 @@ public class Database implements Cloneable {
     };
 
     
+  /** H2 reserved keywords. Source:
+   *  http://www.h2database.com/html/advanced.html#keywords
+   */
+    private static final String[] h2Keywords = new String[]{
+        "ALL","AND","ARRAY","AS","BETWEEN","BOTH","CASE","CHECK","CONSTRAINT",
+        "CROSS","CURRENT_DATE","CURRENT_TIME","CURRENT_TIMESTAMP","CURRENT_USER",
+        "DISTINCT","EXCEPT","EXISTS","FALSE","FETCH","FILTER","FOR","FOREIGN",
+        "FROM","FULL","GROUP","GROUPS","HAVING","IF","ILIKE","IN","INNER",
+        "INTERSECT","INTERSECTS","INTERVAL","IS","JOIN","LEADING","LEFT","LIKE",
+        "LIMIT","LOCALTIME","LOCALTIMESTAMP","MINUS","NATURAL","NOT","NULL","OFFSET",
+        "ON","OR","ORDER","OVER","PARTITION","PRIMARY","QUALIFY","RANGE","REGEXP",
+        "RIGHT","ROW","_ROWID_","ROWNUM","ROWS","SELECT","SYSDATE","SYSTIME",
+        "SYSTIMESTAMP","TABLE","TODAY","TOP","TRAILING","TRUE","UNION","UNIQUE",
+        "VALUES","WHERE","WINDOW","WITH"
+    };
+
+
   /** PostgreSQL reserved keywords. */
     private static String[] pgKeywords = null;
 
@@ -927,5 +947,5 @@ public class Database implements Cloneable {
         "VIEW","WHEN","WHENEVER","WHERE","WHILE","WINDOW","WITH","WITHIN","WITHOUT",
         "WORK","WRITE","YEAR","ZONE"
     };
-    
+
 }
