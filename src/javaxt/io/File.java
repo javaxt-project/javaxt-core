@@ -1330,6 +1330,7 @@ public class File implements Comparable {
         if (ext.equals("mpe,mpeg,mpg")) return "video/mpeg";
         if (ext.equals("mpv2")) return "video/mpeg2";
         if (ext.equals("qt,mov,moov")) return "video/quicktime";
+        if (ext.equals("mp4")) return "video/mp4";
 
         if (ext.equals("wvx")) return "video/x-ms-wvx";
         if (ext.equals("wm")) return "video/x-ms-wm";
