@@ -6,15 +6,15 @@ import java.util.List;
 //**  URL Class - By Peter Borissow
 //******************************************************************************
 /**
- *   Used to parse urls, extract querystring parameters, etc. Partial 
- *   implementation of the java.net.URL class. Provides a querystring parser 
+ *   Used to parse urls, extract querystring parameters, etc. Partial
+ *   implementation of the java.net.URL class. Provides a querystring parser
  *   that is not part of the java.net.URL class. Can be used to parse non-http
  *   URLs, including JDBC connection strings.
  *
  ******************************************************************************/
 
 public class URL {
-    
+
     private HashMap<String, List<String>> parameters;
     private String protocol;
     private String host;
@@ -26,17 +26,17 @@ public class URL {
   //** Constructor
   //**************************************************************************
   /** Creates a new instance of URL using a java.net.URL */
-    
+
     public URL(java.net.URL url){
         this(url.toString());
     }
-    
-    
+
+
   //**************************************************************************
   //** Constructor
-  //************************************************************************** 
-  /** Creates a new instance of URL using string representing a url. */  
-    
+  //**************************************************************************
+  /** Creates a new instance of URL using string representing a url. */
+
     public URL(String url){
 
         url = url.trim();
@@ -87,7 +87,7 @@ public class URL {
   //**************************************************************************
   //** exists
   //**************************************************************************
-  /** Used to test whether the url endpoint exists. Currently only supports 
+  /** Used to test whether the url endpoint exists. Currently only supports
    *  HTTP URLs.
    */
     public boolean exists(){
@@ -105,13 +105,13 @@ public class URL {
 
     }
 
-    
+
   //**************************************************************************
   //** parseQueryString
-  //************************************************************************** 
+  //**************************************************************************
   /** Used to parse a url query string and create a list of name/value pairs.
    *  Note that the keys are all lowercase.
-   */      
+   */
     public static HashMap<String, List<String>> parseQueryString(String query){
 
 
@@ -127,7 +127,7 @@ public class URL {
         boolean amp = query.contains("&amp;");
         if (amp) query = query.replace("&amp;", "&");
 
-        
+
       //Parse the querystring, one character at a time. Note that the tokenizer
       //implemented here is very inefficient. Need something better/faster.
         if (query.startsWith("&")) query = query.substring(1);
@@ -139,29 +139,29 @@ public class URL {
 
         for (int i=0; i<query.length(); i++){
 
-             c = query.substring(i,i+1); 
+             c = query.substring(i,i+1);
 
              if (!c.equals("&")){
                  word.append(c); //word = word + c;
              }
-             else{     
+             else{
                  //System.out.println(word);
 
                  int x = word.indexOf("=");
                  if (x>=0){
-                     String key = word.substring(0,x).toLowerCase();
+                     String key = word.substring(0,x);
                      String value = decode(word.substring(x+1));
 
                    //Special case for JDBC connection strings that contain extra params after the query
                      if (amp && value.contains(";")) value = value.substring(0, value.indexOf(";"));
-                     
-                     List<String> values = parameters.get(key);
+
+                     List<String> values = getParameter(key, parameters);
                      if (values==null) values = new java.util.LinkedList<String>();
                      values.add(value);
-                     parameters.put(key, values);
+                     setParameter(key, values, parameters);
                  }
                  else{
-                     parameters.put(word.toString(), null);
+                     setParameter(word.toString(), null, parameters);
                  }
 
                  word = new StringBuffer(); //word = "";
@@ -170,7 +170,7 @@ public class URL {
 
         return parameters;
     }
-    
+
     private static String decode(String str){
         try{
             return java.net.URLDecoder.decode(str, "UTF-8");
@@ -185,7 +185,7 @@ public class URL {
             return str;
         }
     }
-    
+
     private static String encode(String str){
         try{
             return java.net.URLEncoder.encode(str, "UTF-8").replaceAll("\\+", "%20");
@@ -194,21 +194,21 @@ public class URL {
             return str;
         }
     }
-    
+
 
   //**************************************************************************
   //** setParameter
   //**************************************************************************
-  /** Used to set or update a value for a given parameter in the query string. 
+  /** Used to set or update a value for a given parameter in the query string.
    *  If append is true, the value will be added to other values for this key.
    */
     public void setParameter(String key, String value, boolean append){
 
         if (value!=null) value = decode(value);
-        
+
         key = key.toLowerCase();
         if (append){
-            List<String> values = parameters.get(key);
+            List<String> values = getParameter(key, parameters);
             java.util.Iterator<String> it = values.iterator();
             while(it.hasNext()){
                 if (it.next().equalsIgnoreCase(value)){
@@ -218,7 +218,7 @@ public class URL {
             }
             if (append) {
                 values.add(value);
-                parameters.put(key, values);
+                setParameter(key, values, parameters);
             }
 
         }
@@ -226,7 +226,7 @@ public class URL {
             if (value!=null){
                 List<String> values = new java.util.LinkedList<String>();
                 values.add(value);
-                parameters.put(key, values);
+                setParameter(key, values, parameters);
             }
         }
 
@@ -236,7 +236,7 @@ public class URL {
   //**************************************************************************
   //** setParameter
   //**************************************************************************
-  /** Used to set or update a value for a given parameter. 
+  /** Used to set or update a value for a given parameter.
    */
     public void setParameter(String key, String value){
         setParameter(key, value, false);
@@ -245,7 +245,7 @@ public class URL {
 
   //**************************************************************************
   //** getParameter
-  //************************************************************************** 
+  //**************************************************************************
   /** Returns the value of a specific variable supplied in the query string.
    *
    *  @param key Query string parameter name. Performs a case insensitive
@@ -254,10 +254,10 @@ public class URL {
    *  @return Returns a comma delimited list of values associated with the
    *  given key. Returns a zero length string if the key is not found or if
    *  the value is null.
-   */ 
+   */
     public String getParameter(String key){
         StringBuffer str = new StringBuffer();
-        List<String> values = parameters.get(key.toLowerCase());
+        List<String> values = getParameter(key, parameters);
         if (values!=null){
             for (int i=0; i<values.size(); i++){
                 str.append(values.get(i));
@@ -269,6 +269,7 @@ public class URL {
             return "";
         }
     }
+
 
   //**************************************************************************
   //** getParameter
@@ -282,7 +283,7 @@ public class URL {
 
         StringBuffer str = new StringBuffer();
         for (String key : keys){
-            List<String> values = parameters.get(key.toLowerCase());
+            List<String> values = getParameter(key.toLowerCase(), parameters);
             if (values!=null){
                 for (int i=0; i<values.size(); i++){
                     str.append(values.get(i) + ",");
@@ -313,7 +314,7 @@ public class URL {
    */
     public String removeParameter(String key){
         StringBuffer str = new StringBuffer();
-        List<String> values = parameters.remove(key.toLowerCase());
+        List<String> values = removeParameter(key, parameters);
         if (values!=null){
             for (int i=0; i<values.size(); i++){
                 str.append(values.get(i));
@@ -325,6 +326,43 @@ public class URL {
             return "";
         }
     }
+
+
+    public static List<String> getParameter(String key, HashMap<String, List<String>> parameters){
+        List<String> values = parameters.get(key);
+        if (values==null){
+            java.util.Iterator<String> it = parameters.keySet().iterator();
+            while (it.hasNext()){
+                String s = it.next();
+                if (s.equalsIgnoreCase(key)) return parameters.get(s);
+            }
+        }
+        return values;
+    };
+
+    public static void setParameter(String key, List<String> values, HashMap<String, List<String>> parameters){
+        java.util.Iterator<String> it = parameters.keySet().iterator();
+        while (it.hasNext()){
+            String s = it.next();
+            if (s.equalsIgnoreCase(key)){
+                parameters.put(key, values);
+                return;
+            }
+        }
+        parameters.put(key, values);
+    }
+
+    public static List<String> removeParameter(String key, HashMap<String, List<String>> parameters){
+        List<String> values = parameters.remove(key);
+        if (values==null){
+            java.util.Iterator<String> it = parameters.keySet().iterator();
+            while (it.hasNext()){
+                String s = it.next();
+                if (s.equalsIgnoreCase(key)) return parameters.remove(s);
+            }
+        }
+        return values;
+    };
 
 
   //**************************************************************************
@@ -405,7 +443,7 @@ public class URL {
             String key = it.next();
             String value = this.getParameter(key);
             if (value.length()==0){
-                if (parameters.get(key.toLowerCase())==null){
+                if (getParameter(key, parameters)==null){
                     value = null;
                 }
             }
@@ -417,7 +455,7 @@ public class URL {
                 str.append(encode(value));
             }
 
-            
+
             if (it.hasNext()) str.append("&");
         }
         return str.toString();
@@ -549,7 +587,7 @@ public class URL {
                                  urlPath += dir + "/";
                              }
                         }
-                        
+
 
 
                       //This can be cleaned-up a bit...
@@ -587,10 +625,10 @@ public class URL {
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /**  Returns the URL as a string. 
+  /**  Returns the URL as a string.
    */
     public String toString(){
-            
+
       //Update Host
         String host = this.host;
 
@@ -638,7 +676,7 @@ public class URL {
             if (query.length()>0){
                 url = new java.net.URL(url.toString() + "?" + query);
             }
-            
+
         }
         catch(Exception e){
             //e.printStackTrace();
