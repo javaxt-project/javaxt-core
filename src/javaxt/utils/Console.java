@@ -60,7 +60,7 @@ public class Console {
         System.out.println(source + str);
     }
 
-    
+
   //**************************************************************************
   //** format
   //**************************************************************************
@@ -109,26 +109,41 @@ public class Console {
 
 
   //**************************************************************************
-  //** getUserName
+  //** getInput
   //**************************************************************************
-    public static String getUserName(String prompt){
-        String username = null;
+  /** Used to prompt a user for an input
+   */
+    public static String getInput(String prompt){
+        String input = null;
         System.out.print(prompt);
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         try {
-            username = br.readLine();
+            input = br.readLine();
         }
         catch (IOException e) {
-            System.out.println("Error trying to read your name!");
+            System.out.println("Failed to read input");
             //System.exit(1);
         }
-        return username;
+        return input;
+    }
+
+
+  //**************************************************************************
+  //** getUserName
+  //**************************************************************************
+  /** Used to prompt a user for a username
+   */
+    public static String getUserName(String prompt){
+        return getInput(prompt);
     }
 
 
   //**************************************************************************
   //** getPassword
   //**************************************************************************
+  /** Used to prompt a user for a password. The password is hidden as is it
+   *  entered.
+   */
     public static String getPassword(String prompt) {
 
         String password = "";
