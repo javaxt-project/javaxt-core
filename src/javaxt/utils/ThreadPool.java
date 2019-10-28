@@ -89,28 +89,28 @@ public class ThreadPool {
                         synchronized (pool) {
                             while (pool.isEmpty()) {
                                 try {
-                                  pool.wait();
+                                    pool.wait();
                                 }
                                 catch (InterruptedException e) {
-                                  return;
+                                    return;
                                 }
                             }
-                            obj = pool.get(0);
-                            if ((obj instanceof Return)){
-                                return;
-                            }
-                            else{
-                                pool.remove(0);
-                                pool.notifyAll();
-                            }
+                            obj = pool.remove(0);
+                            pool.notifyAll();
                         }
 
-                        process(obj);
+                        if ((obj instanceof Return)){
+                            add(obj);
+                            return;
+                        }
+                        else{
+                            process(obj);
+                        }
                     }
                 }
             };
-            threads.add(t);
             t.start();
+            threads.add(t);
         }
     }
 
