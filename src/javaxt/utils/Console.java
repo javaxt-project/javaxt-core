@@ -3,6 +3,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.DecimalFormat;
+import java.lang.reflect.Array;
 
 //******************************************************************************
 //**  Console
@@ -42,10 +43,10 @@ public class Console {
         String str = null;
         if (obj!=null){
             if (obj.getClass().isArray()){
-                Object[] arr = (Object[]) obj;
                 StringBuilder sb = new StringBuilder("[");
-                for (int i=0; i<arr.length; i++){
-                    String s = format(arr[i]);
+                for (int i=0; i<Array.getLength(obj); i++) {
+                    Object o = Array.get(obj, i);
+                    String s = format(o);
                     if (i>0) sb.append(",");
                     sb.append(s);
                 }
