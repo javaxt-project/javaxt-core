@@ -79,7 +79,7 @@ public class ThreadPool {
   //**************************************************************************
   /** Used to initialize threads in the pool
    */
-    public void start(){
+    public ThreadPool start(){
         for (int i=0; i<numThreads; i++){
             Thread t = new Thread(){
                 public void run(){
@@ -112,6 +112,7 @@ public class ThreadPool {
             t.start();
             threads.add(t);
         }
+        return this;
     }
 
 

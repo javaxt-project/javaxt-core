@@ -34,19 +34,19 @@ import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
  ******************************************************************************/
 
 public class Image {
-    
-    private BufferedImage bufferedImage = null; 
+
+    private BufferedImage bufferedImage = null;
     private java.util.ArrayList corners = null;
-    
+
     private float outputQuality = 1f; //0.9f; //0.5f;
 
     private static final boolean useSunCodec = getSunCodec();
     private static Class JPEGCodec;
     private static Class JPEGEncodeParam;
-    
-    
+
+
     private Graphics2D g2d = null;
-    
+
     public static String[] InputFormats = getFormats(ImageIO.getReaderFormatNames());
     public static String[] OutputFormats = getFormats(ImageIO.getWriterFormatNames());
 
@@ -62,11 +62,11 @@ public class Image {
   //** Constructor
   //**************************************************************************
   /**  Creates a new instance of this class using an existing image */
-    
+
     public Image(String PathToImageFile){
         this(new java.io.File(PathToImageFile));
     }
-    
+
     public Image(java.io.File file){
         if (!file.exists()) throw new IllegalArgumentException("Input file not found.");
         try{ createBufferedImage(new FileInputStream(file)); }
@@ -76,18 +76,18 @@ public class Image {
     public Image(java.io.InputStream InputStream){
         createBufferedImage(InputStream);
     }
-    
+
     public Image(byte[] byteArray){
         this(new ByteArrayInputStream(byteArray));
     }
-    
+
     public Image(int width, int height){
-        this.bufferedImage = 
+        this.bufferedImage =
                 new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        
+
         this.g2d = getGraphics();
     }
-    
+
     public Image(BufferedImage bufferedImage){
         this.bufferedImage = bufferedImage;
     }
@@ -125,7 +125,7 @@ public class Image {
    <pre>
     for (String fontName : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()){
         System.out.println(fontName);
-    }   
+    }
    </pre>
    */
     public Image(String text, String fontName, int fontSize, int r, int g, int b){
@@ -204,7 +204,7 @@ public class Image {
   //** getInputFormats
   //**************************************************************************
   /**  Used to retrieve a list of supported input (read) formats. */
-    
+
     public String[] getInputFormats(){
         return getFormats(ImageIO.getReaderFormatNames());
     }
@@ -214,17 +214,17 @@ public class Image {
   //** getOutputFormats
   //**************************************************************************
   /**  Used to retrieve a list of supported output (write) formats. */
-    
+
     public String[] getOutputFormats(){
         return getFormats(ImageIO.getWriterFormatNames());
     }
-    
-    
+
+
   //**************************************************************************
   //** getFormats
   //**************************************************************************
   /**  Used to trim the list of formats. */
-    
+
     private static String[] getFormats(String[] inputFormats){
 
       //Build a unique list of file formats
@@ -246,7 +246,7 @@ public class Image {
                  formats.add(format);
              }
         }
-        
+
       //Sort and return the hashset as an array
         inputFormats = formats.toArray(new String[formats.size()]);
         java.util.Collections.sort(java.util.Arrays.asList(inputFormats));
@@ -278,9 +278,9 @@ public class Image {
   //** getWidth
   //**************************************************************************
   /**  Returns the width of the image, in pixels. */
-    
-    public int getWidth(){ 
-        return bufferedImage.getWidth(); 
+
+    public int getWidth(){
+        return bufferedImage.getWidth();
     }
 
 
@@ -288,20 +288,20 @@ public class Image {
   //** getHeight
   //**************************************************************************
   /**  Returns the height of the image, in pixels. */
-    
-    public int getHeight(){ 
-        return bufferedImage.getHeight(); 
+
+    public int getHeight(){
+        return bufferedImage.getHeight();
     }
 
 
   //**************************************************************************
   //** getGraphics
   //**************************************************************************
-    
+
     private Graphics2D getGraphics(){
         if (g2d==null){
             g2d = this.bufferedImage.createGraphics();
-            
+
           //Enable anti-alias
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                                  RenderingHints.VALUE_ANTIALIAS_ON);
@@ -313,7 +313,7 @@ public class Image {
   //**************************************************************************
   //** addText
   //**************************************************************************
-  /**  Used to add text to the image at a given position. 
+  /**  Used to add text to the image at a given position.
    *  @param x Lower left coordinate of the text
    *  @param y Lower left coordinate of the text
    */
@@ -354,8 +354,8 @@ public class Image {
         g2d = getGraphics();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                              RenderingHints.VALUE_ANTIALIAS_ON);
-              
-        
+
+
         g2d.setColor(new Color(r, g, b));
         g2d.setFont(font);
         g2d.drawString(text, x, y);
@@ -365,8 +365,8 @@ public class Image {
   //**************************************************************************
   //** addPoint
   //**************************************************************************
-  /**  Simple drawing function used to set color of a specific pixel in the 
-   *   image. 
+  /**  Simple drawing function used to set color of a specific pixel in the
+   *   image.
    */
     public void addPoint(int x, int y, int r, int g, int b){
         setColor(x,y,new Color(r,g,b));
@@ -392,13 +392,13 @@ public class Image {
   //**************************************************************************
   //** getColor
   //**************************************************************************
-  /**  Used to retrieve the color (ARGB) values for a specific pixel in the 
+  /**  Used to retrieve the color (ARGB) values for a specific pixel in the
    *   image. Returns a java.awt.Color object. Note that input x,y values are
-   *   relative to the upper left corner of the image, starting at 0,0. 
-   */    
+   *   relative to the upper left corner of the image, starting at 0,0.
+   */
     public Color getColor(int x, int y){
         //return new Color(bufferedImage.getRGB(x, y)); //<--This will return an incorrect alpha value
-        
+
         int pixel = bufferedImage.getRGB(x, y);
         int alpha = (pixel >> 24) & 0xff;
         int red = (pixel >> 16) & 0xff;
@@ -432,7 +432,7 @@ public class Image {
         for (int i=0; i<green.length; i++) green[i] = 0;
         for (int i=0; i<blue.length; i++) blue[i] = 0;
         for (int i=0; i<average.length; i++) average[i] = 0;
-        
+
 
       //Populate the histograms
         for (int i=0; i<this.getWidth(); i++){
@@ -463,16 +463,16 @@ public class Image {
   //**************************************************************************
   //** addImage
   //**************************************************************************
-  /**  Used to add an image "overlay" to the existing image at a given 
+  /**  Used to add an image "overlay" to the existing image at a given
    *   position. This method can also be used to create image mosiacs.
    */
-    public void addImage(BufferedImage in, int x, int y, boolean expand){         
-        
+    public void addImage(BufferedImage in, int x, int y, boolean expand){
+
         int x2 = 0;
-        int y2 = 0;        
+        int y2 = 0;
         int w = bufferedImage.getWidth();
-        int h = bufferedImage.getHeight();        
-        
+        int h = bufferedImage.getHeight();
+
         if (expand){
 
           //Update Width and Horizontal Position of the Original Image
@@ -492,7 +492,7 @@ public class Image {
                     w = w + ((x+in.getWidth())-w);
                 }
             }
-            
+
           //Update Height and Vertical Position of the Original Image
             if (y<0){
                 h = h + -y;
@@ -512,8 +512,8 @@ public class Image {
             }
 
         }
-        
-            
+
+
       //Create new image "collage"
         if (w>bufferedImage.getWidth() || h>bufferedImage.getHeight()){
             BufferedImage bi = new BufferedImage(w, h, getImageType());
@@ -531,17 +531,17 @@ public class Image {
             g2d.drawImage(img, x, y, null);
             g2d.dispose();
         }
-            
+
     }
 
 
   //**************************************************************************
   //** addImage
   //**************************************************************************
-  /**  Used to add an image "overlay" to the existing image at a given 
+  /**  Used to add an image "overlay" to the existing image at a given
    *   position. This method can also be used to create image mosiacs.
-   */    
-    public void addImage(javaxt.io.Image in, int x, int y, boolean expand){ 
+   */
+    public void addImage(javaxt.io.Image in, int x, int y, boolean expand){
         addImage(in.getBufferedImage(),x,y,expand);
     }
 
@@ -550,7 +550,7 @@ public class Image {
   //** createBufferedImage
   //**************************************************************************
   /** Used to create a BufferedImage from a InputStream */
-    
+
     private void createBufferedImage(java.io.InputStream input) {
         try{
             //bufferedImage = ImageIO.read(input);
@@ -587,11 +587,11 @@ public class Image {
   //**************************************************************************
   //** Rotate
   //**************************************************************************
-  /**  Used to rotate the image (clockwise). Rotation angle is specified in 
-   *   degrees relative to the top of the image. 
-   */    
+  /**  Used to rotate the image (clockwise). Rotation angle is specified in
+   *   degrees relative to the top of the image.
+   */
     public void rotate(double Degrees){
-        
+
       //Define Image Center (Axis of Rotation)
         int width = this.getWidth();
         int height = this.getHeight();
@@ -600,23 +600,23 @@ public class Image {
 
       //create an array containing the corners of the image (TL,TR,BR,BL)
         int[] corners = { 0, 0, width, 0, width, height, 0, height };
-        
+
       //Define bounds of the image
         int minX, minY, maxX, maxY;
         minX = maxX = cx;
         minY = maxY = cy;
         double theta = Math.toRadians(Degrees);
         for (int i=0; i<corners.length; i+=2){
-            
+
            //Rotates the given point theta radians around (cx,cy)
             int x = (int) Math.round(
                 Math.cos(theta)*(corners[i]-cx) -
-                Math.sin(theta)*(corners[i+1]-cy)+cx 
+                Math.sin(theta)*(corners[i+1]-cy)+cx
             );
-             
+
             int y = (int) Math.round(
                 Math.sin(theta)*(corners[i]-cx) +
-                Math.cos(theta)*(corners[i+1]-cy)+cy 
+                Math.cos(theta)*(corners[i+1]-cy)+cy
             );
 
            //Update our bounds
@@ -626,46 +626,46 @@ public class Image {
             if(y<minY) minY = y;
         }
 
-        
+
       //Update Image Center Coordinates
         cx = (int)(cx-minX);
         cy = (int)(cy-minY);
 
       //Create Buffered Image
-        BufferedImage result = new BufferedImage(maxX-minX, maxY-minY, 
+        BufferedImage result = new BufferedImage(maxX-minX, maxY-minY,
                                                  BufferedImage.TYPE_INT_ARGB);
-        
+
       //Create Graphics
         Graphics2D g2d = result.createGraphics();
-        
+
       //Enable anti-alias and Cubic Resampling
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                              RenderingHints.VALUE_ANTIALIAS_ON);
-        
-        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, 
+
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                              RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        
+
       //Rotate the image
         AffineTransform xform = new AffineTransform();
         xform.rotate(theta,cx,cy);
 	g2d.setTransform(xform);
 	g2d.drawImage(bufferedImage,-minX,-minY,null);
         g2d.dispose();
-        
+
       //Update Class Variables
         this.bufferedImage = result;
-        
+
       //Delete Heavy Objects
         result = null;
         xform = null;
     }
 
-    
+
   //**************************************************************************
   //** Rotate Clockwise
   //**************************************************************************
   /**  Rotates the image 90 degrees clockwise */
-    
+
     public void rotateClockwise(){
         rotate(90);
     }
@@ -675,7 +675,7 @@ public class Image {
   //** Rotate Counter Clockwise
   //**************************************************************************
   /**  Rotates the image -90 degrees */
-    
+
     public void rotateCounterClockwise(){
         rotate(-90);
     }
@@ -705,73 +705,73 @@ public class Image {
             //Failed to parse exif orientation.
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** setWidth
   //**************************************************************************
-  /**  Resizes the image to a given width. The original aspect ratio is 
-   *   maintained. 
+  /**  Resizes the image to a given width. The original aspect ratio is
+   *   maintained.
    */
     public void setWidth(int Width){
         double ratio = (double)Width/(double)this.getWidth();
-        
+
         double dw = this.getWidth() * ratio;
         double dh = this.getHeight() * ratio;
 
-        int outputWidth =  (int)Math.round(dw); 
-        int outputHeight = (int)Math.round(dh); 
-        
+        int outputWidth =  (int)Math.round(dw);
+        int outputHeight = (int)Math.round(dh);
+
         resize(outputWidth,outputHeight);
     }
-    
-    
+
+
   //**************************************************************************
   //** setHeight
   //**************************************************************************
-  /**  Resizes the image to a given height. The original aspect ratio is 
-   *   maintained. 
+  /**  Resizes the image to a given height. The original aspect ratio is
+   *   maintained.
    */
     public void setHeight(int Height){
         double ratio = (double)Height/(double)this.getHeight();
-        
+
         double dw = this.getWidth() * ratio;
         double dh = this.getHeight() * ratio;
 
-        int outputWidth =  (int)Math.round(dw); 
-        int outputHeight = (int)Math.round(dh); 
-        
+        int outputWidth =  (int)Math.round(dw);
+        int outputHeight = (int)Math.round(dh);
+
         resize(outputWidth,outputHeight);
     }
-    
-    
+
+
   //**************************************************************************
   //** Resize (Overloaded Member)
   //**************************************************************************
-  /**  Used to resize an image. Does NOT automatically retain the original 
-   *   aspect ratio. 
+  /**  Used to resize an image. Does NOT automatically retain the original
+   *   aspect ratio.
    */
     public void resize(int Width, int Height){
         resize(Width,Height,false);
     }
 
-    
+
   //**************************************************************************
   //** Resize
   //**************************************************************************
-  /**  Used to resize an image. Provides the option to maintain the original 
+  /**  Used to resize an image. Provides the option to maintain the original
    *   aspect ratio (relative to the output width).
    */
     public void resize(int Width, int Height, boolean maintainRatio){
-        
+
         //long startTime = getStartTime();
-        
+
         int outputWidth = Width;
         int outputHeight = Height;
 
         int width = this.getWidth();
         int height = this.getHeight();
-        
+
         if (maintainRatio){
 
             double ratio = 0;
@@ -786,16 +786,16 @@ public class Image {
             double dw = width * ratio;
             double dh = height * ratio;
 
-            outputWidth =  (int)Math.round(dw); 
-            outputHeight = (int)Math.round(dh); 
+            outputWidth =  (int)Math.round(dw);
+            outputHeight = (int)Math.round(dh);
 
             if (outputWidth>width || outputHeight>height){
                 outputWidth=width;
                 outputHeight=height;
             }
         }
-        
-        
+
+
       //Resize the image (create new buffered image)
         java.awt.Image outputImage = bufferedImage.getScaledInstance(outputWidth, outputHeight, BufferedImage.SCALE_AREA_AVERAGING);
         BufferedImage bi = new BufferedImage(outputWidth, outputHeight, getImageType());
@@ -804,48 +804,48 @@ public class Image {
         g2d.dispose();
 
         this.bufferedImage = bi;
-        
+
         outputImage = null;
         bi = null;
         g2d = null;
     }
-    
-    
-    
+
+
+
   //**************************************************************************
   //** Set/Update Corners (Skew)
   //**************************************************************************
-  /**  Used to skew an image by updating the corner coordinates. Coordinates are 
+  /**  Used to skew an image by updating the corner coordinates. Coordinates are
    *   supplied in clockwise order starting from the upper left corner.
    */
     public void setCorners(float x0, float y0,  //UL
                            float x1, float y1,  //UR
                            float x2, float y2,  //LR
                            float x3, float y3){ //LL
-        
+
         Skew skew = new Skew(this.bufferedImage);
         this.bufferedImage = skew.setCorners(x0,y0,x1,y1,x2,y2,x3,y3);
-        
+
         if (corners==null) corners = new java.util.ArrayList();
-        else corners.clear();        
+        else corners.clear();
         corners.add((Float)x0); corners.add((Float)y0);
         corners.add((Float)x1); corners.add((Float)y1);
         corners.add((Float)x2); corners.add((Float)y2);
         corners.add((Float)x3); corners.add((Float)y3);
     }
-    
-    
+
+
   //**************************************************************************
-  //** Get Corners 
+  //** Get Corners
   //**************************************************************************
-  /**  Used to retrieve the corner coordinates of the image. Coordinates are 
-   *   supplied in clockwise order starting from the upper left corner. This 
-   *   information is particularly useful for generating drop shadows, inner 
+  /**  Used to retrieve the corner coordinates of the image. Coordinates are
+   *   supplied in clockwise order starting from the upper left corner. This
+   *   information is particularly useful for generating drop shadows, inner
    *   and outer glow, and reflections.
    *   NOTE: Coordinates are not updated after resize(), rotate(), or addImage()
    */
     public float[] getCorners(){
-        
+
         if (corners==null){
             float w = getWidth();
             float h = getHeight();
@@ -855,7 +855,7 @@ public class Image {
             corners.add((Float)w); corners.add((Float)h);
             corners.add((Float)0f); corners.add((Float)h);
         }
-        
+
         Object[] arr = corners.toArray();
         float[] ret = new float[arr.length];
         for (int i=0; i<arr.length; i++){
@@ -864,13 +864,13 @@ public class Image {
         }
         return ret;
     }
-    
-    
+
+
   //**************************************************************************
   //** Sharpen
   //**************************************************************************
   /**  Used to sharpen the image using a 3x3 kernal. */
-    
+
     public void sharpen(){
 
         int width = this.getWidth();
@@ -886,35 +886,35 @@ public class Image {
       //apply convolution
         BufferedImage out = new BufferedImage(width, height, getImageType());
         BufferedImageOp op = new ConvolveOp(kernel);
-        out = op.filter(bufferedImage, out); 
-        
+        out = op.filter(bufferedImage, out);
+
       //replace 2 pixel border created via convolution
         java.awt.Image overlay = out.getSubimage(2,2,width-4,height-4);
         Graphics2D g2d = bufferedImage.createGraphics();
         g2d.drawImage(overlay,2,2,null);
         g2d.dispose();
-        
+
     }
-    
-    
+
+
   //**************************************************************************
   //** Desaturate
   //**************************************************************************
   /**  Used to completely desaturate an image (creates a gray-scale image). */
-    
+
     public void desaturate(){
          bufferedImage = desaturate(bufferedImage);
     }
-    
-    
+
+
   //**************************************************************************
   //** Desaturate
   //**************************************************************************
-  /**  Used to desaturate an image by a specified percentage (expressed as 
-   *   a double or float). The larger the percentage, the greater the 
+  /**  Used to desaturate an image by a specified percentage (expressed as
+   *   a double or float). The larger the percentage, the greater the
    *   desaturation and the "grayer" the image. Valid ranges are from 0-1.
    */
-    
+
     public void desaturate(double percent){
         float alpha = (float) (percent);
         java.awt.Image overlay = desaturate(bufferedImage);
@@ -923,26 +923,26 @@ public class Image {
         g2d.drawImage(overlay,0,0,null);
         g2d.dispose();
     }
-    
-    
+
+
   //**************************************************************************
   //** Desaturate (Private Function)
   //**************************************************************************
   /**  Convenience function called by the other 2 desaturation methods. */
-    
+
     private BufferedImage desaturate(BufferedImage in){
         BufferedImage out = new BufferedImage(in.getWidth(), in.getHeight(), getImageType(in) );
         BufferedImageOp op = new ColorConvertOp(
             ColorSpace.getInstance(ColorSpace.CS_GRAY), null);
         return op.filter(in, out);
     }
-    
-    
-    
+
+
+
   //**************************************************************************
   //** setOpacity
   //**************************************************************************
-    
+
     public void setOpacity(double percent){
         if (percent>1) percent=percent/100;
         float alpha = (float) (percent);
@@ -962,9 +962,9 @@ public class Image {
   //**************************************************************************
   //** Flip (Horizonal)
   //**************************************************************************
-  /**  Used to flip an image along it's y-axis (horizontal). Vertical flipping 
+  /**  Used to flip an image along it's y-axis (horizontal). Vertical flipping
    *   is supported via the rotate method (i.e. rotate +/-180).
-   */    
+   */
     public void flip(){
         BufferedImage out = new BufferedImage(getWidth(), getHeight(), getImageType());
         AffineTransform tx = AffineTransform.getScaleInstance(-1, 1);
@@ -973,7 +973,7 @@ public class Image {
         bufferedImage = op.filter(bufferedImage, out);
     }
 
-    
+
   //**************************************************************************
   //** Crop
   //**************************************************************************
@@ -1121,7 +1121,7 @@ public class Image {
   //**************************************************************************
   /** Used to remove excess pixels around an image by cropping the image to its
    *  "true" extents. Crop bounds are determined by finding pixels that *don't*
-   *  match the input color. For example, you can trim off excess black pixels 
+   *  match the input color. For example, you can trim off excess black pixels
    *  around an image by specifying an rgb value of 0,0,0. Similarly, you can
    *  trim off pure white pixels around an image by specifying an rgb value of
    *  255,255,255. Note that transparent pixels are considered as null values
@@ -1168,7 +1168,7 @@ public class Image {
                 }
             }
         }
-        
+
         if (left==right || top==bottom){
             bufferedImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
         }
@@ -1187,39 +1187,39 @@ public class Image {
     public BufferedImage getBufferedImage(){
         return bufferedImage;
     }
-    
-    
+
+
   //**************************************************************************
   //** getImage
   //**************************************************************************
   /**  Returns a java.awt.Image copy of the current image. */
-    
+
     public java.awt.Image getImage(){
         return getBufferedImage();
     }
-    
+
   //**************************************************************************
   //** getImage
   //**************************************************************************
   /**  Returns a java.awt.image.RenderedImage copy of the current image. */
-    
+
     public java.awt.image.RenderedImage getRenderedImage(){
         return getBufferedImage();
     }
-    
-    
+
+
   //**************************************************************************
   //** getBufferedImage
   //**************************************************************************
   /**  Used to retrieve a scaled copy of the current image. */
-    
+
     public BufferedImage getBufferedImage(int width, int height, boolean maintainRatio){
         Image image = new Image(getBufferedImage());
         image.resize(width,height,maintainRatio);
         return image.getBufferedImage();
     }
-    
-    
+
+
   //**************************************************************************
   //** getByteArray
   //**************************************************************************
@@ -1238,12 +1238,12 @@ public class Image {
 
     public byte[] getByteArray(String format){
         byte[] rgb = null;
-        
+
         format = format.toLowerCase();
         if (format.startsWith("image/")){
             format = format.substring(format.indexOf("/")+1);
         }
-        
+
         try{
             if (isJPEG(format)){
                 rgb = getJPEGByteArray(outputQuality);
@@ -1262,8 +1262,8 @@ public class Image {
   //**************************************************************************
   //** saveAs
   //**************************************************************************
-  /**  Exports the image to a file. Output format is determined by the output 
-   *   file extension. 
+  /**  Exports the image to a file. Output format is determined by the output
+   *   file extension.
    */
     public void saveAs(String PathToImageFile){
         saveAs(new java.io.File(PathToImageFile));
@@ -1273,14 +1273,14 @@ public class Image {
   //**************************************************************************
   //** saveAs
   //**************************************************************************
-  /**  Exports the image to a file. Output format is determined by the output 
-   *   file extension. 
+  /**  Exports the image to a file. Output format is determined by the output
+   *   file extension.
    */
     public void saveAs(java.io.File OutputFile){
         try{
           //Create output directory
             OutputFile.getParentFile().mkdirs();
-            
+
           //Write buffered image to disk
             String FileExtension = getExtension(OutputFile.getName()).toLowerCase();
             if (isJPEG(FileExtension)){
@@ -1289,7 +1289,7 @@ public class Image {
                 output.close();
             }
             else{
-                RenderedImage rendImage = bufferedImage; 
+                RenderedImage rendImage = bufferedImage;
                 if (isJPEG2000(FileExtension)){
                     ImageIO.write(rendImage, "JPEG 2000", OutputFile);
                 }
@@ -1304,12 +1304,12 @@ public class Image {
             //printError(e);
         }
     }
-    
-    
+
+
     /*
     public void setCacheDirectory(java.io.File cacheDirectory){
         try{
-            if (cacheDirectory.isFile()){ 
+            if (cacheDirectory.isFile()){
                 cacheDirectory = cacheDirectory.getParentFile();
             }
             cacheDirectory.mkdirs();
@@ -1320,18 +1320,18 @@ public class Image {
             this.cacheDirectory = null;
         }
     }
-    
+
     public java.io.File getCacheDirectory(){
         return cacheDirectory;
     }
     */
-    
+
   //**************************************************************************
   //** setOutputQuality
   //**************************************************************************
-  /** Used to set the output quality/compression ratio. Only applies when 
-   *  creating JPEG images. Applied only when writing the image to a file or 
-   *  byte array. Accepts values between 0-1. Also accepts values between 
+  /** Used to set the output quality/compression ratio. Only applies when
+   *  creating JPEG images. Applied only when writing the image to a file or
+   *  byte array. Accepts values between 0-1. Also accepts values between
    *  1-100. If the latter, it divides the value by 100.
    */
     public void setOutputQuality(float quality){
@@ -1344,12 +1344,12 @@ public class Image {
   //**************************************************************************
   //** isJPEG
   //**************************************************************************
-  /** Returns true if the given file extension is associated with a jpeg 
+  /** Returns true if the given file extension is associated with a jpeg
    *  compressed image.
-   */ 
+   */
     private boolean isJPEG(String FileExtension){
         FileExtension = FileExtension.trim().toLowerCase();
-        if (FileExtension.equals("jpg") || 
+        if (FileExtension.equals("jpg") ||
             FileExtension.equals("jpeg") ||
             FileExtension.equals("jpe") ||
             FileExtension.equals("jff") ){
@@ -1357,40 +1357,40 @@ public class Image {
         }
         return false;
     }
-    
-    
+
+
   //**************************************************************************
   //** isJPEG2000
   //**************************************************************************
-  /** Returns true if the given file extension is associated with a jpeg2000 
+  /** Returns true if the given file extension is associated with a jpeg2000
    *  compressed image.
-   */ 
+   */
     private boolean isJPEG2000(String FileExtension){
         FileExtension = FileExtension.trim().toLowerCase();
-        if (FileExtension.equals("jp2") || 
-            FileExtension.equals("jpc") || 
+        if (FileExtension.equals("jp2") ||
+            FileExtension.equals("jpc") ||
             FileExtension.equals("j2k") ||
             FileExtension.equals("jpx") ){
             return true;
         }
         return false;
     }
-    
-    
+
+
   //**************************************************************************
   //** getJPEGByteArray
   //**************************************************************************
   /** Returns a JPEG compressed byte array. */
-    
+
     private byte[] getJPEGByteArray(float outputQuality) throws IOException {
         if (outputQuality>=0f && outputQuality<=1.2f) {
             ByteArrayOutputStream bas = new ByteArrayOutputStream();
             BufferedImage bi = bufferedImage;
             int t = bufferedImage.getTransparency();
-            
+
             //if (t==BufferedImage.BITMASK) System.out.println("BITMASK");
             //if (t==BufferedImage.OPAQUE) System.out.println("OPAQUE");
-            
+
             if (t==BufferedImage.TRANSLUCENT){
                 bi = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_RGB);
                 Graphics2D biContext = bi.createGraphics();
@@ -1430,8 +1430,8 @@ public class Image {
                     params.setMarkerData(...);
                     encoder.encode(bi, params);
                     */
-                    
-                    
+
+
                   //Save metadata as needed
                     if (saveMetadata && metadata!=null){
                         java.lang.reflect.Method setMarkerData = params.getClass().getMethod("setMarkerData", int.class, byte[][].class);
@@ -1462,7 +1462,7 @@ public class Image {
                             }
                         }
                     }
-                    
+
                     encoder.getClass().getMethod("encode", BufferedImage.class, JPEGEncodeParam).invoke(encoder, bi, params);
                 }
                 catch(Exception e){
@@ -1490,7 +1490,7 @@ public class Image {
                 }
             }
 
-            
+
             bas.flush();
             return bas.toByteArray();
         }
@@ -1503,11 +1503,11 @@ public class Image {
   //**************************************************************************
   //** getImageType
   //**************************************************************************
-    
+
     private int getImageType(){
         return getImageType(this.bufferedImage);
     }
-    
+
     private int getImageType(BufferedImage bufferedImage){
         int imageType = bufferedImage.getType();
         if (imageType <= 0 || imageType == 12) {
@@ -1521,7 +1521,7 @@ public class Image {
   //** getExtension
   //**************************************************************************
   /**  Returns the file extension for a given file name, if one exists. */
-    
+
     private String getExtension(String FileName){
         if (FileName.contains((CharSequence) ".")){
             return FileName.substring(FileName.lastIndexOf(".")+1,FileName.length());
@@ -1531,7 +1531,7 @@ public class Image {
         }
     }
 
-    
+
   //**************************************************************************
   //** hasColor
   //**************************************************************************
@@ -1551,41 +1551,41 @@ public class Image {
         return true;
     }
 
-    
+
   //**************************************************************************
   //** equals
   //**************************************************************************
-  /**  Used to compare this image to another. If the ARGB values match, this 
-   *   method will return true. 
+  /**  Used to compare this image to another. If the ARGB values match, this
+   *   method will return true.
    */
     public boolean equals(Object obj){
         if (obj!=null){
             if (obj instanceof javaxt.io.Image){
                 javaxt.io.Image image = (javaxt.io.Image) obj;
-                if (image.getWidth()==this.getWidth() && 
+                if (image.getWidth()==this.getWidth() &&
                     image.getHeight()==this.getHeight())
                 {
-                    
+
                   //Iterate through all the pixels in the image and compare RGB values
                     for (int i=0; i<image.getWidth(); i++){
                          for (int j=0; j<image.getHeight(); j++){
-                             
+
                               if (!image.getColor(i,j).equals(this.getColor(i,j))){
                                   return false;
                               }
                          }
-                         
+
                     }
-                    
+
                     return true;
                 }
-                
+
             }
         }
         return false;
     }
-    
-    
+
+
 
 
 
@@ -1639,7 +1639,7 @@ public class Image {
   //** getIptcTags
   //**************************************************************************
   /** Used to parse IPTC metadata and return a list of key/value pairs found
-   *  in the metadata. You can retrieve specific IPTC metadata values like 
+   *  in the metadata. You can retrieve specific IPTC metadata values like
    *  this:
    <pre>
     javaxt.io.Image image = new javaxt.io.Image("/temp/image.jpg");
@@ -1661,7 +1661,7 @@ public class Image {
         }
         return iptc;
     }
-    
+
 
   //**************************************************************************
   //** getExifData
@@ -1673,7 +1673,7 @@ public class Image {
         if (tags.length==0) return null;
         return (byte[]) tags[0].getUserObject();
     }
-    
+
 
   //**************************************************************************
   //** getExifTags
@@ -1701,7 +1701,7 @@ public class Image {
   //**************************************************************************
   //** getGpsTags
   //**************************************************************************
-  /** Used to parse EXIF metadata and return a list of key/value pairs 
+  /** Used to parse EXIF metadata and return a list of key/value pairs
    *  associated with GPS metadata. Values can be Strings, Integers, or raw
    *  Byte Arrays.
    */
@@ -1791,14 +1791,14 @@ public class Image {
   //**************************************************************************
   //** getGPSDatum
   //**************************************************************************
-  /** Returns the datum associated with the GPS coordinate. Value is 
+  /** Returns the datum associated with the GPS coordinate. Value is
    *  derived from EXIF GPS metadata (tag 0x0012).
    */
     public String getGPSDatum(){
         getExifTags();
         return (String) gps.get(0x0012);
     }
-    
+
 
   //**************************************************************************
   //** getUnknownTags
@@ -1852,7 +1852,7 @@ public class Image {
             for (Node unknownNode : unknownNodes){
                 tags.add((IIOMetadataNode) unknownNode);
             }
-        }  
+        }
         return tags.toArray(new IIOMetadataNode[tags.size()]);
     }
 
@@ -1899,7 +1899,7 @@ public class Image {
    *   insensitive. If no match is found, returns an empty string.
    */
     public static String getAttributeValue(NamedNodeMap attrCollection, String attrName){
-        
+
         if (attrCollection!=null){
             for (int i=0; i < attrCollection.getLength(); i++ ) {
                 Node node = attrCollection.item(i);
@@ -1908,7 +1908,7 @@ public class Image {
                 }
             }
         }
-        return "";               
+        return "";
     }
 
 
@@ -1970,7 +1970,7 @@ private class MetadataParser {
             case 0xED: parseIptc(data); break;
             case 0xE1: parseExif(data); break;
         }
-        
+
         data = null;
     }
 
@@ -2073,7 +2073,7 @@ private class MetadataParser {
 
 
         if (data==null) return;
-        
+
 
         int firstOffset = get32u(10);
         processExifDir(6 + firstOffset, 6, tags);
@@ -2084,7 +2084,7 @@ private class MetadataParser {
   //**************************************************************************
   //** getTags
   //**************************************************************************
-  /** Returns key/value pairs representing the EXIF or IPTC data. 
+  /** Returns key/value pairs representing the EXIF or IPTC data.
    */
     public HashMap<Integer, Object> getTags(String dir) {
         return tags.get(dir);
@@ -2143,9 +2143,9 @@ private class MetadataParser {
 
                 int subdirOffset = get32u(valueOffset);
                 processExifDir(offsetBase + subdirOffset, offsetBase, tags);
-                
+
             }
-            
+
             //else if (tag==0x927c){ //Maker Note
 
                 //TODO: Come up with a clever way to process the Maker Note
@@ -2190,13 +2190,13 @@ private class MetadataParser {
                     }
                     break;
 
-                
+
                 default: //including FMT_UNDEFINED
                     byte[] result = getUndefined(valueOffset, byteCount);
                     if (result!=null) tags.put(tag, result);
                     break;
                 }
-                
+
             }
         }
     }
@@ -2333,7 +2333,7 @@ private class MetadataParser {
     }
 }
 
-    
+
 
 //***************************************************************************
 //**  Skew Class
@@ -2540,7 +2540,7 @@ private class Skew {
     }
 
 
-    protected BufferedImage filterPixelsNN( BufferedImage dst, int width, 
+    protected BufferedImage filterPixelsNN( BufferedImage dst, int width,
             int height, int[] inPixels, Rectangle transformedSpace )
     {
         int srcWidth = width;
