@@ -779,11 +779,20 @@ public abstract class Model {
         }
 
 
-      //Add database metadata
+      //Get database connection
         Connection conn = null;
         try{
             conn = connectionPool.getConnection();
+        }
+        catch(Exception e){
+            SQLException ex = new SQLException("Failed to acquire database connection");
+            ex.setStackTrace(e.getStackTrace());
+            throw ex;
+        }
 
+
+      //Get database metadata
+        try{
 
           //Get reserved keywords associated with the database
             String[] keywords = Database.getReservedKeywords(conn);
