@@ -118,6 +118,9 @@ public class URL {
       //Create an empty hashmap
         HashMap<String, List<String>> parameters = new HashMap<String, List<String>>();
         if (query==null) return parameters;
+        
+        query = query.trim();
+        if (query.length()==0) return parameters;
 
 
       //Decode the querystring. Note that the urlDecoder doesn't decode everything (e.g. "&amp;")
