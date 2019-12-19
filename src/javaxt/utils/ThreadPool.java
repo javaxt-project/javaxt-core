@@ -1,7 +1,6 @@
 package javaxt.utils;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 //******************************************************************************
 //**  ThreadPool
@@ -54,7 +53,7 @@ public class ThreadPool {
     private ArrayList<Thread> threads;
     private List pool;
     private class Return{}
-
+    private ConcurrentHashMap<Long, HashMap<String, Object>> params;
 
   //**************************************************************************
   //** Constructor
@@ -67,6 +66,7 @@ public class ThreadPool {
             if (maxPoolSize<1) maxPoolSize = null;
         }
         this.maxPoolSize = maxPoolSize;
+        params = new ConcurrentHashMap<Long, HashMap<String, Object>>();
     }
 
     public ThreadPool(int numThreads){
@@ -101,6 +101,7 @@ public class ThreadPool {
 
                         if ((obj instanceof Return)){
                             add(obj);
+                            exit();
                             return;
                         }
                         else{
@@ -122,6 +123,48 @@ public class ThreadPool {
   /** Called whenever a thread gets an object to process
    */
     public void process(Object obj){}
+
+
+  //**************************************************************************
+  //** exit
+  //**************************************************************************
+  /** Called when a thread is being disposed
+   */
+    public void exit(){}
+
+
+  //**************************************************************************
+  //** get
+  //**************************************************************************
+  /** Returns a variable for an individual thread
+   */
+    public Object get(String key){
+        long id = Thread.currentThread().getId();
+        Object val = null;
+        synchronized(params){
+            HashMap<String, Object> map = params.get(id);
+            if (map!=null) val = map.get(key);
+        }
+        return val;
+    }
+
+
+  //**************************************************************************
+  //** get
+  //**************************************************************************
+  /** Used to set a variable for an individual thread
+   */
+    public void set(String key, Object value){
+        long id = Thread.currentThread().getId();
+        synchronized(params){
+            HashMap<String, Object> map = params.get(id);
+            if (map==null){
+                map = new HashMap<String, Object>();
+                params.put(id, map);
+            }
+            map.put(key, value);
+        }
+    }
 
 
   //**************************************************************************

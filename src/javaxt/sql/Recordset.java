@@ -79,14 +79,18 @@ public class Recordset {
     private long startTime, endTime;
 
 
+    private static boolean shuttingDown = false;
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
   /** Creates a new instance of this class.
    */
     public Recordset(){
+        if (shuttingDown) throw new IllegalStateException("JVM shutting down");
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
+                shuttingDown = true;
                 if (stmt!=null){
                     try{ stmt.cancel(); }
                     catch(Exception e){}
