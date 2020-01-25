@@ -239,8 +239,11 @@ public abstract class Model {
    */
     public void save() throws SQLException {
 
+      //Get class name
+        String className = this.getClass().getName();
 
-      //Get list if fields and thier associated values
+
+      //Get list of fields and thier associated values
         LinkedHashMap<java.lang.reflect.Field, Object> fields = getFields();
         Iterator<java.lang.reflect.Field> it;
 
@@ -267,20 +270,26 @@ public abstract class Model {
 
 
       //Update values as needed
+        int numNulls = 0;
         for (Map.Entry<java.lang.reflect.Field, Object> entry : fields.entrySet()) {
             Object val = entry.getValue();
             if (val!=null){
                 if (val instanceof Model){
-                    entry.setValue(((Model) val).getID());
+                    Model model = (Model) val;
+                    model.save();
+                    entry.setValue(model.getID());
                 }
                 else if (val instanceof JSONObject){
                     JSONObject json = (JSONObject) val;
                     if (json.isEmpty()) entry.setValue(null);
                 }
             }
+            if (entry.getValue()==null) numNulls++;
         }
 
 
+      //Check if there's anything to save
+        if (numNulls==fields.size()) return;
 
 
 
@@ -288,7 +297,6 @@ public abstract class Model {
 
 
           //Get database fields associated with the model
-            String className = this.getClass().getName();
             Field[] dbFields;
             synchronized(this.fields){ dbFields = this.fields.get(className); }
             if (dbFields==null) throw new SQLException(
@@ -424,8 +432,13 @@ public abstract class Model {
 
 
               //Insert record
-                Recordset.update(stmt, updates);
-                stmt.executeUpdate();
+                try{
+                    Recordset.update(stmt, updates);
+                    stmt.executeUpdate();
+                }
+                catch(SQLException e){
+                    throw Exception("Failed to save " + className + ". " + e.getMessage(), e);
+                }
 
 
               //Get id
@@ -479,7 +492,7 @@ public abstract class Model {
             }
             catch(SQLException e){
                 if (conn!=null) conn.close();
-                throw e;
+                throw Exception("Failed to update " + className + "#" + id + ". " + e.getMessage(), e);
             }
         }
     }
@@ -500,8 +513,30 @@ public abstract class Model {
         }
         catch(SQLException e){
             if (conn!=null) conn.close();
-            throw e;
+            String className = this.getClass().getName();
+            throw Exception("Failed to delete " + className + "#" + id + ". " + e.getMessage(), e);
         }
+    }
+
+
+  //**************************************************************************
+  //** getException
+  //**************************************************************************
+  /** Used to build a custom exception when saving or deleting records.
+   */
+    private SQLException Exception(String err, SQLException e){
+        SQLException ex = new SQLException(err);
+        ArrayList<StackTraceElement> stackTrace = new ArrayList<StackTraceElement>();
+        boolean addElement = false;
+        StackTraceElement[] arr = ex.getStackTrace();
+        for (int i=2; i<arr.length; i++){
+            StackTraceElement el = arr[i];
+            if (!el.getClassName().contains("reflect")) addElement = true;
+            if (addElement) stackTrace.add(el);
+        }
+        ex.setStackTrace(stackTrace.toArray(new StackTraceElement[stackTrace.size()]));
+        ex.setNextException(e);
+        return ex;
     }
 
 

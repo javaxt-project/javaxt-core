@@ -147,15 +147,33 @@ public class JSONArray implements Iterable<Object> {
 
 
   //**************************************************************************
+  //** set
+  //**************************************************************************
+  /** Updates an object to the array. Returns the original value that was
+   *  associated with the index.
+   */
+    public JSONValue set(int index, Object object){
+
+        if (object instanceof Value){
+            object = ((Value) object).toObject();
+        }
+
+        JSONObject.testValidity(object);
+
+        Object obj = arr.set(index, object);
+        return new JSONValue(obj);
+    }
+
+
+  //**************************************************************************
   //** remove
   //**************************************************************************
-  /** Remove entry. Returns the value that was associated with the index, or
-   *  null if there was no value.
+  /** Remove entry. Returns the value that was associated with the index.
    */
-    public Object remove(int index) {
+    public JSONValue remove(int index) {
         return index >= 0 && index < this.length()
-            ? arr.remove(index)
-            : null;
+            ? new JSONValue(arr.remove(index))
+            : new JSONValue(null);
     }
 
 
