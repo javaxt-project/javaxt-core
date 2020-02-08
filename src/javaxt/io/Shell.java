@@ -6,7 +6,7 @@ import java.io.*;
 //******************************************************************************
 /**
  *   Used to execute command line applications and return the corresponding
- *   output streams (standard output and error output streams). 
+ *   output streams (standard output and error output streams).
  *
  ******************************************************************************/
 
@@ -104,7 +104,7 @@ public class Shell {
   //**************************************************************************
   /** Used to retrieve the standard output stream. Returns a List that can be
    *  parsed while the executable is still running or after is has been run.
-   *  The difference lies in when the run method is invoked. The following is 
+   *  The difference lies in when the run method is invoked. The following is
    *  an example of how to process the output stream while the app is running.
    *  The getOutput() is called BEFORE the run() method is invoked.
    <pre>
@@ -165,65 +165,37 @@ public class Shell {
   //** run
   //**************************************************************************
   /** Used to execute the process specified in the constructor and populate
-   *  the output streams. This is an overloaded method equivalent to calling
-   *  run(false); 
-   */
-    public void run(){
-        try{
-            run(false);
-        }
-        catch(Exception e){
-        }
-    }
-
-
-  //**************************************************************************
-  //** run
-  //**************************************************************************
-  /** Used to execute the process specified in the constructor and populate
    *  the output streams.
-   *
-   *  @param throwExceptions If true, throws out any exceptions that may have
-   *  been thrown while executing the process.
    */
-    public void run(boolean throwExceptions) throws IOException, InterruptedException {
+    public void run() throws IOException, InterruptedException {
 
         ellapsedTime = -1;
         startTime = new java.util.Date().getTime();
 
-        try{
 
-          //Run executable via Command Line and pick up the output stream
-            Runtime runtime = Runtime.getRuntime();            
-            if (executable!=null){
-                process = runtime.exec(inputs, null, executable.getParentFile());
-            }
-            else{
-                process = runtime.exec(inputs);
-            }
-
-
-            StreamReader s1 = new StreamReader(output, process.getInputStream());
-            StreamReader s2 = new StreamReader(errors, process.getErrorStream());
-            s1.start();
-            s2.start();
-            process.waitFor();
-            s1.join();
-            s2.join();
-
-
-          //Clean up!
-            cleanUp();
-
+      //Run executable via Command Line and pick up the output stream
+        Runtime runtime = Runtime.getRuntime();
+        if (executable!=null){
+            process = runtime.exec(inputs, null, executable.getParentFile());
         }
-        catch(IOException e){
-            if (throwExceptions) throw e;
-            return;
+        else{
+            process = runtime.exec(inputs);
         }
-        catch(InterruptedException e){
-            if (throwExceptions) throw e;
-            return;
-        }
+
+
+        StreamReader s1 = new StreamReader(output, process.getInputStream());
+        StreamReader s2 = new StreamReader(errors, process.getErrorStream());
+        s1.start();
+        s2.start();
+        process.waitFor();
+        s1.join();
+        s2.join();
+
+
+      //Clean up!
+        cleanUp();
+
+
         ellapsedTime = new java.util.Date().getTime()-startTime;
     }
 
@@ -353,7 +325,7 @@ public class Shell {
                 ex.printStackTrace ();
             }
         }
-        
+
         public void join() throws InterruptedException {
             thread.join();
         }
