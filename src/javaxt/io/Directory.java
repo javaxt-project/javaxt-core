@@ -177,7 +177,7 @@ public class Directory implements Comparable {
 
             if (doNetUse){
                 javaxt.io.Shell cmd = new javaxt.io.Shell("net use");
-                cmd.run();
+                try{cmd.run();}catch(Exception e){}
 
                 java.util.Iterator<String> it = cmd.getOutput().iterator();
                 boolean parse = false;
@@ -206,8 +206,8 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** Exists
   //**************************************************************************
-  /** Used to determine whether a directory exists on the file system. */
-
+  /** Used to determine whether a directory exists on the file system.
+   */
     public boolean exists(){
 
         String path = this.path + name;
@@ -237,7 +237,7 @@ public class Directory implements Comparable {
 
                 if (doNetUse){
                     javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + path);
-                    cmd.run();
+                    try{cmd.run();}catch(Exception e){}
                     java.util.List errors = cmd.getErrors();
                     errors.remove(null);
                     if (errors.isEmpty()){
@@ -1252,7 +1252,7 @@ public class Directory implements Comparable {
             if (doNetView){
 
                 javaxt.io.Shell cmd = new javaxt.io.Shell("net view " + serverName);
-                cmd.run();
+                try{cmd.run();}catch(Exception e){}
                 java.util.List errors = cmd.getErrors();
                 errors.remove(null);
                 if (errors.isEmpty()){
@@ -1548,7 +1548,7 @@ public class Directory implements Comparable {
           //Execute a windows shell command to get a directory listing
             javaxt.io.Shell cmd = new javaxt.io.Shell("cmd.exe /c dir /OG " + path);
             java.util.List<String> output = cmd.getOutput();
-            cmd.run(true);
+            cmd.run();
 
           //Parse files returned from the directory listing
             boolean parseFiles = false;
