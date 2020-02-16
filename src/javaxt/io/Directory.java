@@ -1550,6 +1550,7 @@ public class Directory implements Comparable {
             java.util.List<String> output = cmd.getOutput();
             cmd.run();
 
+
           //Parse files returned from the directory listing
             boolean parseFiles = false;
             int colWidth = -1;
@@ -1658,11 +1659,10 @@ public class Directory implements Comparable {
             }
 
         }
-      //Catch Exceptions thrown by cmd.run()
-        catch(java.io.IOException e){
-        }
         catch(InterruptedException e){
             Thread.currentThread().interrupt();
+        }
+        catch(RuntimeException e){
         }
 
 

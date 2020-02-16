@@ -167,36 +167,44 @@ public class Shell {
   /** Used to execute the process specified in the constructor and populate
    *  the output streams.
    */
-    public void run() throws IOException, InterruptedException {
+    public void run() {
 
         ellapsedTime = -1;
-        startTime = new java.util.Date().getTime();
+        startTime = System.currentTimeMillis();
+
+        try {
+
+          //Run executable via Command Line and pick up the output stream
+            Runtime runtime = Runtime.getRuntime();
+            if (executable!=null){
+                process = runtime.exec(inputs, null, executable.getParentFile());
+            }
+            else{
+                process = runtime.exec(inputs);
+            }
 
 
-      //Run executable via Command Line and pick up the output stream
-        Runtime runtime = Runtime.getRuntime();
-        if (executable!=null){
-            process = runtime.exec(inputs, null, executable.getParentFile());
+            StreamReader s1 = new StreamReader(output, process.getInputStream());
+            StreamReader s2 = new StreamReader(errors, process.getErrorStream());
+            s1.start();
+            s2.start();
+            process.waitFor();
+            s1.join();
+            s2.join();
+
+
+          //Clean up!
+            cleanUp();
+
         }
-        else{
-            process = runtime.exec(inputs);
+        catch(IOException e){
+            throw new RuntimeException(e);
+        }
+        catch(InterruptedException e){
+            throw new RuntimeException(e);
         }
 
-
-        StreamReader s1 = new StreamReader(output, process.getInputStream());
-        StreamReader s2 = new StreamReader(errors, process.getErrorStream());
-        s1.start();
-        s2.start();
-        process.waitFor();
-        s1.join();
-        s2.join();
-
-
-      //Clean up!
-        cleanUp();
-
-
-        ellapsedTime = new java.util.Date().getTime()-startTime;
+        ellapsedTime = System.currentTimeMillis()-startTime;
     }
 
 
@@ -211,7 +219,7 @@ public class Shell {
         if (process!=null){
             process.destroy();
             cleanUp();
-            ellapsedTime = new java.util.Date().getTime()-startTime;
+            ellapsedTime = System.currentTimeMillis()-startTime;
         }
     }
 
