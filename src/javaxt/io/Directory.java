@@ -1103,6 +1103,12 @@ public class Directory implements Comparable {
             }
             else{
                 System.out.println(obj);
+                if (obj instanceof javaxt.io.File){
+                    javaxt.io.File file = (javaxt.io.File) obj;
+                }
+                else if (obj instanceof javaxt.io.Directory){
+                    javaxt.io.Directory dir = (javaxt.io.Directory) obj;
+                }
             }
         }
     }</pre>
