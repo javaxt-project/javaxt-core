@@ -1286,6 +1286,7 @@ public class File implements Comparable {
         if (ext.equals("xbm")) return "image/x-xbitmap";
         if (ext.equals("xpm")) return "image/x-xpixmap";
         if (ext.equals("ico")) return "image/vnd.microsoft.icon";
+        if (ext.equals("svg")) return "image/svg+xml";
 
       //MICROSOFT OFFICE APPLICATIONS
         if (ext.equals("doc,dot")) return "application/msword";
