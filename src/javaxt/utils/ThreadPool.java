@@ -150,7 +150,7 @@ public class ThreadPool {
 
 
   //**************************************************************************
-  //** get
+  //** set
   //**************************************************************************
   /** Used to set a variable for an individual thread
    */
@@ -171,8 +171,10 @@ public class ThreadPool {
   //** add
   //**************************************************************************
   /** Used to add an object to the pool to process
+   *  @return Integer representing the position in the queue
    */
-    public void add(Object object){
+    public int add(Object object){
+        int idx;
         synchronized (pool) {
 
             if (maxPoolSize!=null){
@@ -186,9 +188,23 @@ public class ThreadPool {
                 }
             }
 
+            idx = pool.size();
             pool.add(object);
             pool.notify();
         }
+        return idx;
+    }
+
+
+  //**************************************************************************
+  //** getQueue
+  //**************************************************************************
+  /** Returns a handle to the job queue. Use with care. Be sure to add a
+   *  synchronized block when processing or iterating through items in the
+   *  queue.
+   */
+    public List getQueue(){
+        return pool;
     }
 
 
