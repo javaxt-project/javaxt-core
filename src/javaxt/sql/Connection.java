@@ -10,9 +10,9 @@ import javaxt.utils.Generator;
  *
  ******************************************************************************/
 
-public class Connection {    
+public class Connection {
 
-    
+
     private java.sql.Connection Conn = null;
     private long Speed;
     private Database database;
@@ -21,29 +21,32 @@ public class Connection {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-    
-    public Connection(){
-    }
+    public Connection(){}
 
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
     public Connection(java.sql.Connection conn){
         open(conn);
     }
 
-        
+
   //**************************************************************************
   //** isOpen
   //**************************************************************************
-  /** Used to determine whether the connection is open. */
-    
+  /** Used to determine whether the connection is open.
+   */
     public boolean isOpen(){
         return !isClosed();
-    } 
+    }
+
 
   //**************************************************************************
   //** isClosed
   //**************************************************************************
-  /** Used to determine whether the connection is closed. */
-
+  /** Used to determine whether the connection is closed.
+   */
     public boolean isClosed(){
         try{
             return Conn.isClosed();
@@ -52,30 +55,30 @@ public class Connection {
             return true;
         }
     }
-    
+
+
   //**************************************************************************
   //** getConnectionSpeed
   //**************************************************************************
-  /** Used to retrieve the time it took to open the database connection 
-   * (in milliseconds) 
+  /** Used to retrieve the time it took to open the database connection
+   * (in milliseconds)
    */
-    
     public long getConnectionSpeed(){
         return Speed;
     }
 
-   
+
   //**************************************************************************
   //** getConnection
   //**************************************************************************
-  /** Used to retrieve the java.sql.Connection for this Connection */
-    
+  /** Used to retrieve the java.sql.Connection for this Connection
+   */
     public java.sql.Connection getConnection(){
         return Conn;
     }
 
 
-    
+
   //**************************************************************************
   //** Open
   //**************************************************************************
@@ -88,24 +91,22 @@ public class Connection {
    *  Example:
    *  <pre> jdbc:derby://temp/my.db;user=admin;password=mypassword </pre>
    */
-    
     public boolean open(String ConnectionString) throws SQLException {
         return open(new Database(ConnectionString));
     }
 
-    
-    
+
   //**************************************************************************
   //** Open
   //**************************************************************************
-  /** Used to open a connection to the database. */
-    
+  /** Used to open a connection to the database.
+   */
     public boolean open(Database database) throws SQLException {
-                
+
         long startTime = System.currentTimeMillis();
         this.database = database;
         boolean isClosed = true;
-        
+
 
       //Load JDBC Driver
         java.sql.Driver Driver = (java.sql.Driver) database.getDriver().load();
@@ -127,11 +128,11 @@ public class Connection {
 
 
         Conn = Driver.connect(url, properties);
-        
+
 
         isClosed = Conn.isClosed();
 
-        
+
         long endTime = System.currentTimeMillis();
         Speed = endTime-startTime;
         return isClosed;
@@ -139,7 +140,7 @@ public class Connection {
 
 
   //**************************************************************************
-  //** Open
+  //** open
   //**************************************************************************
   /** Used to open a connection to the database using a JDBC Connection. This
    *  is particularly useful when using JDBC connection pools.
@@ -163,20 +164,19 @@ public class Connection {
     }
 
 
-    
   //**************************************************************************
-  //** Close
+  //** close
   //**************************************************************************
-  /** Used to close a connection to the database, freeing up connections */
-    
+  /** Used to close a connection to the database, freeing up connections
+   */
     public void close(){
         try{Conn.close();}
         catch(Exception e){
             //e.printStackTrace();
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** getRecordset
   //**************************************************************************
@@ -197,7 +197,7 @@ public class Connection {
         final Recordset rs = new Recordset();
         rs.open(sql, this, readOnly);
 
-        
+
         return new Generator<Recordset>() {
             @Override
             public void run() {
@@ -214,22 +214,22 @@ public class Connection {
             }
         };
     }
-    
-    
+
+
   //**************************************************************************
   //** getRecordset
   //**************************************************************************
   /** Used to execute a SQL statement and returns a Recordset as an iterator.
-   *  The Recordset is read-only. Use the other getRecordset() method for 
+   *  The Recordset is read-only. Use the other getRecordset() method for
    *  creating and updating records.
    */
     public Generator<Recordset> getRecordset(String sql) throws SQLException {
         return getRecordset(sql, true);
     }
-    
-    
+
+
   //**************************************************************************
-  //** Execute
+  //** execute
   //**************************************************************************
   /** Used to execute a prepared sql statement (e.g. "delete from my_table").
    */
@@ -238,25 +238,25 @@ public class Connection {
         preparedStmt.execute();
         preparedStmt.close();
         preparedStmt = null;
-    } 
-    
-    
+    }
+
+
   //**************************************************************************
-  //** Commit
+  //** commit
   //**************************************************************************
-  /** Used to explicitely commit changes made to the database. */
-    
+  /** Used to explicitly commit changes made to the database.
+   */
     public void commit() throws SQLException {
         execute("COMMIT");
     }
-    
+
+
   //**************************************************************************
   //** getDatabase
   //**************************************************************************
-  /** Used to return database information associated with this connection. */
-    
+  /** Used to return database information associated with this connection.
+   */
     public Database getDatabase(){
         return database;
     }
-
 }

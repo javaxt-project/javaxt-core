@@ -418,6 +418,7 @@ public class Recordset {
       //Close recordset
         try{
             if (State==1) executeBatch();
+            if (!isReadOnly) commit();
             if (rs!=null) rs.close();
             if (stmt!=null){
 
@@ -509,7 +510,7 @@ public class Recordset {
   //**************************************************************************
   //** Commit
   //**************************************************************************
-  /** Used to explicitely commit an sql statement. May be useful for bulk
+  /** Used to explicitly commit an sql statement. May be useful for bulk
    *  update and update statements, depending on the underlying DBMS.
    */
     public void commit(){

@@ -73,13 +73,12 @@ public class Directory implements Comparable {
 
         attr = null;
 
-        try{
-            this.file = File.getCanonicalFile();
-            init(file.getCanonicalPath());
-        }
-        catch(Exception e){
+        String p = File.getAbsolutePath();
+        init(p);
+
+
+        if (p.equals(toString())){
             this.file = File;
-            init(file.getAbsolutePath());
         }
     }
 
@@ -796,7 +795,7 @@ public class Directory implements Comparable {
                         list.add(new javaxt.io.File(file));
                     }
                 }
-                Collections.sort(list, new FileComparer(this));
+                sort(list, this);
                 return list.toArray(new javaxt.io.File[list.size()]);
             }
         }
@@ -874,7 +873,7 @@ public class Directory implements Comparable {
                 }
 
               //Sort the list
-                Collections.sort(files, new FileComparer(this));
+                sort(files, this);
 
 
               //Convert the list into an array of files
@@ -1161,7 +1160,7 @@ public class Directory implements Comparable {
                         items.notifyAll();
                     }
 
-                    Collections.sort(items, new FileComparer(this));
+                    sort(items, this);
                 }
 
 
@@ -1171,11 +1170,11 @@ public class Directory implements Comparable {
 
             }//end recursive search
             else{
-                List results = new LinkedList();
+                List list = new LinkedList();
                 Object[] files = listFiles(new FileFilter(filter));
                 if (files==null) {
-                    if (!wait) results.add(null);
-                    return results;
+                    if (!wait) list.add(null);
+                    return list;
                 }
                 else{
 
@@ -1195,15 +1194,19 @@ public class Directory implements Comparable {
                         }
 
                         if (isDirectory){
-                            results.add(new Directory(file));
+                            list.add(new Directory(file));
                         }
                         else{
-                            results.add(new File(file));
+                            list.add(new File(file));
                         }
                     }
-                    Collections.sort(results, new FileComparer(this));
-                    if (!wait) results.add(null);
-                    return results;
+                    sort(list, this);
+                    if (!wait){
+                        synchronized(list){
+                            list.add(null);
+                        }
+                    }
+                    return list;
                 }
             }
         }
@@ -1414,12 +1417,12 @@ public class Directory implements Comparable {
 
         }
         else { //UNIX
+            java.io.File dir = getFile();
+            java.io.File[] list = dir.listFiles();
+            if (list!=null){
 
-            java.io.File[] fs = getFile().listFiles();
-            if (fs!=null){
-
-                for (int i=0; i<fs.length; i++){
-                    java.io.File file = fs[i];
+                for (int i=0; i<list.length; i++){
+                    java.io.File file = list[i];
                     if (fileFilter==null){
                         files.add(file);
                     }
@@ -1438,7 +1441,7 @@ public class Directory implements Comparable {
 
 
       //Sort the list and return an array
-        Collections.sort(files, new FileComparer(null));
+        sort(files, null);
         return files.toArray(new Object[files.size()]);
     }
 
@@ -1990,6 +1993,18 @@ public class Directory implements Comparable {
     } //End Event Class
 
 
+
+  //**************************************************************************
+  //** sort
+  //**************************************************************************
+    private void sort(List files, Directory dir){
+        try{
+            Collections.sort(files, new FileComparer(dir));
+        }
+        catch(Throwable e){
+            //java.lang.IllegalArgumentException: Comparison method violates its general contract!
+        }
+    }
 
 
   //**************************************************************************

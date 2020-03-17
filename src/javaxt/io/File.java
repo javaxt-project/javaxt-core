@@ -72,14 +72,12 @@ public class File implements Comparable {
             throw new IllegalArgumentException("Invalid Path.");
         }
 
+        String p = File.getAbsolutePath();
+        init(p);
 
-        try{
-            this.file = File.getCanonicalFile();
-            init(file.getCanonicalPath());
-        }
-        catch(Exception e){
+
+        if (p.equals(toString())){
             this.file = File;
-            init(file.getAbsolutePath());
         }
     }
 
@@ -129,7 +127,8 @@ public class File implements Comparable {
             path = Path.substring(0, Path.lastIndexOf(name));
         }
         else{
-            path = Path;
+            name = arr[0];
+            path = "./";
         }
 
         if (path.isEmpty()) path = PathSeparator;
