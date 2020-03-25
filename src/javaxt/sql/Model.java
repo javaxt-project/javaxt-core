@@ -16,7 +16,7 @@ import java.util.*;
 public abstract class Model {
 
     protected Long id;
-    protected final String tableName;
+    private String escapedTableName;
     private final String modelName;
     private final HashMap<String, String> fieldMap;
     private String[] keywords;
@@ -35,6 +35,9 @@ public abstract class Model {
 
     private static ConcurrentHashMap<String, Field[]>
     fields = new ConcurrentHashMap<String, Field[]>();
+
+    private static ConcurrentHashMap<String, String[]>
+    tables = new ConcurrentHashMap<String, String[]>();
 
 
   //**************************************************************************
@@ -60,11 +63,31 @@ public abstract class Model {
    *  You do not need to include the "id" field.
    */
     protected Model(String tableName, HashMap<String, String> fieldMap){
+
+      //Set modelName
+        Class c = this.getClass();
+        String className = c.getName();
+        modelName = c.getSimpleName();
+
+
+      //Set keywords
         synchronized(reservedKeywords){
-            keywords = reservedKeywords.get(this.getClass().getName());
+            keywords = reservedKeywords.get(className);
         }
-        this.tableName = escape(tableName);
-        this.modelName = this.getClass().getSimpleName();
+
+
+      //Set tableInfo
+        synchronized(tables){
+            String[] tableInfo = tables.get(className);
+            if (tableInfo==null){
+                tableInfo = getTableInfo(tableName);
+                tables.put(className, tableInfo);
+            }
+            escapedTableName = tableInfo[0];
+        }
+
+
+      //Set fieldMap
         this.fieldMap = fieldMap;
     }
 
@@ -145,7 +168,7 @@ public abstract class Model {
         }
         if (addID) sql.append(", id");
         sql.append(" from ");
-        sql.append(tableName);
+        sql.append(escapedTableName);
         sql.append(" where id=");
 
 
@@ -378,7 +401,7 @@ public abstract class Model {
                     Connection conn = getConnection(this.getClass());
 
                     StringBuilder sql = new StringBuilder();
-                    sql.append("INSERT INTO " + tableName + " (");
+                    sql.append("INSERT INTO " + escapedTableName + " (");
                     it = fields.keySet().iterator();
                     while (it.hasNext()){
                         java.lang.reflect.Field f = it.next();
@@ -460,7 +483,7 @@ public abstract class Model {
                 if (driver==null) driver = new Driver("","","");
 
                 Recordset rs = new Recordset();
-                rs.open("select * from " + tableName + " where id=" + id, conn, false);
+                rs.open("select * from " + escapedTableName + " where id=" + id, conn, false);
                 if (rs.EOF){
                     rs.addNew();
                     rs.setValue("id", id);
@@ -508,7 +531,7 @@ public abstract class Model {
         Connection conn = null;
         try{
             conn = getConnection(this.getClass());
-            conn.execute("delete from " + tableName + " where id=" + id);
+            conn.execute("delete from " + escapedTableName + " where id=" + id);
             conn.close();
         }
         catch(SQLException e){
@@ -723,7 +746,7 @@ public abstract class Model {
 
       //Get tableName
         String tableName = null;
-        try{ tableName = ((Model) c.newInstance()).tableName; }
+        try{ tableName = ((Model) c.newInstance()).escapedTableName; }
         catch(Exception e){}
 
         StringBuilder str = new StringBuilder("select ");
@@ -838,9 +861,9 @@ public abstract class Model {
 
 
           //Generate list of fields
-            String tableName = ((Model) c.newInstance()).tableName;
+            Model model = ((Model) c.newInstance());
             Recordset rs = new Recordset();
-            rs.open("select * from " + tableName + " where id is null", conn);
+            rs.open("select * from " + model.escapedTableName + " where id is null", conn);
             synchronized(fields){
                 fields.put(className, rs.getFields());
                 fields.notifyAll();
@@ -879,7 +902,61 @@ public abstract class Model {
   /** Returns the name of the table backing a given Model
    */
     public static String getTableName(Model model){
-        return model.tableName;
+        return model.escapedTableName;
+    }
+
+
+  //**************************************************************************
+  //** setSchemaName
+  //**************************************************************************
+  /** Provides an option to override the default schema used by a model
+   */
+    public static void setSchemaName(String schemaName, Class c){
+        if (!javaxt.sql.Model.class.isAssignableFrom(c)) return;
+        String className = c.getName();
+        try{
+
+          //Instantiate model to initialize table info
+            Model model = ((Model) c.newInstance());
+
+
+          //Update table info
+            synchronized(tables){
+                String[] tableInfo = tables.get(className);
+                String tableName = tableInfo[1];
+                if (schemaName!=null) tableName = schemaName + "." + tableName;
+                tableInfo = model.getTableInfo(tableName);
+                tables.put(className, tableInfo);
+            }
+        }
+        catch(Exception e){
+            Exception ex = new Exception("Failed to update schema for Model: " + className);
+            ex.setStackTrace(e.getStackTrace());
+            throw new RuntimeException(ex);
+        }
+    }
+
+
+  //**************************************************************************
+  //** getTableInfo
+  //**************************************************************************
+  /** Used to parse a given string and extract table info (e.g. schema name,
+   *  table name, etc).
+   */
+    private String[] getTableInfo(String tableName){
+        String schemaName;
+        String escapedTableName;
+        int idx = tableName.indexOf(".");
+        if (idx>-1){
+            schemaName = tableName.substring(0, idx);
+            tableName = tableName.substring(idx+1);
+            escapedTableName = escape(schemaName) + "." + tableName;
+        }
+        else{
+            schemaName = null;
+            escapedTableName = escape(tableName);
+        }
+        return new String[]{escapedTableName, tableName, schemaName};
     }
 
 

@@ -1526,11 +1526,15 @@ public class Directory implements Comparable {
 
         java.util.ArrayList<String> files = new java.util.ArrayList<String>();
 
+        String dir = getPath();
+        //dir = this.toFile().getCanonicalPath() + PathSeparator;
+
+
       //Try listing files using the JNI
         boolean doDir = false;
         if (File.loadDLL()){
             try{
-                String list = File.GetFiles(getPath() + "*");
+                String list = File.GetFiles(dir + "*");
                 if (list!=null){
                     for (String name : list.split("\n")){
                         name = name.trim();
@@ -1551,11 +1555,9 @@ public class Directory implements Comparable {
       //If we're still here, list files using a command prompt
         if (doDir)
         try{
-            String path = this.getPath();
-            if (path.contains(" ")) path = "\"" + path + "\"";
 
           //Execute a windows shell command to get a directory listing
-            javaxt.io.Shell cmd = new javaxt.io.Shell("cmd.exe /c dir /OG " + path);
+            javaxt.io.Shell cmd = new javaxt.io.Shell("cmd.exe /c dir /OG " + (dir.contains(" ") ? "\"" + dir + "\"" : dir));
             java.util.List<String> output = cmd.getOutput();
             cmd.run();
 
@@ -1647,7 +1649,7 @@ public class Directory implements Comparable {
                                         file = new java.io.File(link);
                                     }
                                     else {
-                                        file = new java.io.File(path, name);
+                                        file = new java.io.File(dir, name);
                                     }
                                     if (file.isDirectory()) name += this.PathSeparator;
                                     files.add(name);
