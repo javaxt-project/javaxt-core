@@ -16,7 +16,7 @@ import java.util.*;
 public abstract class Model {
 
     protected Long id;
-    private String escapedTableName;
+    private String tableName; //escaped table name
     private final String modelName;
     private final HashMap<String, String> fieldMap;
     private String[] keywords;
@@ -83,7 +83,7 @@ public abstract class Model {
                 tableInfo = getTableInfo(tableName);
                 tables.put(className, tableInfo);
             }
-            escapedTableName = tableInfo[0];
+            this.tableName = tableInfo[0];
         }
 
 
@@ -168,7 +168,7 @@ public abstract class Model {
         }
         if (addID) sql.append(", id");
         sql.append(" from ");
-        sql.append(escapedTableName);
+        sql.append(tableName);
         sql.append(" where id=");
 
 
@@ -401,7 +401,7 @@ public abstract class Model {
                     Connection conn = getConnection(this.getClass());
 
                     StringBuilder sql = new StringBuilder();
-                    sql.append("INSERT INTO " + escapedTableName + " (");
+                    sql.append("INSERT INTO " + tableName + " (");
                     it = fields.keySet().iterator();
                     while (it.hasNext()){
                         java.lang.reflect.Field f = it.next();
@@ -483,7 +483,7 @@ public abstract class Model {
                 if (driver==null) driver = new Driver("","","");
 
                 Recordset rs = new Recordset();
-                rs.open("select * from " + escapedTableName + " where id=" + id, conn, false);
+                rs.open("select * from " + tableName + " where id=" + id, conn, false);
                 if (rs.EOF){
                     rs.addNew();
                     rs.setValue("id", id);
@@ -531,7 +531,7 @@ public abstract class Model {
         Connection conn = null;
         try{
             conn = getConnection(this.getClass());
-            conn.execute("delete from " + escapedTableName + " where id=" + id);
+            conn.execute("delete from " + tableName + " where id=" + id);
             conn.close();
         }
         catch(SQLException e){
@@ -746,7 +746,7 @@ public abstract class Model {
 
       //Get tableName
         String tableName = null;
-        try{ tableName = ((Model) c.newInstance()).escapedTableName; }
+        try{ tableName = ((Model) c.newInstance()).tableName; }
         catch(Exception e){}
 
         StringBuilder str = new StringBuilder("select ");
@@ -863,7 +863,7 @@ public abstract class Model {
           //Generate list of fields
             Model model = ((Model) c.newInstance());
             Recordset rs = new Recordset();
-            rs.open("select * from " + model.escapedTableName + " where id is null", conn);
+            rs.open("select * from " + model.tableName + " where id is null", conn);
             synchronized(fields){
                 fields.put(className, rs.getFields());
                 fields.notifyAll();
@@ -902,7 +902,7 @@ public abstract class Model {
   /** Returns the name of the table backing a given Model
    */
     public static String getTableName(Model model){
-        return model.escapedTableName;
+        return model.tableName;
     }
 
 
