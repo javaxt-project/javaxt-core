@@ -49,8 +49,9 @@ public class ConnectionPool {
     private boolean                        isDisposed;                   // true if this connection pool has been disposed
     private boolean                        doPurgeConnection;            // flag to purge the connection currently beeing closed instead of recycling it
     private PooledConnection               connectionInTransition;       // a PooledConnection which is currently within a PooledConnection.getConnection() call, or null
+    private int[] javaVersion = new int[2];
 
-    
+
     /**
     * Thrown in {@link #getConnection()} or {@link #getValidConnection()} when no free connection becomes
     * available within <code>timeout</code> seconds.
@@ -60,7 +61,7 @@ public class ConnectionPool {
        public TimeoutException () {
           super("Timeout while waiting for a free database connection."); }
        public TimeoutException (String msg) {
-          super(msg); 
+          super(msg);
        }
     }
 
@@ -68,57 +69,62 @@ public class ConnectionPool {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**  Constructs a ConnectionPool with a timeout of 60 seconds.
+  /** Constructs a ConnectionPool with a timeout of 20 seconds.
    */
     public ConnectionPool(Database database, int maxConnections) throws SQLException {
-        this (database.getConnectionPoolDataSource(), maxConnections, 60);
+        this(database.getConnectionPoolDataSource(), maxConnections);
     }
-    
-    
+
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
   /**  Constructs a ConnectionPool.
    */
     public ConnectionPool(Database database, int maxConnections, int timeout) throws SQLException{
-        this (database.getConnectionPoolDataSource(), maxConnections, timeout);
+        this(database.getConnectionPoolDataSource(), maxConnections, timeout);
     }
 
-    /**
-    * Constructs a ConnectionPool object with a timeout of 60 seconds.
-    *
-    * @param dataSource
-    *    the data source for the connections.
-    * @param maxConnections
-    *    the maximum number of connections.
-    */
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Constructs a ConnectionPool with a timeout of 20 seconds.
+   */
     public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections) {
-       this(dataSource, maxConnections, 60);
+       this(dataSource, maxConnections, null);
     }
 
-    /**
-    * Constructs a ConnectionPool object.
-    *
-    * @param dataSource
-    *    the data source for the connections.
-    * @param maxConnections
-    *    the maximum number of connections.
-    * @param timeout
-    *    the maximum time in seconds to wait for a free connection.
-    */
-    public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections, int timeout) {
-       this.dataSource = dataSource;
-       this.maxConnections = maxConnections;
-       this.timeoutMs = timeout * 1000L;
-       try {
-          logWriter = dataSource.getLogWriter(); }
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Constructs a ConnectionPool object.
+   *  @param dataSource JDBC ConnectionPoolDataSource for the connections.
+   *  @param maxConnections The maximum number of connections.
+   *  @param timeout The maximum time in seconds to wait for a free connection.
+   *  Defaults to 20 seconds
+   */
+    public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections, Integer timeout) {
+        if (dataSource==null) throw new IllegalArgumentException("dataSource is required");
+        if (maxConnections<1) throw new IllegalArgumentException("Invalid maxConnections");
+        if (timeout==null || timeout<0) timeout = 20;
+
+        this.dataSource = dataSource;
+        this.maxConnections = maxConnections;
+        this.timeoutMs = timeout * 1000L;
+        try { logWriter = dataSource.getLogWriter(); }
         catch (SQLException e) {}
-       if (maxConnections < 1) {
-          throw new IllegalArgumentException("Invalid maxConnections value."); }
-       semaphore = new Semaphore(maxConnections,true);
-       recycledConnections = new LinkedList<PooledConnection>();
-       poolConnectionEventListener = new PoolConnectionEventListener();
+
+        semaphore = new Semaphore(maxConnections,true);
+        recycledConnections = new LinkedList<PooledConnection>();
+        poolConnectionEventListener = new PoolConnectionEventListener();
+
+        String[] arr = System.getProperty("java.version").split("\\.");
+        javaVersion[0] = Integer.parseInt(arr[0]);
+        javaVersion[1] = Integer.parseInt(arr[1]);
     }
+
 
     /**
     * Closes all unused pooled connections.
@@ -157,7 +163,12 @@ public class ConnectionPool {
     *    when no connection becomes available within <code>timeout</code> seconds.
     */
     public Connection getConnection() throws SQLException {
-       return new Connection(getConnection2(timeoutMs));
+        if (javaVersion[0]==1 && javaVersion[1]<6){
+            return new Connection(getConnection2(timeoutMs));
+        }
+        else{
+            return getValidConnection();
+        }
     }
 
     private java.sql.Connection getConnection2 (long timeoutMs) throws SQLException {

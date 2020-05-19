@@ -47,6 +47,13 @@ public class Recordset {
     */
     private Field[] Fields = null;
 
+
+   /**
+    * An array of tables found in the database
+    */
+    private Table[] Tables = null;
+
+
    /**
     * Sets or returns the maximum number of records to return to a Recordset
     * object from a query.
@@ -170,6 +177,7 @@ public class Recordset {
         stmt = null;
         State = 0;
         EOF = true;
+        Tables = null;
         this.sqlString = sqlString;
         this.Connection = Connection;
         this.isReadOnly = ReadOnly;
@@ -553,9 +561,9 @@ public class Recordset {
    *  performing batch inserts, the update statements are queued and executed
    *  only after the batch size is reached.
    */
-    public void update() throws java.sql.SQLException {
-        if (isReadOnly) throw new java.sql.SQLException("Read only!");
-        if (State!=1) throw new java.sql.SQLException("Recordset is closed!");
+    public void update() throws SQLException {
+        if (isReadOnly) throw new SQLException("Read only!");
+        if (State!=1) throw new SQLException("Recordset is closed!");
         if (!isDirty()) return;
 
 
@@ -1476,9 +1484,9 @@ public class Recordset {
         String[] selectedTables = new Parser(sqlString).getTables();
 
 
-       //Match selected tables to tables found in this database
+      //Match selected tables to tables found in this database
         java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
-        Table[] arr = Database.getTables(Connection);
+        if (Tables==null) Tables = Database.getTables(Connection);
         for (String selectedTable : selectedTables){
             String tableName;
             String schemaName;
@@ -1492,7 +1500,7 @@ public class Recordset {
                 schemaName = null;
             }
 
-            for (Table table : arr){
+            for (Table table : Tables){
                 if (tableName.equalsIgnoreCase(table.getName())){
 
                     if (schemaName==null){
