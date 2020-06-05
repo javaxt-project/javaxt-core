@@ -22,7 +22,7 @@ public class Parser {
     new String[]{"IS NULL","IS NOT NULL","BETWEEN","CONTAINS","LIKE","<>","<=",">=","=","<",">","IN","MATCHES","SOME","NOT EXISTS","EXISTS"};
 
     private static String[] sqlKeywords =
-    new String[]{"SELECT","FROM","WHERE","ORDER BY","GROUP BY","HAVING"};
+    new String[]{"SELECT","FROM","WHERE","ORDER BY","GROUP BY","HAVING","LIMIT","OFFSET"};
 
     private static String[] joinTypes = new String[]{
       //Order is important!
@@ -290,7 +290,7 @@ public class Parser {
         return this.toString();
     }
 
-    
+
   //**************************************************************************
   //** setWhere
   //**************************************************************************
