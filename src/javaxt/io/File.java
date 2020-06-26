@@ -892,6 +892,22 @@ public class File implements Comparable {
 
 
   //**************************************************************************
+  //** create
+  //**************************************************************************
+  /** Creates a new file if one does not exist.
+   */
+    public void create(){
+        if (exists()) return;
+        try {
+            java.io.File file = getFile();
+            file.getParentFile().mkdirs();
+            file.createNewFile();
+        }
+        catch (Exception e){}
+    }
+
+
+  //**************************************************************************
   //** write
   //**************************************************************************
   /** Creates a new file using the given ByteArrayOutputStream. Note that this

@@ -958,7 +958,8 @@ public class Recordset {
             field.Class = "java.lang.String";
             return STGeomFromText + "(?,4326)";
         }
-        else if (packageName.startsWith("com.vividsolutions.jts.geom")){
+        else if (packageName.startsWith("com.vividsolutions.jts.geom") ||
+            packageName.startsWith("org.locationtech.jts.geom")){
             String STGeomFromText = getSTGeomFromText(field, Connection);
             field.Value = new Value(value.toString());
             field.Class = "java.lang.String";

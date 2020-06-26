@@ -195,6 +195,7 @@ public class Connection {
     public Generator<Recordset> getRecordset(String sql, boolean readOnly) throws SQLException {
 
         final Recordset rs = new Recordset();
+        if (readOnly) rs.setFetchSize(1000);
         rs.open(sql, this, readOnly);
 
 

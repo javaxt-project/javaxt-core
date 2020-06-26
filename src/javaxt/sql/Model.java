@@ -341,7 +341,8 @@ public abstract class Model {
               //Get value. Replace with function as needed
                 Object val = fields.get(f);
                 if (packageName.startsWith("javaxt.geospatial.geometry") ||
-                    packageName.startsWith("com.vividsolutions.jts.geom")){
+                    packageName.startsWith("com.vividsolutions.jts.geom") ||
+                    packageName.startsWith("org.locationtech.jts.geom")){
                     int srid = 4326; //getSRID();
                     try{
                         java.lang.reflect.Method method = fieldType.getMethod("getSRID");
@@ -426,7 +427,8 @@ public abstract class Model {
                             }
                         }
                         else if (packageName.startsWith("javaxt.geospatial.geometry") ||
-                            packageName.startsWith("com.vividsolutions.jts.geom")){
+                            packageName.startsWith("com.vividsolutions.jts.geom") ||
+                            packageName.startsWith("org.locationtech.jts.geom")){
 
 
                             String columnName = fieldMap.get(f.getName());
@@ -682,8 +684,12 @@ public abstract class Model {
 
       //Return model
         if (id!=null){
-            try{ return c.getConstructor(long.class).newInstance(id); }
-            catch(Exception e){}
+            try{
+                return c.getConstructor(long.class).newInstance(id);
+            }
+            catch(Exception e){
+                throw new SQLException("Failed to instantiate model for " + id);
+            }
         }
         return null;
     }
@@ -728,7 +734,9 @@ public abstract class Model {
                 try{
                     arr.add(c.getConstructor(long.class).newInstance(id));
                 }
-                catch(Exception e){}
+                catch(Exception e){
+                    throw new SQLException("Failed to instantiate model for " + id);
+                }
             }
             return arr.toArray();
         }

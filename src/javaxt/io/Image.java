@@ -413,7 +413,7 @@ public class Image {
   //**************************************************************************
   /** Returns an array with 4 histograms: red, green, blue, and average
     <pre>
-        ArrayList<int[]> histogram = image.getHistogram();
+        ArrayList&lt;int[]> histogram = image.getHistogram();
         int[] red = histogram.get(0);
         int[] green = histogram.get(1);
         int[] blue = histogram.get(2);
