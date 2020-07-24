@@ -869,8 +869,8 @@ public class Image {
   //**************************************************************************
   //** Sharpen
   //**************************************************************************
-  /**  Used to sharpen the image using a 3x3 kernal. */
-
+  /** Used to sharpen the image using a 3x3 kernel.
+   */
     public void sharpen(){
 
         int width = this.getWidth();
@@ -900,8 +900,8 @@ public class Image {
   //**************************************************************************
   //** Desaturate
   //**************************************************************************
-  /**  Used to completely desaturate an image (creates a gray-scale image). */
-
+  /**  Used to completely desaturate an image (creates a gray-scale image).
+   */
     public void desaturate(){
          bufferedImage = desaturate(bufferedImage);
     }
@@ -914,7 +914,6 @@ public class Image {
    *   a double or float). The larger the percentage, the greater the
    *   desaturation and the "grayer" the image. Valid ranges are from 0-1.
    */
-
     public void desaturate(double percent){
         float alpha = (float) (percent);
         java.awt.Image overlay = desaturate(bufferedImage);
@@ -928,8 +927,8 @@ public class Image {
   //**************************************************************************
   //** Desaturate (Private Function)
   //**************************************************************************
-  /**  Convenience function called by the other 2 desaturation methods. */
-
+  /** Convenience function called by the other 2 desaturation methods.
+   */
     private BufferedImage desaturate(BufferedImage in){
         BufferedImage out = new BufferedImage(in.getWidth(), in.getHeight(), getImageType(in) );
         BufferedImageOp op = new ColorConvertOp(
@@ -938,17 +937,17 @@ public class Image {
     }
 
 
-
   //**************************************************************************
   //** setOpacity
   //**************************************************************************
-
+  /** Used to adjust the opacity of the image.
+   */
     public void setOpacity(double percent){
         if (percent>1) percent=percent/100;
         float alpha = (float) (percent);
         int imageType = bufferedImage.getType();
         if (imageType == 0) {
-          imageType = BufferedImage.TYPE_INT_ARGB;
+            imageType = BufferedImage.TYPE_INT_ARGB;
         }
         BufferedImage out = new BufferedImage(getWidth(),getHeight(),imageType);
         Graphics2D g2d = out.createGraphics();
@@ -977,8 +976,8 @@ public class Image {
   //**************************************************************************
   //** Crop
   //**************************************************************************
-  /**  Used to subset or crop an image. */
-
+  /** Used to crop/subset the current image.
+   */
     public void crop(int x, int y, int width, int height){
         bufferedImage = getSubimage(x,y,width,height);
     }
@@ -987,18 +986,23 @@ public class Image {
   //**************************************************************************
   //** copy
   //**************************************************************************
-  /** Returns a copy of the current image. */
-
+  /** Returns a copy of the current image.
+   */
     public Image copy(){
-        return new Image(bufferedImage);
+        ColorModel cm = bufferedImage.getColorModel();
+        boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
+        WritableRaster raster = bufferedImage.copyData(null);
+        BufferedImage bi = new BufferedImage(cm, raster, isAlphaPremultiplied, null);
+        bi = bi.getSubimage(0, 0, bufferedImage.getWidth(), bufferedImage.getHeight());
+        return new Image(bi);
     }
 
 
   //**************************************************************************
   //** copyRect
   //**************************************************************************
-  /** Returns a copy of the image at a given rectangle. */
-
+  /** Returns a copy of the image at a given rectangle.
+   */
     public Image copyRect(int x, int y, int width, int height){
         return new Image(getSubimage(x,y,width,height));
     }

@@ -5,7 +5,7 @@ package javaxt.utils;
 //******************************************************************************
 /**
  *   A general purpose wrapper for Objects. The value can be converted into a
- *   number of Java primatives including strings, integers, doubles, booleans,
+ *   number of Java primitives including strings, integers, doubles, booleans,
  *   etc.
  *
  ******************************************************************************/
@@ -17,17 +17,23 @@ public class Value {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of this class. */
-
+  /** Creates a new instance of this class.
+   */
     public Value(Object value){
         this.value = value;
     }
 
+
+  //**************************************************************************
+  //** toObject
+  //**************************************************************************
+  /** Returns the object used to instantiate this class.
+   */
     public Object toObject(){
         return value;
     }
 
-    
+
   //**************************************************************************
   //** toInteger
   //**************************************************************************
@@ -37,11 +43,18 @@ public class Value {
     public Integer toInteger(){
         if (value==null) return null;
         if (value instanceof Integer) return (Integer) value;
+        String val = null;
         try{
-            return Integer.valueOf(prepNumber(value+""));
+            val = prepNumber(value+"");
+            return Integer.valueOf(val);
         }
         catch(Exception e){
-            return null;
+            try{
+                return (int) Math.round(Double.valueOf(val));
+            }
+            catch(Exception ex){
+                return null;
+            }
         }
     }
 
@@ -55,11 +68,18 @@ public class Value {
     public Short toShort(){
         if (value==null) return null;
         if (value instanceof Short) return (Short) value;
+        String val = null;
         try{
-            return Short.valueOf(prepNumber(value+""));
+            val = prepNumber(value+"");
+            return Short.valueOf(val);
         }
         catch(Exception e){
-            return null;
+            try{
+                return new Integer((int) Math.round(Double.valueOf(val))).shortValue();
+            }
+            catch(Exception ex){
+                return null;
+            }
         }
     }
 
@@ -91,11 +111,18 @@ public class Value {
     public Long toLong(){
         if (value==null) return null;
         if (value instanceof Long) return (Long) value;
+        String val = null;
         try{
-            return Long.valueOf(prepNumber(value+""));
+            val = prepNumber(value+"");
+            return Long.valueOf(val);
         }
         catch(Exception e){
-            return null;
+            try{
+                return Math.round(Double.valueOf(val));
+            }
+            catch(Exception ex){
+                return null;
+            }
         }
     }
 
@@ -168,7 +195,7 @@ public class Value {
         return null;
     }
 
-    
+
   //**************************************************************************
   //** toByteArray
   //**************************************************************************
@@ -278,10 +305,10 @@ public class Value {
         else{
             if (value==null) return false;
         }
-        
-        
-      //Special case for BigDecimal. BigDecimal objects equal only if they are 
-      //equal in value and scale. Thus 2.0 is not equal to 2.00 when compared 
+
+
+      //Special case for BigDecimal. BigDecimal objects equal only if they are
+      //equal in value and scale. Thus 2.0 is not equal to 2.00 when compared
       //using the equals() method. The following code removes this ambiguity.
         if (!obj.equals(value)){
             if (obj.getClass().equals(value.getClass())){
@@ -292,18 +319,47 @@ public class Value {
                 }
             }
         }
-        
-        
+
+
         return obj.equals(value);
     }
 
 
-    
+  //**************************************************************************
+  //** prepNumber
+  //**************************************************************************
     private String prepNumber(String value){
         value = value.trim();
-        if (value.startsWith("$")) value = value.substring(1).trim();
-        else if (value.endsWith("%")) value = value = value.substring(0, value.length()-1);
+
+
+      //Replace currency or any other unexpected characters at the start of the string
+        char a = value.charAt(0);
+        boolean isNumeric = false;
+        for (char c : chars){
+            if (c==a){
+                isNumeric = true;
+                break;
+            }
+        }
+        if (!isNumeric) value = value.substring(1).trim();
+
+
+
+      //Replace percentages or any other unexpected characters at the end of the string
+        a = value.charAt(value.length()-1);
+        isNumeric = false;
+        for (char c : chars){
+            if (c==a){
+                isNumeric = true;
+                break;
+            }
+        }
+        if (!isNumeric) value = value.substring(0, value.length()-1).trim();
+
         value = value.replace(",", "");
         return value;
     }
+
+    private static final char[] chars =
+    new char[]{'-','.','0','1','2','3','4','5','6','7','8','9'};
 }

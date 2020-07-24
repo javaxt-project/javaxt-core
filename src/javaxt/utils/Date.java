@@ -804,8 +804,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getDayOfWeek
   //**************************************************************************
-  /**  Returns the day of the week. Example: Monday = 1 */
-
+  /** Returns the day of the week (1-7) where Monday = 1
+   */
     public int getDayOfWeek(){
         int dayOfWeek = this.getCalendar().get(Calendar.DAY_OF_WEEK) - 1;
         if (dayOfWeek == 0) dayOfWeek = 7;
@@ -876,9 +876,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getHour
   //**************************************************************************
-  /**  Returns the current hour of the day. Example: 12:00 AM = 0, 1:00 PM = 13
+  /** Returns the current hour of the day. Example: 12:00 AM = 0, 1:00 PM = 13
    */
-
     public int getHour(){
         return Integer.valueOf(FormatDate(currDate, "HH")).intValue();
     }
