@@ -15,9 +15,9 @@ import java.lang.reflect.Array;
 
 public class Console {
 
-    private String me = this.getClass().getName();
     private static final String indent = "                       "; // 25 spaces
     private static final DecimalFormat df = new DecimalFormat("#.##");
+    public static Console console = new Console();
 
 
   //**************************************************************************
@@ -27,6 +27,25 @@ public class Console {
    *  and all other Java objects.
    */
     public void log(Object obj){
+        l(obj);
+    }
+
+
+  //**************************************************************************
+  //** log
+  //**************************************************************************
+  /** Prints a message to the standard output stream. Accepts strings, nulls,
+   *  and all other Java objects.
+   */
+    public void log(Object... obj){
+        l(obj);
+    }
+
+    
+  //**************************************************************************
+  //** log
+  //**************************************************************************
+    private void l(Object... any){
 
       //Get source
         String source = getSource();
@@ -40,25 +59,37 @@ public class Console {
 
 
       //Get string representation of the object
-        String str = null;
-        if (obj!=null){
-            if (obj.getClass().isArray()){
-                StringBuilder sb = new StringBuilder("[");
-                for (int i=0; i<Array.getLength(obj); i++) {
-                    Object o = Array.get(obj, i);
-                    String s = format(o);
-                    if (i>0) sb.append(",");
-                    sb.append(s);
+        StringBuilder out = new StringBuilder(source);
+        if (any!=null){
+            int n = 0;
+            for (Object obj : any){
+                String str = null;
+                if (obj!=null){
+                    if (obj.getClass().isArray()){
+                        StringBuilder sb = new StringBuilder("[");
+                        for (int i=0; i<Array.getLength(obj); i++) {
+                            Object o = Array.get(obj, i);
+                            String s = format(o);
+                            if (i>0) sb.append(",");
+                            sb.append(s);
+                        }
+                        sb.append("]");
+                        str = sb.toString();
+                    }
+                    else{
+                        str = format(obj);
+                    }
                 }
-                sb.append("]");
-                str = sb.toString();
-            }
-            else{
-                str = format(obj);
+                if (n>0) out.append(" ");
+                out.append(str);
+                n++;
             }
         }
+        else{
+            out.append(any);
+        }
 
-        System.out.println(source + str);
+        System.out.println(out);
     }
 
 
@@ -88,24 +119,44 @@ public class Console {
    */
     private String getSource(){
 
-      //Create an exception
+      //Create an exception and get the stack trace
         Exception e = new Exception();
+        StackTraceElement[] stackTrace = e.getStackTrace();
 
-      //Find first element in the stack trace that doesn't belong to this class
-        for (StackTraceElement el : e.getStackTrace()){
-            if (!el.getClassName().equals(me)){
-                String className = el.getClassName();
-                int idx = className.lastIndexOf(".");
-                if (idx>0) className = className.substring(idx+1);
 
-                idx = className.indexOf("$");
-                if (idx>0) className = className.substring(0, idx);
-
-                return className + ":" + el.getLineNumber();
+      //Find first element in the stack trace that is not an instance of this class
+        StackTraceElement target = null;
+        boolean foundConsole = false;
+        for (int i=1; i<stackTrace.length; i++){
+            StackTraceElement el = stackTrace[i];
+            try{
+                Class c = Class.forName(el.getClassName());
+                if (c.isAssignableFrom(this.getClass())){
+                    foundConsole = true;
+                }
+                else{
+                    if (foundConsole){
+                        target = stackTrace[i];
+                        break;
+                    }
+                }
+            }
+            catch(Exception ex){
             }
         }
 
-        return "";
+        if (target==null) return "";
+
+
+      //Parse target classname and append line number
+        String className = target.getClassName();
+        int idx = className.lastIndexOf(".");
+        if (idx>0) className = className.substring(idx+1);
+
+        idx = className.indexOf("$");
+        if (idx>0) className = className.substring(0, idx);
+
+        return className + ":" + target.getLineNumber();
     }
 
 
