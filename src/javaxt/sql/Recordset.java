@@ -1,6 +1,10 @@
 package javaxt.sql;
 import java.sql.SQLException;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.UUID;
+
 //******************************************************************************
 //**  Recordset Class
 //*****************************************************************************/
@@ -12,12 +16,10 @@ import java.sql.SQLException;
 public class Recordset {
 
     private java.sql.ResultSet rs = null;
-    private java.sql.Connection Conn = null;
     private java.sql.Statement stmt = null;
     private int x;
     private boolean isReadOnly = true;
     private String sqlString = null;
-    //private Parser sqlParser = null;
 
     private Connection Connection = null;
     private Driver driver = null;
@@ -86,7 +88,12 @@ public class Recordset {
     private long startTime, endTime;
 
 
-    private static boolean shuttingDown = false;
+    private String queryID;
+    private static AtomicBoolean shuttingDown = new AtomicBoolean(false);
+    private static final Thread shutdownHook = getShutdownHook();
+    private static final ConcurrentHashMap<String, Recordset> queries =
+    new ConcurrentHashMap<String, Recordset>();
+
 
   //**************************************************************************
   //** Constructor
@@ -94,18 +101,35 @@ public class Recordset {
   /** Creates a new instance of this class.
    */
     public Recordset(){
-        if (shuttingDown) throw new IllegalStateException("JVM shutting down");
-        Runtime.getRuntime().addShutdownHook(new Thread() {
+        if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
+    }
+
+
+  //**************************************************************************
+  //** getShutdownHook
+  //**************************************************************************
+  /** Adds a listener to the jvm to watch for shutdown events.
+   */
+    private static Thread getShutdownHook(){
+        Thread shutdownHook = new Thread() {
             public void run() {
-                shuttingDown = true;
-                if (stmt!=null){
-                    try{ stmt.cancel(); }
-                    catch(Exception e){}
-                    try{ stmt.close(); }
-                    catch(Exception e){}
+                shuttingDown.set(true);
+                synchronized(queries){
+                    java.util.Iterator<String> it = queries.keySet().iterator();
+                    while (it.hasNext()){
+                        Recordset rs = queries.get(it.next());
+                        java.sql.Statement stmt = rs.stmt;
+                        if (stmt!=null){
+                            try{stmt.cancel();} catch(Exception e){}
+                            try{stmt.close();} catch(Exception e){}
+                        }
+                    }
+                    queries.clear();
                 }
             }
-        });
+        };
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+        return shutdownHook;
     }
 
 
@@ -172,6 +196,7 @@ public class Recordset {
    *  or deleted and new records can be inserted into the database.
    */
     public java.sql.ResultSet open(String sqlString, Connection Connection, boolean ReadOnly) throws SQLException {
+        if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
 
         rs = null;
         stmt = null;
@@ -185,41 +210,19 @@ public class Recordset {
         if (driver==null) driver = new Driver("","","");
 
 
-        if (Connection==null) throw new java.sql.SQLException("Connection is null.");
-        if (Connection.isClosed()) throw new java.sql.SQLException("Connection is closed.");
+        if (Connection==null) throw new SQLException("Connection is null.");
+        if (Connection.isClosed()) throw new SQLException("Connection is closed.");
 
 
         startTime = System.currentTimeMillis();
-        Conn = Connection.getConnection();
+
+
+        java.sql.Connection Conn = Connection.getConnection();
         autoCommit = Conn.getAutoCommit();
-
-
-      //Wrap table and column names in quotes (Special Case for PostgreSQL)
-        /*
-        if (driver.equals("PostgreSQL")){
-            try{
-                Parser sqlParser = new Parser(sqlString);
-                boolean wrapElements = false;
-                String[] exposedElements = sqlParser.getExposedDataElements();
-                for (int i=0; i<exposedElements.length; i++){
-                    String element = exposedElements[i];
-                    if (javaxt.utils.string.hasUpperCase(element)){
-                        wrapElements = true;
-                        break;
-                    }
-                }
-                wrapElements = false;
-                if (wrapElements){
-                    sqlString = sqlParser.addQuotes();
-                    //System.out.println(sqlString);
-                }
-            }
-            catch(Exception e){
-                System.out.println("WARNING: Failed to parse SQL");
-                e.printStackTrace();
-            }
+        queryID = UUID.randomUUID().toString();
+        synchronized(queries){
+            queries.put(queryID, this);
         }
-        */
 
 
 
@@ -266,6 +269,9 @@ public class Recordset {
             }
             catch(SQLException e){
                 //System.out.println("ERROR Open RecordSet: " + e.toString());
+                synchronized(queries){
+                    queries.remove(queryID);
+                }
                 throw e;
             }
         }
@@ -339,6 +345,9 @@ public class Recordset {
             }
             catch(SQLException e){
                 //System.out.println("ERROR Open RecordSet (RW): " + e.toString());
+                synchronized(queries){
+                    queries.remove(queryID);
+                }
                 throw e;
             }
 
@@ -361,9 +370,14 @@ public class Recordset {
   /** Used to initialize a Recordset using a standard Java ResultSet
    */
     public void open(java.sql.ResultSet resultSet){
+        if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
         startTime = System.currentTimeMillis();
         EOF = true;
         rs = resultSet;
+        queryID = UUID.randomUUID().toString();
+        synchronized(queries){
+            queries.put(queryID, this);
+        }
         init();
     }
 
@@ -408,7 +422,7 @@ public class Recordset {
 
 
         }
-        catch(java.sql.SQLException e){
+        catch(SQLException e){
             //e.printStackTrace();
             //throw e;
         }
@@ -452,9 +466,15 @@ public class Recordset {
         }
 
 
+      //Remove recordset from the list of queries
+        synchronized(queries){
+            queries.remove(queryID);
+        }
+
+
       //Reset autocommit
         try{
-            Conn.setAutoCommit(autoCommit);
+            Connection.getConnection().setAutoCommit(autoCommit);
         }
         catch(Exception e){
             //e.printStackTrace();
@@ -524,6 +544,7 @@ public class Recordset {
     public void commit(){
         try{
             //stmt.executeQuery("COMMIT");
+            java.sql.Connection Conn = Connection.getConnection();
             Conn.commit();
         }
         catch(Exception e){
@@ -630,6 +651,7 @@ public class Recordset {
           //quite a bit but we need it for the "where" clause.
             if (keys.isEmpty()){
                 try{
+                    java.sql.Connection Conn = Connection.getConnection();
                     java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
                     java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
                     if (r2.next()) {
@@ -725,6 +747,7 @@ public class Recordset {
 
       //Get prepared statement
         java.sql.PreparedStatement stmt;
+        java.sql.Connection Conn = Connection.getConnection();
         if (batchSize>1){
             if (batchedStatements==null) batchedStatements = new java.util.HashMap<String, java.sql.PreparedStatement>();
             stmt = batchedStatements.get(sql.toString());
@@ -805,7 +828,7 @@ public class Recordset {
   /** Used to set values in a PreparedStatement for inserting or updating
    *  records.
    */
-    protected static void update(java.sql.PreparedStatement stmt, java.util.ArrayList<Field> fields) throws java.sql.SQLException {
+    protected static void update(java.sql.PreparedStatement stmt, java.util.ArrayList<Field> fields) throws SQLException {
 
         try{ stmt.clearParameters(); }
         catch(Exception e){}
@@ -1100,7 +1123,7 @@ public class Recordset {
   //**************************************************************************
   /** Returns the total number of rows that were updated.
    */
-    private int executeBatch() throws java.sql.SQLException {
+    private int executeBatch() throws SQLException {
         if (batchedStatements==null) return 0;
         int ttl = 0;
         java.util.Iterator<String> it = batchedStatements.keySet().iterator();
@@ -1110,6 +1133,7 @@ public class Recordset {
             int[] rowsUpdated = stmt.executeBatch();
             if (rowsUpdated.length>0) ttl+=rowsUpdated.length;
 
+            java.sql.Connection Conn = Connection.getConnection();
             if (Conn.getAutoCommit()==false){
                 Conn.commit();
             }
