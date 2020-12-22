@@ -346,6 +346,7 @@ public class Jar {
    */
     public Class[] getClasses(){
         java.util.ArrayList<Class> classes = new java.util.ArrayList<Class>();
+        java.net.URLClassLoader child = null;
         for (Jar.Entry entry : getEntries()){
             String name = entry.getName();
             if (name.endsWith(".class")){
@@ -354,6 +355,18 @@ public class Jar {
                     classes.add(Class.forName(name));
                 }
                 catch(Exception e){
+                    try{
+                        if (child==null){
+                            child = new java.net.URLClassLoader(
+                                new java.net.URL[] {file.toURI().toURL()},
+                                this.getClass().getClassLoader()
+                            );
+                        }
+                        classes.add(Class.forName(name, true, child));
+                    }
+                    catch(Exception e2){
+                        //e2.printStackTrace();
+                    }
                 }
             }
         }
