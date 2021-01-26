@@ -646,7 +646,7 @@ public class Request {
 
 
           //Set request method as needed
-            if (method!=null){
+            if (ssl && method!=null){
                 HttpsURLConnection con = (HttpsURLConnection)conn;
                 con.setRequestMethod(method);
             }
@@ -712,7 +712,7 @@ public class Request {
 
         }
         catch (Exception e) {
-            //e.printStackTrace();
+            e.printStackTrace();
             return null;
         }
     }
