@@ -16,6 +16,7 @@ import java.util.List;
 public class URL {
 
     private HashMap<String, List<String>> parameters;
+    private HashMap<String, List<String>> extendedParameters;
     private String protocol;
     private String host;
     private Integer port;
@@ -41,6 +42,7 @@ public class URL {
 
         url = url.trim();
         parameters = new HashMap<String, List<String>>();
+        extendedParameters = new HashMap<String, List<String>>();
 
 
         if (url.contains("://")){
@@ -61,9 +63,12 @@ public class URL {
             url = url.substring(0, url.indexOf("?"));
             parameters = parseQueryString(query);
         }
-        else{
-            if (url.contains(";")){ //found jdbc delimiter
-                url = url.substring(0, url.indexOf(";"));
+        else{ //no query string, check for jdbc params
+
+            int idx = url.indexOf(";");
+            if (idx>-1){ //found jdbc delimiter
+                extendedParameters = parseJDBCParams(url.substring(idx+1));
+                url = url.substring(0, idx);
             }
         }
 
@@ -110,7 +115,6 @@ public class URL {
   //** parseQueryString
   //**************************************************************************
   /** Used to parse a url query string and create a list of name/value pairs.
-   *  Note that the keys are all lowercase.
    */
     public static HashMap<String, List<String>> parseQueryString(String query){
 
@@ -118,61 +122,72 @@ public class URL {
       //Create an empty hashmap
         HashMap<String, List<String>> parameters = new HashMap<String, List<String>>();
         if (query==null) return parameters;
-        
+
         query = query.trim();
         if (query.length()==0) return parameters;
 
 
-      //Decode the querystring. Note that the urlDecoder doesn't decode everything (e.g. "&amp;")
-        query = decode(query);
-
-      //Special case for query strings with "&amp;" instead of "&" delimiters
-        boolean amp = query.contains("&amp;");
-        if (amp) query = query.replace("&amp;", "&");
-
-
-      //Parse the querystring, one character at a time. Note that the tokenizer
-      //implemented here is very inefficient. Need something better/faster.
+      //Parse the querystring, one character at a time
         if (query.startsWith("&")) query = query.substring(1);
         query += "&";
 
 
         StringBuffer word = new StringBuffer();
-        String c = "";
-
         for (int i=0; i<query.length(); i++){
 
-             c = query.substring(i,i+1);
+            String c = query.substring(i,i+1);
+            if (c.equals("&")){
 
-             if (!c.equals("&")){
-                 word.append(c); //word = word + c;
-             }
-             else{
-                 //System.out.println(word);
+                if (i+5<query.length() && query.substring(i,i+5).equals("&amp;")){
+                    word.append(c);
+                }
+                else{
+                    int x = word.indexOf("=");
+                    if (x>=0){
+                        String key = word.substring(0,x);
+                        String value = decode(word.substring(x+1));
 
-                 int x = word.indexOf("=");
-                 if (x>=0){
-                     String key = word.substring(0,x);
-                     String value = decode(word.substring(x+1));
+                        List<String> values = getParameter(key, parameters);
+                        if (values==null) values = new java.util.LinkedList<String>();
+                        values.add(value);
+                        setParameter(key, values, parameters);
+                    }
+                    else{
+                        setParameter(word.toString(), null, parameters);
+                    }
 
-                   //Special case for JDBC connection strings that contain extra params after the query
-                     if (amp && value.contains(";")) value = value.substring(0, value.indexOf(";"));
-
-                     List<String> values = getParameter(key, parameters);
-                     if (values==null) values = new java.util.LinkedList<String>();
-                     values.add(value);
-                     setParameter(key, values, parameters);
-                 }
-                 else{
-                     setParameter(word.toString(), null, parameters);
-                 }
-
-                 word = new StringBuffer(); //word = "";
-             }
+                    word = new StringBuffer();
+                }
+            }
+            else{
+                word.append(c);
+            }
         }
 
         return parameters;
     }
+
+
+  //**************************************************************************
+  //** parseJDBCParams
+  //**************************************************************************
+  /** Used to parse a JDBC parameter strings and return a list of name/value
+   *  pairs.
+   */
+    public static HashMap<String, List<String>> parseJDBCParams(String params){
+        HashMap<String, List<String>> parameters = new HashMap<String, List<String>>();
+        final String[] pairs = params.split(";");
+        for (String pair : pairs) {
+            int idx = pair.indexOf("=");
+            String key = idx > 0 ? decode(pair.substring(0, idx)) : pair;
+            String value = idx > 0 && pair.length() > idx + 1 ? decode(pair.substring(idx + 1)) : null;
+
+            if (!parameters.containsKey(key)) parameters.put(key, new java.util.LinkedList<String>());
+            parameters.get(key).add(value);
+        }
+        return parameters;
+    }
+
 
     private static String decode(String str){
         try{
@@ -307,6 +322,17 @@ public class URL {
    */
     public HashMap<String, List<String>> getParameters(){
         return parameters;
+    }
+
+
+  //**************************************************************************
+  //** getExtendedParameters
+  //**************************************************************************
+  /** Returns a list of extended parameters (e.g. jdbc params) that are not
+   *  part of a standard url
+   */
+    public HashMap<String, List<String>> getExtendedParameters(){
+        return extendedParameters;
     }
 
 
@@ -455,7 +481,8 @@ public class URL {
             str.append(encode(key));
             if (value!=null){
                 str.append("=");
-                str.append(encode(value));
+                boolean isEncoded = !decode(value).equals(value);
+                str.append(isEncoded ? value : encode(value));
             }
 
 

@@ -287,8 +287,8 @@ public class Image {
   //**************************************************************************
   //** getHeight
   //**************************************************************************
-  /**  Returns the height of the image, in pixels. */
-
+  /** Returns the height of the image, in pixels.
+   */
     public int getHeight(){
         return bufferedImage.getHeight();
     }
@@ -313,7 +313,7 @@ public class Image {
   //**************************************************************************
   //** addText
   //**************************************************************************
-  /**  Used to add text to the image at a given position.
+  /** Used to add text to the image at a given position.
    *  @param x Lower left coordinate of the text
    *  @param y Lower left coordinate of the text
    */
@@ -325,7 +325,7 @@ public class Image {
   //**************************************************************************
   //** addText
   //**************************************************************************
-  /**  Used to add text to the image at a given position.
+  /** Used to add text to the image at a given position.
    *  @param x Lower left coordinate of the text
    *  @param y Lower left coordinate of the text
    *  @param fontName Name of the font face (e.g. "Tahoma", "Helvetica", etc.)
@@ -342,7 +342,7 @@ public class Image {
   //**************************************************************************
   //** addText
   //**************************************************************************
-  /**  Used to add text to the image at a given position.
+  /** Used to add text to the image at a given position.
    *  @param x Lower left coordinate of the text
    *  @param y Lower left coordinate of the text
    *  @param font Font
@@ -365,8 +365,8 @@ public class Image {
   //**************************************************************************
   //** addPoint
   //**************************************************************************
-  /**  Simple drawing function used to set color of a specific pixel in the
-   *   image.
+  /** Simple drawing function used to set color of a specific pixel in the
+   *  image.
    */
     public void addPoint(int x, int y, int r, int g, int b){
         setColor(x,y,new Color(r,g,b));
@@ -376,9 +376,9 @@ public class Image {
   //**************************************************************************
   //** setColor
   //**************************************************************************
-  /**  Used to set the color (ARGB value) for a specific pixel in the image.
-   *   Note that input x,y values are relative to the upper left corner of the
-   *   image, starting at 0,0.
+  /** Used to set the color (ARGB value) for a specific pixel in the image.
+   *  Note that input x,y values are relative to the upper left corner of the
+   *  image, starting at 0,0.
    */
     public void setColor(int x, int y, Color color){
         g2d = getGraphics();
@@ -392,9 +392,9 @@ public class Image {
   //**************************************************************************
   //** getColor
   //**************************************************************************
-  /**  Used to retrieve the color (ARGB) values for a specific pixel in the
-   *   image. Returns a java.awt.Color object. Note that input x,y values are
-   *   relative to the upper left corner of the image, starting at 0,0.
+  /** Used to retrieve the color (ARGB) values for a specific pixel in the
+   *  image. Returns a java.awt.Color object. Note that input x,y values are
+   *  relative to the upper left corner of the image, starting at 0,0.
    */
     public Color getColor(int x, int y){
         //return new Color(bufferedImage.getRGB(x, y)); //<--This will return an incorrect alpha value
@@ -463,8 +463,8 @@ public class Image {
   //**************************************************************************
   //** addImage
   //**************************************************************************
-  /**  Used to add an image "overlay" to the existing image at a given
-   *   position. This method can also be used to create image mosiacs.
+  /** Used to add an image "overlay" to the existing image at a given
+   *  position. This method can also be used to create image mosiacs.
    */
     public void addImage(BufferedImage in, int x, int y, boolean expand){
 
@@ -538,8 +538,8 @@ public class Image {
   //**************************************************************************
   //** addImage
   //**************************************************************************
-  /**  Used to add an image "overlay" to the existing image at a given
-   *   position. This method can also be used to create image mosiacs.
+  /** Used to add an image "overlay" to the existing image at a given
+   *  position. This method can also be used to create image mosiacs.
    */
     public void addImage(javaxt.io.Image in, int x, int y, boolean expand){
         addImage(in.getBufferedImage(),x,y,expand);
@@ -549,8 +549,8 @@ public class Image {
   //**************************************************************************
   //** createBufferedImage
   //**************************************************************************
-  /** Used to create a BufferedImage from a InputStream */
-
+  /** Used to create a BufferedImage from a InputStream
+   */
     private void createBufferedImage(java.io.InputStream input) {
         try{
             //bufferedImage = ImageIO.read(input);
@@ -587,8 +587,8 @@ public class Image {
   //**************************************************************************
   //** Rotate
   //**************************************************************************
-  /**  Used to rotate the image (clockwise). Rotation angle is specified in
-   *   degrees relative to the top of the image.
+  /** Used to rotate the image (clockwise). Rotation angle is specified in
+   *  degrees relative to the top of the image.
    */
     public void rotate(double Degrees){
 
@@ -662,30 +662,30 @@ public class Image {
 
 
   //**************************************************************************
-  //** Rotate Clockwise
+  //** rotateClockwise
   //**************************************************************************
-  /**  Rotates the image 90 degrees clockwise */
-
+  /** Rotates the image 90 degrees clockwise
+   */
     public void rotateClockwise(){
         rotate(90);
     }
 
 
   //**************************************************************************
-  //** Rotate Counter Clockwise
+  //** rotateCounterClockwise
   //**************************************************************************
-  /**  Rotates the image -90 degrees */
-
+  /** Rotates the image -90 degrees
+   */
     public void rotateCounterClockwise(){
         rotate(-90);
     }
 
 
   //**************************************************************************
-  //** Auto-Rotate
+  //** rotate
   //**************************************************************************
-  /**  Used to automatically rotate the image based on the image metadata
-   *   (EXIF Orientation tag).
+  /** Used to automatically rotate the image based on the image metadata
+   *  (e.g. EXIF Orientation tag)
    */
     public void rotate(){
         try {
@@ -710,8 +710,8 @@ public class Image {
   //**************************************************************************
   //** setWidth
   //**************************************************************************
-  /**  Resizes the image to a given width. The original aspect ratio is
-   *   maintained.
+  /** Resizes the image to a given width. The original aspect ratio is
+   *  maintained.
    */
     public void setWidth(int Width){
         double ratio = (double)Width/(double)this.getWidth();
@@ -729,8 +729,8 @@ public class Image {
   //**************************************************************************
   //** setHeight
   //**************************************************************************
-  /**  Resizes the image to a given height. The original aspect ratio is
-   *   maintained.
+  /** Resizes the image to a given height. The original aspect ratio is
+   *  maintained.
    */
     public void setHeight(int Height){
         double ratio = (double)Height/(double)this.getHeight();
@@ -746,59 +746,68 @@ public class Image {
 
 
   //**************************************************************************
-  //** Resize (Overloaded Member)
+  //** resize (Overloaded Member)
   //**************************************************************************
-  /**  Used to resize an image. Does NOT automatically retain the original
-   *   aspect ratio.
+  /** Used to resize an image. Does NOT automatically retain the original
+   *  aspect ratio.
    */
-    public void resize(int Width, int Height){
-        resize(Width,Height,false);
+    public void resize(int width, int height){
+        resize(width, height, false);
     }
 
 
   //**************************************************************************
-  //** Resize
+  //** resize
   //**************************************************************************
-  /**  Used to resize an image. Provides the option to maintain the original
-   *   aspect ratio (relative to the output width).
+  /** Used to resize an image. Provides the option to maintain the original
+   *  aspect ratio.
+   *  @param maintainRatio If true, will interpret the given width and height
+   *  as maximum desired width and height
    */
-    public void resize(int Width, int Height, boolean maintainRatio){
+    public void resize(int width, int height, boolean maintainRatio){
 
-        //long startTime = getStartTime();
-
-        int outputWidth = Width;
-        int outputHeight = Height;
-
-        int width = this.getWidth();
-        int height = this.getHeight();
 
         if (maintainRatio){
 
-            double ratio = 0;
+            int maxWidth = width;
+            int maxHeight = height;
 
-            if (width>height){
-                ratio = (double)Width/(double)width;
+            if (maxHeight<maxWidth){
+
+              //Set height
+                double ratio = (double)maxHeight/(double)this.getHeight();
+                width = (int)Math.round(this.getWidth() * ratio);
+                height = (int)Math.round(this.getHeight() * ratio);
+
+                if (width>maxWidth){
+
+                  //Set width
+                    ratio = (double)maxWidth/(double)width;
+                    width = (int)Math.round(width * ratio);
+                    height = (int)Math.round(height * ratio);
+                }
             }
             else{
-                ratio = (double)Height/(double)height;
-            }
 
-            double dw = width * ratio;
-            double dh = height * ratio;
+              //Set width
+                double ratio = (double)maxWidth/(double)this.getWidth();
+                width = (int)Math.round(this.getWidth() * ratio);
+                height = (int)Math.round(this.getHeight() * ratio);
 
-            outputWidth =  (int)Math.round(dw);
-            outputHeight = (int)Math.round(dh);
+                if (height>maxHeight){
 
-            if (outputWidth>width || outputHeight>height){
-                outputWidth=width;
-                outputHeight=height;
+                  //Set height
+                    ratio = (double)maxHeight/(double)height;
+                    width =  (int)Math.round(width * ratio);
+                    height = (int)Math.round(height * ratio);
+                }
             }
         }
 
 
       //Resize the image (create new buffered image)
-        java.awt.Image outputImage = bufferedImage.getScaledInstance(outputWidth, outputHeight, BufferedImage.SCALE_AREA_AVERAGING);
-        BufferedImage bi = new BufferedImage(outputWidth, outputHeight, getImageType());
+        java.awt.Image outputImage = bufferedImage.getScaledInstance(width, height, BufferedImage.SCALE_AREA_AVERAGING);
+        BufferedImage bi = new BufferedImage(width, height, getImageType());
         Graphics2D g2d = bi.createGraphics( );
         g2d.drawImage(outputImage, 0, 0, null);
         g2d.dispose();
@@ -811,12 +820,11 @@ public class Image {
     }
 
 
-
   //**************************************************************************
   //** Set/Update Corners (Skew)
   //**************************************************************************
-  /**  Used to skew an image by updating the corner coordinates. Coordinates are
-   *   supplied in clockwise order starting from the upper left corner.
+  /** Used to skew an image by updating the corner coordinates. Coordinates
+   *  are supplied in clockwise order starting from the upper left corner.
    */
     public void setCorners(float x0, float y0,  //UL
                            float x1, float y1,  //UR
