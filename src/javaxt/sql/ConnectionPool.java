@@ -49,7 +49,6 @@ public class ConnectionPool {
     private boolean                        isDisposed;                   // true if this connection pool has been disposed
     private boolean                        doPurgeConnection;            // flag to purge the connection currently beeing closed instead of recycling it
     private PooledConnection               connectionInTransition;       // a PooledConnection which is currently within a PooledConnection.getConnection() call, or null
-    private int[] javaVersion = new int[2];
 
 
     /**
@@ -119,10 +118,6 @@ public class ConnectionPool {
         semaphore = new Semaphore(maxConnections,true);
         recycledConnections = new LinkedList<PooledConnection>();
         poolConnectionEventListener = new PoolConnectionEventListener();
-
-        String[] arr = System.getProperty("java.version").split("\\.");
-        javaVersion[0] = Integer.parseInt(arr[0]);
-        javaVersion[1] = Integer.parseInt(arr[1]);
     }
 
 
@@ -163,7 +158,8 @@ public class ConnectionPool {
     *    when no connection becomes available within <code>timeout</code> seconds.
     */
     public Connection getConnection() throws SQLException {
-        if (javaVersion[0]==1 && javaVersion[1]<6){
+        int javaVersion = javaxt.utils.Java.getVersion();
+        if (javaVersion<6){
             return new Connection(getConnection2(timeoutMs));
         }
         else{

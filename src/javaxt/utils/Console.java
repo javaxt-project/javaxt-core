@@ -41,7 +41,7 @@ public class Console {
         l(obj);
     }
 
-    
+
   //**************************************************************************
   //** log
   //**************************************************************************
@@ -267,4 +267,16 @@ public class Console {
         }
         return map;
     }
+
+
+  //**************************************************************************
+  //** main
+  //**************************************************************************
+  /** Used to print the JavaXT version number.
+   */
+    public static void main(String[] args) {
+        javaxt.io.Jar jar = new javaxt.io.Jar(javaxt.io.Jar.class);
+        System.out.println("JavaXT: " + jar.getVersion());
+    }
+
 }

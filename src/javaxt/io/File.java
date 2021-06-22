@@ -409,9 +409,8 @@ public class File implements Comparable {
         if (File!=null){
 
             //return File.canExecute(); //<--incompatable with JDK 1.5
-
-            String[] arr = System.getProperty("java.version").split("\\.");
-            if (Integer.valueOf(arr[0]).intValue()==1 && Integer.valueOf(arr[1]).intValue()<6) return false;
+            int javaVersion = javaxt.utils.Java.getVersion();
+            if (javaVersion<6) return false;
             else{
                 try{
                     return (Boolean) File.getClass().getMethod("canExecute").invoke(File, null);

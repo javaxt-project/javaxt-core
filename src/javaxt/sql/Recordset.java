@@ -143,8 +143,8 @@ public class Recordset {
         if (State!=0) {
             //return !rs.isClosed();
 
-            String[] arr = System.getProperty("java.version").split("\\.");
-            if (Integer.valueOf(arr[0]).intValue()==1 && Integer.valueOf(arr[1]).intValue()<6) return false;
+            int javaVersion = javaxt.utils.Java.getVersion();
+            if (javaVersion<6) return false;
             else{
                 try{
                     return !((Boolean) rs.getClass().getMethod("isClosed").invoke(rs, null));

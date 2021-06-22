@@ -609,8 +609,8 @@ public class Request {
           //actively refuse to accept SSLv2 messages. As a workaround, we'll
           //try to use to use SSLv3 or TLSv1.
             if (ssl){
-                String[] arr = System.getProperty("java.version").split("\\.");
-                if (Double.valueOf(arr[0] + "." + arr[1])<1.7){
+                int javaVersion = javaxt.utils.Java.getVersion();
+                if (javaVersion<7){
                     String sslProtocols = System.getProperty("https.protocols");
                     if (sslProtocols==null){
                         System.setProperty("https.protocols", "TLSv1,SSLv3");
