@@ -62,7 +62,7 @@ public abstract class Model {
    *  database. Example: fieldMap.put("countryCode", country_code");
    *  You do not need to include the "id" field.
    */
-    protected Model(String tableName, HashMap<String, String> fieldMap){
+    protected Model(String tableName, Map<String, String> fieldMap){
 
       //Set modelName
         Class c = this.getClass();
@@ -88,7 +88,13 @@ public abstract class Model {
 
 
       //Set fieldMap
-        this.fieldMap = fieldMap;
+        this.fieldMap = new HashMap<String, String>();
+        Iterator<String> it = fieldMap.keySet().iterator();
+        while (it.hasNext()){
+            String key = it.next();
+            String val = fieldMap.get(key);
+            this.fieldMap.put(key, val);
+        }
     }
 
 
