@@ -188,25 +188,62 @@ public class URL {
         return parameters;
     }
 
-
+    
+  //**************************************************************************
+  //** decode
+  //**************************************************************************
     private static String decode(String str){
         try{
-            return java.net.URLDecoder.decode(str, "UTF-8");
+            if (str.contains("+")){
+                StringBuilder out = new StringBuilder();
+                while (str.contains("+")){
+                    int idx = str.indexOf("+");
+                    if (idx==0){
+                        out.append("+");
+                        str = str.substring(1);
+                    }
+                    else{
+                        out.append(java.net.URLDecoder.decode(str.substring(0, idx), "UTF-8"));
+                        str = str.substring(idx);
+                    }
+                }
+                out.append(java.net.URLDecoder.decode(str, "UTF-8"));
+                return out.toString();
+            }
+            else{
+                return java.net.URLDecoder.decode(str, "UTF-8");
+            }
         }
         catch(Exception e){
-          //This should never happen. Try to decode the string manually?
-            String find[] = new String[]{"%2C","%2F","%3A"};
-            String replace[] = new String[]{",","/",":"};
-            for (int i=0; i<find.length; i++){
-                 str = str.replace(find[i],replace[i]);
-            }
             return str;
         }
     }
 
+
+  //**************************************************************************
+  //** encode
+  //**************************************************************************
     private static String encode(String str){
         try{
-            return java.net.URLEncoder.encode(str, "UTF-8").replaceAll("\\+", "%20");
+            if (str.contains(" ")){
+                StringBuilder out = new StringBuilder();
+                while (str.contains(" ")){
+                    int idx = str.indexOf(" ");
+                    if (idx==0){
+                        out.append("%20");
+                        str = str.substring(1);
+                    }
+                    else{
+                        out.append(java.net.URLEncoder.encode(str.substring(0, idx), "UTF-8"));
+                        str = str.substring(idx);
+                    }
+                }
+                out.append(java.net.URLEncoder.encode(str, "UTF-8"));
+                return out.toString();
+            }
+            else{
+                return java.net.URLEncoder.encode(str, "UTF-8"); //.replaceAll("\\+", "%2B");
+            }
         }
         catch(Exception e){
             return str;
