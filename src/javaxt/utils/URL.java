@@ -188,7 +188,7 @@ public class URL {
         return parameters;
     }
 
-    
+
   //**************************************************************************
   //** decode
   //**************************************************************************
@@ -311,7 +311,7 @@ public class URL {
    *  the value is null.
    */
     public String getParameter(String key){
-        StringBuffer str = new StringBuffer();
+        StringBuilder str = new StringBuilder();
         List<String> values = getParameter(key, parameters);
         if (values!=null){
             for (int i=0; i<values.size(); i++){
@@ -333,10 +333,14 @@ public class URL {
    *  @param keys An array containing multiple possible parameter names.
    *  Performs a case insensitive search for each parameter name and returns
    *  the value for the first match.
+   *
+   *  @return Returns a comma delimited list of values associated with the
+   *  given keys. Returns a zero length string if the key is not found or if
+   *  the value is null.
    */
     public String getParameter(String[] keys){
 
-        StringBuffer str = new StringBuffer();
+        StringBuilder str = new StringBuilder();
         for (String key : keys){
             List<String> values = getParameter(key.toLowerCase(), parameters);
             if (values!=null){
@@ -379,7 +383,7 @@ public class URL {
   /** Used to remove a parameter from the query string
    */
     public String removeParameter(String key){
-        StringBuffer str = new StringBuffer();
+        StringBuilder str = new StringBuilder();
         List<String> values = removeParameter(key, parameters);
         if (values!=null){
             for (int i=0; i<values.size(); i++){
@@ -502,24 +506,31 @@ public class URL {
    */
     public String getQueryString(){
 
-        StringBuffer str = new StringBuffer();
+        StringBuilder str = new StringBuilder();
         java.util.HashSet<String> keys = getKeys();
         java.util.Iterator<String> it = keys.iterator();
         while (it.hasNext()){
             String key = it.next();
-            String value = this.getParameter(key);
-            if (value.length()==0){
-                if (getParameter(key, parameters)==null){
-                    value = null;
-                }
+            List<String> values = getParameter(key, parameters);
+
+
+            if (values==null || values.isEmpty()){
+                str.append(encode(key));
             }
-
-
-            str.append(encode(key));
-            if (value!=null){
-                str.append("=");
-                boolean isEncoded = !decode(value).equals(value);
-                str.append(isEncoded ? value : encode(value));
+            else{
+                int x = 0;
+                for (String value : values){
+                    if (x>0) str.append("&");
+                    str.append(encode(key));
+                    if (value!=null){
+                        if (value.trim().length()>0){
+                            str.append("=");
+                            boolean isEncoded = !decode(value).equals(value);
+                            str.append(isEncoded ? value : encode(value));
+                        }
+                    }
+                    x++;
+                }
             }
 
 
