@@ -174,6 +174,27 @@ public class JSONObject {
 
 
   //**************************************************************************
+  //** getValue
+  //**************************************************************************
+  /** Returns a nested value associated with the given keys
+   */
+    public JSONValue get(String... path) {
+        JSONValue val = null;
+        if (path!=null){
+            for (String key : path){
+                if (val==null) val = get(key);
+                else val = val.get(key);
+                if (val.isNull()){
+                    break;
+                }
+            }
+        }
+        if (val==null) val = new JSONValue(null);
+        return val;
+    }
+
+
+  //**************************************************************************
   //** has
   //**************************************************************************
   /** Returns true if the key exists in the JSONObject.

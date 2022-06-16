@@ -880,7 +880,7 @@ public class Database implements Cloneable {
         "WRITETEXT"
     };
 
-    
+
   /** H2 reserved keywords. Source:
    *  http://www.h2database.com/html/advanced.html#keywords
    */
