@@ -6,7 +6,7 @@ package javaxt.json;
 /**
  *   Used to represent a value associated with a key in a JSONObject or an
  *   entry in a JSONArray. The value can be converted into a number of Java
- *   primatives (strings, integers, doubles, booleans, etc).
+ *   primitives (strings, integers, doubles, booleans, etc).
  *
  ******************************************************************************/
 

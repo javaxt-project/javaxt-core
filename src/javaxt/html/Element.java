@@ -11,77 +11,93 @@ import javaxt.xml.DOM;
 
 public class Element {
 
-    private String tagName;
-    private String tagHTML;
-
-    protected String innerHTML;
-    protected String outerHTML;
-    private boolean isStartTag;
-    private boolean isEndTag;
-
-    private String tag;
+    private String nodeName;
+    private String attributes;
+    private String innerHTML;
+    private String outerHTML;
+    private Parser parser;
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** @param html HTML used to define a tag (e.g. &lt;div id="1"&gt;)
+  /** @param outerHTML HTML used to define a tag (e.g. <div id="1">test</div>)
    */
-    protected Element(String tagHTML){
-        this.tagHTML = tagHTML;
+    public Element(String outerHTML) throws Exception {
+        this.outerHTML = outerHTML;
 
-        tag = tagHTML;
 
-        if (tag.startsWith("</")){
-            isStartTag = false;
-            isEndTag = true;
+      //Get position of the first whitespace character
+        int ws = -1;
+        for (int z=0; z<outerHTML.length(); z++){
+            char t = outerHTML.charAt(z);
+            if (Parser.isBlank(t)){
+                ws = z+1;
+                break;
+            }
+        }
+
+
+      //Get position of the first ">" character
+        int gt = Parser.findGT(0, outerHTML+" ");
+        if (gt==-1) throw new Exception("Invalid or unsupported html"); //includes html comments
+
+        
+
+      //Set nodeName and attributes
+        int endNodeName;
+        if (ws==-1){
+            endNodeName = gt-1;
+            attributes = "";
         }
         else{
-            isStartTag = true;
-            if (tag.endsWith("/>")){
-                isEndTag = true;
+            if (gt<ws){
+                endNodeName = gt-1;
+                attributes = "";
             }
             else{
-                isEndTag = false;
+                endNodeName = ws;
+                attributes = outerHTML.substring(endNodeName, gt-1).trim();
+                if (attributes.endsWith("/")) attributes = attributes.substring(0, attributes.length()-1).trim();
             }
+
         }
+        nodeName = outerHTML.substring(1, endNodeName);
+        if (nodeName.endsWith("/")) nodeName = nodeName.substring(0, nodeName.length()-1);
+        nodeName = nodeName.trim();
 
 
-        tag = tag.replace("</","");
-        tag = tag.replace("<","");
-        tag = tag.replace("/>","");
-        tag = tag.replace(">","");
-        //tag = AddQuotes(tag);
 
-        tag = tag.replaceAll("\\s+"," ").trim();
-
-
-        String[] arr = tag.split(" ");
-        tagName = arr[0];
+      //Set innerHTML
+        innerHTML = outerHTML.substring(gt);
+        if (innerHTML.trim().length()>0){
+            int idx = innerHTML.lastIndexOf("</" + nodeName);
+            if (idx>-1) innerHTML = innerHTML.substring(0, idx);
+        }
     }
 
-    protected String getTag(){
-        return tagHTML;
-    }
-    
-    protected boolean isStartTag(){
-        return isStartTag;
-    }
-
-    protected boolean isEndTag(){
-        return isEndTag;
-    }
 
   //**************************************************************************
   //** getName
   //**************************************************************************
-  /** Returns the element tag/node name. */
-
+  /** Returns the node name associated with the element
+   */
     public String getName(){
-        return tagName;
+        return nodeName;
     }
 
-    
+
+  //**************************************************************************
+  //** getAttributes
+  //**************************************************************************
+  /** Returns the element attributes
+   *  @return Anything that appears after the tag/node name
+   */
+    public String getAttributes(){
+        return attributes;
+    }
+
+
   //**************************************************************************
   //** getInnerHTML
   //**************************************************************************
@@ -91,23 +107,23 @@ public class Element {
         return innerHTML;
     }
 
-    
+
   //**************************************************************************
   //** getOuterHTML
   //**************************************************************************
-  /** Returns the HTML used to define this element (tag and attributes), as 
+  /** Returns the HTML used to define this element (tag and attributes), as
    *  well as the HTML content (inner HTML). You can use this String to remove
    *  or replace elements from the original HTML document.
    */
     public String getOuterHTML(){
         return outerHTML;
     }
-    
-    
+
+
   //**************************************************************************
   //** getInnerText
   //**************************************************************************
-  /** Removes all HTML tags and attributes inside this element, leaving the 
+  /** Removes all HTML tags and attributes inside this element, leaving the
    *  raw rendered text.
    */
     public String getInnerText(){
@@ -143,7 +159,7 @@ public class Element {
   /** Returns an array of HTML Elements with given tag name.
    */
     public Element[] getElementsByTagName(String tagName){
-        return new Parser(innerHTML).getElementsByTagName(tagName);
+        return getParser().getElementsByTagName(tagName);
     }
 
 
@@ -161,11 +177,19 @@ public class Element {
   //**************************************************************************
   //** getElements
   //**************************************************************************
-  /** Returns an array of HTML Elements with given tag name, attribute, and 
+    public Element[] getChildNodes(){
+        return getParser().getElements();
+    }
+
+
+  //**************************************************************************
+  //** getElements
+  //**************************************************************************
+  /** Returns an array of HTML Elements with given tag name, attribute, and
    *  attribute value (e.g. "div", "class", "panel-header").
    */
     public Element[] getElements(String tagName, String attributeName, String attributeValue){
-        return new Parser(innerHTML).getElements(tagName, attributeName, attributeValue);
+        return getParser().getElements(tagName, attributeName, attributeValue);
     }
 
 
@@ -176,7 +200,7 @@ public class Element {
    *  null if an element was not found.
    */
     public Element getElementByAttributes(String tagName, String attributeName, String attributeValue){
-        return new Parser(innerHTML).getElementByAttributes(tagName, attributeName, attributeValue);
+        return getParser().getElementByAttributes(tagName, attributeName, attributeValue);
     }
 
 
@@ -184,30 +208,39 @@ public class Element {
   //** getImageLinks
   //**************************************************************************
   /** Returns a list of links to images. The links may include relative paths.
-   *  Use the Parser.getAbsolutePath() method to resolve the relative paths to 
+   *  Use the Parser.getAbsolutePath() method to resolve the relative paths to
    *  a fully qualified url.
    */
     public String[] getImageLinks(){
-        return new Parser(innerHTML).getImageLinks();
+        return getParser().getImageLinks();
+    }
+
+
+  //**************************************************************************
+  //** getParser
+  //**************************************************************************
+    private Parser getParser(){
+        if (parser==null) parser = new Parser(innerHTML);
+        return parser;
     }
 
 
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /** Returns the outer HTML of this element. See getOuterHTML() for more 
+  /** Returns the outer HTML of this element. See getOuterHTML() for more
    *  information.
    */
     public String toString(){
         return outerHTML;
     }
-    
-    
+
+
     /** @deprecated Use getInnerText() */
     public String stripHTMLTags(){
         return getInnerText();
     }
-    
+
     /** @deprecated Use getAttribute() */
     public String getAttributeValue(String attributeName){
         return getAttribute(attributeName);
@@ -221,6 +254,7 @@ public class Element {
    *  an empty string.
    */
     private String _getAttributeValue(String attributeName){
+        String tag = (nodeName + " " + attributes).trim();
         try{
             org.w3c.dom.Document XMLDoc = DOM.createDocument("<" + tag + "/>");
             org.w3c.dom.NamedNodeMap attr = XMLDoc.getFirstChild().getAttributes();

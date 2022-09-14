@@ -93,6 +93,7 @@ public class Value {
     public Double toDouble(){
         if (value==null) return null;
         if (value instanceof Double) return (Double) value;
+        if (value instanceof Integer) return ((Integer) value).doubleValue();
         try{
             return Double.valueOf(prepNumber(value+""));
         }
@@ -111,6 +112,7 @@ public class Value {
     public Long toLong(){
         if (value==null) return null;
         if (value instanceof Long) return (Long) value;
+        if (value instanceof Integer) return ((Integer) value).longValue();
         String val = null;
         try{
             val = prepNumber(value+"");
