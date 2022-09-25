@@ -42,7 +42,7 @@ public class Element {
         int gt = Parser.findGT(0, outerHTML+" ");
         if (gt==-1) throw new Exception("Invalid or unsupported html"); //includes html comments
 
-        
+
 
       //Set nodeName and attributes
         int endNodeName;

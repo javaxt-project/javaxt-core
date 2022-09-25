@@ -469,7 +469,7 @@ public class Parser {
             char c = s.charAt(i);
 
 
-            if (isBlank(c) || i==len-1){
+            if (isBlank(c) || i==len-1 || (c=='<' && s.charAt(i-1)=='>')){
 
                 if (start>-1){
                     String str = s.substring(start, i);
