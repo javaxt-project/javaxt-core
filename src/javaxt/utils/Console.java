@@ -9,7 +9,8 @@ import java.lang.reflect.Array;
 //**  Console
 //******************************************************************************
 /**
- *   Used to print messages to the standard output stream.
+ *   Various command line utilities used to print debug messages and collect
+ *   user inputs.
  *
  ******************************************************************************/
 
@@ -17,35 +18,39 @@ public class Console {
 
     private static final String indent = "                       "; // 25 spaces
     private static final DecimalFormat df = new DecimalFormat("#.##");
+
+  /** Static instance of the this class that can be called directly via a
+   *  static import. Example:
+   <pre>
+    import static javaxt.utils.Console.console;
+    public class Test {
+        public Test(){
+            console.log("Hello!");
+        }
+    }
+   </pre>
+   */
     public static Console console = new Console();
 
 
   //**************************************************************************
   //** log
   //**************************************************************************
-  /** Prints a message to the standard output stream. Accepts strings, nulls,
-   *  and all other Java objects.
+  /** Prints a message to the standard output stream, along with the class
+   *  name and line number where the log() function is called. This function
+   *  is intended to help debug applications and is inspired by the JavaScript
+   *  console.log() function.
+   *  @param any Accepts any Java object (e.g. string, number, null, classes,
+   *  arrays, etc). You can pass in multiple objects separated by a comma.
+   *  Example:
+   <pre>
+       console.log("Hello");
+       console.log("Date: ", new Date());
+       console.log(1>0, 20/5, new int[]{1,2,3});
+   </pre>
    */
-    public void log(Object obj){
-        l(obj);
-    }
+    public void log(Object... any){
 
-
-  //**************************************************************************
-  //** log
-  //**************************************************************************
-  /** Prints a message to the standard output stream. Accepts strings, nulls,
-   *  and all other Java objects.
-   */
-    public void log(Object... obj){
-        l(obj);
-    }
-
-
-  //**************************************************************************
-  //** log
-  //**************************************************************************
-    private void l(Object... any){
 
       //Get source
         String source = getSource();
@@ -243,7 +248,9 @@ public class Console {
   //**************************************************************************
   //** parseArgs
   //**************************************************************************
-  /** Converts command line inputs into key/value pairs.
+  /** Converts command line inputs into key/value pairs. Assumes keys start
+   *  with a "-" character (e.g. "-version" or "--version") followed by a
+   *  value (or nothing at all).
    */
     public static java.util.HashMap<String, String> parseArgs(String[] args){
         java.util.HashMap<String, String> map = new java.util.HashMap<String, String>();
@@ -272,7 +279,14 @@ public class Console {
   //**************************************************************************
   //** main
   //**************************************************************************
-  /** Used to print the JavaXT version number.
+  /** Used to print the JavaXT version number when this jar is called from the
+   *  command line. Example:
+   <pre>
+    java -jar javaxt-core.jar
+    JavaXT: 1.11.3
+   </pre>
+   *  Under the hood, this simple command line application uses the
+   *  getVersion() method in the javaxt.io.Jar class.
    */
     public static void main(String[] args) {
         javaxt.io.Jar jar = new javaxt.io.Jar(javaxt.io.Jar.class);
