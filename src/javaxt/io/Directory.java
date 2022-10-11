@@ -1,8 +1,9 @@
 package javaxt.io;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
 //******************************************************************************
-//**  Directory Class - By Peter Borissow
+//**  Directory Class
 //******************************************************************************
 /**
  *  Used to represent a directory on a file system. In many ways, this class
@@ -35,8 +36,8 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of Directory using a path to a directory. */
-
+  /** Creates a new instance of Directory using a path to a directory.
+   */
     public Directory(String Path) {
 
 	if (Path==null) throw new NullPointerException();
@@ -52,8 +53,8 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of Directory using a java.io.File */
-
+  /** Creates a new instance of Directory using a java.io.File
+   */
     public Directory(java.io.File File) {
         init(File);
     }
@@ -1073,11 +1074,12 @@ public class Directory implements Comparable {
    *   parameter is set to false, a null entry will be added to the end of the
    *   list to indicate that the directory search is complete.
    *
-   *   Example: <pre>
+   *   Example:
+   <pre>
     boolean wait = false;
     java.util.List files = directory.getChildren(true, null, wait);
     if (wait){
-        for (int i=0; i &lt; files.size(); i++){
+        for (int i=0; i<files.size(); i++){
             System.out.println(files.get(i));
         }
     }
@@ -1110,7 +1112,8 @@ public class Directory implements Comparable {
                 }
             }
         }
-    }</pre>
+    }
+   </pre>
    *
    */
     public List getChildren(boolean RecursiveSearch, Object filter, boolean wait){
@@ -2069,7 +2072,7 @@ public class Directory implements Comparable {
     } //End FileComparer Class
 
 
-} //End Directory Class
+
 
 
 
@@ -2083,7 +2086,7 @@ public class Directory implements Comparable {
  *
  ******************************************************************************/
 
-class FileFilter {
+private class FileFilter {
 
     private java.io.FileFilter fileFilter = null;
     private List<java.util.regex.Pattern> regex = null;
@@ -2205,7 +2208,7 @@ class FileFilter {
  *
  ******************************************************************************/
 
-class DirectorySearch implements Runnable {
+private static class DirectorySearch implements Runnable {
 
 
 
@@ -2791,7 +2794,7 @@ class DirectorySearch implements Runnable {
 
 
 //******************************************************************************
-//**  FileSystemWatcher Class - By Peter Borissow
+//**  FileSystemWatcher Class
 //******************************************************************************
 /**
  *   Used to watch changes made to files and folders (subdirectories) found in
@@ -2806,7 +2809,7 @@ class DirectorySearch implements Runnable {
  *
  ******************************************************************************/
 
-class FileSystemWatcher implements Runnable {
+private class FileSystemWatcher implements Runnable {
 
     private Directory directory;
     private Timer timer;
@@ -3150,7 +3153,7 @@ class FileSystemWatcher implements Runnable {
 
 } //End FileSystemWatcher Class
 
-
+} //End Directory Class
 
 //******************************************************************************
 //**  FileSystemWatcherNative Class
