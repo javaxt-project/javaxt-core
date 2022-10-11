@@ -642,13 +642,13 @@ public class File implements Comparable {
   //** getBufferedReader
   //**************************************************************************
   /**  Used to extract the contents of the file into a BufferedReader.
-   *   <pre>
-   *   BufferedReader br = file.getBufferedReader("UTF-8");
-   *   String strLine;
-   *   while ((strLine = br.readLine()) != null){
-   *      System.out.println(strLine);
-   *   }
-   *   </pre>
+   <pre>
+    BufferedReader br = file.getBufferedReader("UTF-8");
+    String strLine;
+    while ((strLine = br.readLine()) != null){
+       System.out.println(strLine);
+    }
+   </pre>
    *   @return BufferedReader or null
    */
     public BufferedReader getBufferedReader(){
@@ -669,13 +669,13 @@ public class File implements Comparable {
   //** getBufferedReader
   //**************************************************************************
   /**  Used to extract the contents of the file into a BufferedReader.
-   *   <pre>
-   *   BufferedReader br = file.getBufferedReader("UTF-8");
-   *   String strLine;
-   *   while ((strLine = br.readLine()) != null){
-   *      System.out.println (strLine);
-   *   }
-   *   </pre>
+   <pre>
+    BufferedReader br = file.getBufferedReader("UTF-8");
+    String strLine;
+    while ((strLine = br.readLine()) != null){
+       System.out.println (strLine);
+    }
+   </pre>
    *   WARNING: This method will never throw an error.
    *
    *   @param charsetName Name of the character encoding used to read the file.
@@ -2013,7 +2013,7 @@ public static class FileAttributes {
  *
  ******************************************************************************/
 
-public static class LnkParser {
+private static class LnkParser {
 
     private boolean isDirectory;
     private boolean isLocal;
