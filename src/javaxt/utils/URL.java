@@ -3,7 +3,7 @@ import java.util.HashMap;
 import java.util.List;
 
 //******************************************************************************
-//**  URL Class - By Peter Borissow
+//**  URL Class
 //******************************************************************************
 /**
  *   Used to parse urls, extract querystring parameters, etc. Partial

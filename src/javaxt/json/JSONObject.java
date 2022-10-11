@@ -8,10 +8,11 @@ import java.util.Map.Entry;
 //**  JSONObject
 //******************************************************************************
 /**
- *   Used to create and parse JSON documents. JSON documents are an unordered
- *   collection of name/value pairs. Its external form is a string wrapped in
- *   curly braces with colons between the names and values, and commas between
- *   the values and names.
+ *   A JSON object is an unordered set of key/value pairs. The string
+ *   representation of a JSON object is a widely-used standard format for
+ *   exchanging data. The string begins with a left brace "{" and ends with a
+ *   right brace "}". Each name is followed by colon ":" and the name/value
+ *   pairs are separated by comma ",".
  *
  *   @author json.org
  *   @version 2016-08-15
@@ -675,7 +676,7 @@ public class JSONObject {
         w.write('"');
         return w;
     }
-}
+
 
 
 
@@ -692,7 +693,7 @@ public class JSONObject {
  *
  ******************************************************************************/
 
-class JSONTokener {
+protected static class JSONTokener {
 
 
     /** current read character position on the current line. */
@@ -1229,4 +1230,5 @@ class JSONTokener {
         return val.indexOf('.') > -1 || val.indexOf('e') > -1
                 || val.indexOf('E') > -1 || "-0".equals(val);
     }
+}
 }

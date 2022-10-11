@@ -3,7 +3,7 @@ import org.w3c.dom.*;
 import javaxt.xml.DOM;
 
 /******************************************************************************
-/**  WSDL Parser - By Peter Borissow
+/**  WSDL Parser
 /*****************************************************************************/
 /**  Used to parse a WSDL return information about the web services documented
  *   in the WSDL including service name and description, web methods, and input
@@ -24,40 +24,40 @@ for (javaxt.webservices.Service service : wsdl.getServices()){
     }
 }
  </pre>
- * 
+ *
  *****************************************************************************/
 
 public class WSDL {
-        
+
     private Document wsdl;
     private Document ssd; //Simple Service Definition
-    private String vbCrLf = "\r\n"; 
+    private String vbCrLf = "\r\n";
     private String ElementNameSpace = "";
     private java.util.HashMap<String, String> NameSpaces;
     private NodeList Schema;
     private String HttpProxyServer;
-    
+
     private class Port{
         public String Name;
         public String Binding;
         public String Address;
     }
-    
+
     private class Binding{
         public String Operation;
         public String SoapAction;
         public String Style;
-        
+
         public String Name;
         public String Type;
     }
-    
+
     private class Message{ //PortType
         public String Input;
         public String Output;
         public String Documentation = null;
     }
-    
+
     private class Element{
         private int id;
         public String Name;
@@ -115,7 +115,7 @@ public class WSDL {
             if (elementRef.length()>0){
                 Name = elementRef;
             }
-            
+
             if (nodeName.equalsIgnoreCase("attribute")){
                 IsAttribute = true;
                 IsNillable = DOM.getAttributeValue(attr, "use").equalsIgnoreCase("optional");
@@ -211,22 +211,22 @@ public class WSDL {
             return xml.toString();
         }
     }
-    
-    
+
+
 
   //**************************************************************************
   //** Constructor
-  //**************************************************************************    
+  //**************************************************************************
   /** Instantiate wsdl parser using a url to a wsdl (java.net.url)
    */
     public WSDL(java.net.URL url){
         this(downloadXML(url, null), null, true, null);
     }
-    
+
     public WSDL(String url){
         this(downloadXML(url, null), null, true, null);
     }
-    
+
     public WSDL(java.net.URL url, String HttpProxyServer){
         this(downloadXML(url, HttpProxyServer), null, true, HttpProxyServer);
     }
@@ -247,7 +247,7 @@ public class WSDL {
         this.wsdl = wsdl;
         NameSpaces = DOM.getNameSpaces(wsdl);
         ElementNameSpace = getElementNameSpace();
-        
+
         if (xsd==null){
             xsd = new Document[1];
             xsd[0] = wsdl;
@@ -265,9 +265,9 @@ public class WSDL {
         addSchema(xsd, followImports, false);
         parseWSDL();
     }
-    
 
-    
+
+
   //**************************************************************************
   //** getSSD
   //**************************************************************************
@@ -279,8 +279,8 @@ public class WSDL {
     public Document getSSD(){
         return ssd;
     }
-    
-    
+
+
   //**************************************************************************
   //** toString
   //**************************************************************************
@@ -293,9 +293,9 @@ public class WSDL {
 
 
 // <editor-fold defaultstate="collapsed" desc="Core WSDL Parser. Click on the + sign on the left to edit the code.">
-    
 
-    
+
+
     private NamedNodeMap getDefinitionAttributes(){
         NodeList Definitions = wsdl.getChildNodes();
         for (int i=0; i<Definitions.getLength(); i++ ) {
@@ -305,29 +305,29 @@ public class WSDL {
                  }
              }
         }
-        return null;        
+        return null;
     }
-    
-    
+
+
   //**************************************************************************
   //** getTargetNameSpace
   //**************************************************************************
-    
+
     private String getTargetNameSpace(){
         NamedNodeMap attr = getDefinitionAttributes();
         return DOM.getAttributeValue(attr, "targetNamespace");
     }
 
-    
+
   //**************************************************************************
   //** getElementNameSpace
   //**************************************************************************
-    
+
     private String getElementNameSpace(){
         String elementNameSpace = "http://www.w3.org/2001/XMLSchema";
-        NamedNodeMap attr = getDefinitionAttributes();      
+        NamedNodeMap attr = getDefinitionAttributes();
         if (attr!=null){
-            
+
             Node node;
             String nodeName;
             String nodeValue;
@@ -344,13 +344,13 @@ public class WSDL {
             }
         }
         return "";
-    } 
-    
-    
+    }
+
+
   //**************************************************************************
   //** isElementComplex
   //**************************************************************************
-    
+
     private boolean isElementComplex(String elementType){
         String elementNameSpace = "";
         if (elementType.contains(":")){
@@ -359,24 +359,24 @@ public class WSDL {
         return !elementNameSpace.equalsIgnoreCase(ElementNameSpace);
     }
 
-    
+
   //**************************************************************************
   //** isElementNillable
   //**************************************************************************
-    
+
     private boolean isElementNillable(String isnillable){
         if (isnillable.toLowerCase().equals("true")){
             return true;
         }
         else{
             return false;
-        }        
-    }    
+        }
+    }
 
 
   //**************************************************************************
   //** parseWSDL
-  //**************************************************************************    
+  //**************************************************************************
   /** Used to parse the WSDL and generate the SSD.
    *  Note that this parser works for most xml web services in production. That
    *  said, there are a couple limitations. Here's a short list of outstanding
@@ -400,30 +400,30 @@ public class WSDL {
 
         String ServiceName = "";
         String ServiceDescription = "";
-        
+
         NodeList Definitions, ChildNodes;
         NamedNodeMap attr;
-        
-        
+
+
 
         Port Port = null;
         Binding Binding = null;
         java.util.ArrayList<Binding> arrBindings = null;
         Element Element = null;
         java.util.ArrayList<Element> arrElements = null;
-        
+
 
       //Loop Through Definitions and Get Services
       //definitions->service (name attribute)
         Definitions = getDefinitions();
-        for (int i=0; i<Definitions.getLength(); i++ ) {         
+        for (int i=0; i<Definitions.getLength(); i++ ) {
             if (contains(Definitions.item(i).getNodeName(), "service")) {
- 
+
               //Get Service Name
                 attr = Definitions.item(i).getAttributes();
                 ServiceName = DOM.getAttributeValue(attr, "name");
 
-                
+
               //Get Service Description
                 ChildNodes = Definitions.item(i).getChildNodes();
                 for (int j=0; j<ChildNodes.getLength(); j++ ) {
@@ -431,38 +431,38 @@ public class WSDL {
                         ServiceDescription = ChildNodes.item(j).getTextContent();
                     }
                 }
-                
+
 
               //Get Service Port
                 Port = getPort(ChildNodes);
 
-                
+
                 if (Port!=null){
-                    
-                                      
+
+
                     SSD += " <service name=\"" + ServiceName + "\" url=\"" + Port.Address + "\" namespace=\"" + getTargetNameSpace() + "\">" + vbCrLf;
                     if (ServiceDescription!=null){
                     SSD += "  <description>" + ServiceDescription + "</description>" + vbCrLf;}
                     SSD += "  <methods>" + vbCrLf;
-                    
+
                   //Get Bindings
                     arrBindings = getBindings(Port.Binding);
                     for (int j=0; j<arrBindings.size(); j++ ) {
                          Binding = arrBindings.get(j);
 
-                         
+
                        //Get Soap Action
                          String SoapAction = Binding.SoapAction;
                          if (SoapAction!=null) SoapAction = " soapAction=\"" + SoapAction + "\"";
-                         
-                         
-                         
+
+
+
                        //Get Messages (need to valid logic here!)
                          //Message Message = getMessages(Port.Name,Binding.Operation);
                          //if (Message==null) Message = getMessages(Port.Binding,Binding.Operation);
                          Message Message = getMessages(Binding.Type,Binding.Operation);
-                         
-                                      
+
+
                        //Get Response Element
                          String ResultsNode = "";
                          try{
@@ -475,13 +475,13 @@ public class WSDL {
                          catch(Exception e){
                              //System.out.println(e.toString());
                          }
-                         
-                         
+
+
                          SSD +="  <method name=\"" + Binding.Operation + "\"" + SoapAction + " resultsNode=\"" + ResultsNode + "\">" + vbCrLf;
                          if (Message.Documentation!=null){
                             SSD += "  <description>" + Message.Documentation + "</description>" + vbCrLf;
                          }
-                         
+
                          SSD += "  <parameters>" + vbCrLf;
                          arrElements = getElements(Message.Input);
                          try{
@@ -498,10 +498,10 @@ public class WSDL {
 
                          SSD +="  </method>" + vbCrLf;
                     }
-                    
+
                   //Update SSD
                     SSD += "  </methods>" + vbCrLf;
-                    SSD += " </service>" + vbCrLf;                                    
+                    SSD += " </service>" + vbCrLf;
                 }
             }
         }
@@ -510,31 +510,31 @@ public class WSDL {
         ssd = DOM.createDocument(SSD);
 
         knownTypes.clear();
-    }  
-    
-    
+    }
+
+
   //**************************************************************************
   //** getPort
-  //************************************************************************** 
-    
+  //**************************************************************************
+
     private Port getPort(NodeList Ports){
-        
+
         Port Port = null;
         String PortName, PortBinding, PortAddress;
         boolean foundSoapPort = false;
-        
+
         for (int j=0; j<Ports.getLength(); j++ ) {
             if (contains(Ports.item(j).getNodeName(), "port")) {
 
                 //Get Service Binding
-                NamedNodeMap attr = Ports.item(j).getAttributes(); 
+                NamedNodeMap attr = Ports.item(j).getAttributes();
                 PortName = DOM.getAttributeValue(attr, "name");
                 PortBinding = stripNameSpace(DOM.getAttributeValue(attr, "binding"));
-                
+
 
                 //Get Service Endpoint (url)
                 PortAddress = "";
-                NodeList Addresses = Ports.item(j).getChildNodes();                 
+                NodeList Addresses = Ports.item(j).getChildNodes();
                 for (int k=0; k<Addresses.getLength(); k++ ) {
                     String Address = Addresses.item(k).getNodeName();
                     if (contains(Address, "address") && !contains(Address,"http:") ) { //soap:address
@@ -543,8 +543,8 @@ public class WSDL {
                         foundSoapPort = true;
                     }
                 }
-                
-                
+
+
                 if (foundSoapPort){
                     Port = new Port();
                     Port.Name = PortName;
@@ -554,42 +554,42 @@ public class WSDL {
                 }
 
             }
-        }    
-        
+        }
+
         return Port;
     }
-    
+
   //**************************************************************************
   //** getBindings
-  //************************************************************************** 
-    
+  //**************************************************************************
+
     private java.util.ArrayList<Binding> getBindings(String PortBinding){
-        
+
         NodeList Definitions, ChildNodes;
         NamedNodeMap attr;
-        
+
         String BindingName, BindingType, BindingStyle, BindingTransport;
-        
+
         Binding Binding = null;
         java.util.ArrayList<Binding> arrBindings = null;
         int BindingCount = -1;
-        
+
         //Loop through definitions
         Definitions = getDefinitions();
         //Definitions = Definitions.item(0).getChildNodes();
         for (int i=0; i<Definitions.getLength(); i++ ) {
             if (contains(Definitions.item(i).getNodeName(), "binding")) {
-                
+
                 //Get Binding Name
                 attr = Definitions.item(i).getAttributes();
                 BindingName = DOM.getAttributeValue(attr, "name");
                 BindingType = DOM.getAttributeValue(attr, "type");
                 if (BindingName.equals(PortBinding)){
-                    
-                    
+
+
                     arrBindings = new java.util.ArrayList<Binding>();
 
-                    //Get Binding Transport/Style      
+                    //Get Binding Transport/Style
                     BindingStyle = BindingTransport = "";
                     ChildNodes = Definitions.item(i).getChildNodes();
                     for (int j=0; j<ChildNodes.getLength(); j++ ) {
@@ -600,107 +600,107 @@ public class WSDL {
                         }
                     }
 
-                    
+
                     //Get Operation Names/Soap Action
                     for (int j=0; j<ChildNodes.getLength(); j++ ) {
                         if (contains(ChildNodes.item(j).getNodeName(), "operation")) {
-                            
+
                             Binding = new Binding();
                             BindingCount +=1;
-                            
+
                             attr = ChildNodes.item(j).getAttributes();
                             Binding.Operation = DOM.getAttributeValue(attr, "name");
-                            
+
                             NodeList Operations = ChildNodes.item(j).getChildNodes();
                             for (int k=0; k<Operations.getLength(); k++ ) {
                                  if (contains(Operations.item(k).getNodeName(), "operation")) {
                                      attr = Operations.item(k).getAttributes();
                                      Binding.SoapAction = DOM.getAttributeValue(attr, "soapaction");
                                      Binding.Style = BindingStyle; //DOM.getAttributeValue(attr, "style");
-                                     
+
                                      Binding.Name = BindingName;
                                      Binding.Type = stripNameSpace(BindingType);
                                  }
                             }
-                            
+
 
                             arrBindings.add(Binding);
                         }
-                    }  
-                    
-                    
+                    }
+
+
                     return arrBindings;
-                    
+
                 }
 
-             
-                
+
+
             }
-        }        
-        
+        }
+
         return null;
     }
-    
+
 
   //**************************************************************************
   //** getMessages
-  //************************************************************************** 
-    
+  //**************************************************************************
+
     private Message getMessages(String PortTypeName, String OperationName){
-        
+
         //System.out.println();
         //System.out.println(PortTypeName);
-        
+
         NodeList Definitions, PortTypes, Messages;
         NamedNodeMap attr;
-        String portTypeName, operationName, messageName;        
+        String portTypeName, operationName, messageName;
         Message Message = null;
-        
-        
+
+
         //Loop through definitions
         Definitions = getDefinitions();
         //Definitions = Definitions.item(0).getChildNodes();
         for (int i=0; i<Definitions.getLength(); i++ ) {
             if (contains(Definitions.item(i).getNodeName(), "porttype")) {
-                
-                
-                
+
+
+
                 attr = Definitions.item(i).getAttributes();
                 portTypeName = DOM.getAttributeValue(attr, "name");
-                
+
                 //System.out.println(" vs " + DOM.getAttributeValue(attr, "name"));
 
                 if (portTypeName.equals(PortTypeName)){
-                    
-                    
+
+
                     String Documentation = "";
 
                     //Loop through PortTypes
                     PortTypes = Definitions.item(i).getChildNodes();
                     for (int j=0; j<PortTypes.getLength(); j++ ) {
-                        
+
                         String NodeName = PortTypes.item(j).getNodeName();
-                        
-                        
+
+
                         if (NodeName.endsWith("documentation")) {
                             Documentation = DOM.getNodeValue(PortTypes.item(j));
                         }
-                        
+
                         if (NodeName.endsWith("operation")) {
-                            
+
                             attr = PortTypes.item(j).getAttributes();
                             operationName = DOM.getAttributeValue(attr, "name");
                             if (operationName.equals(OperationName)){
-                                
+
                               //Instantiate Message Object
                                 Message = new Message();
                                 Message.Documentation = Documentation;
-                                
+
                               //Loop through the Messages
                                 Messages = PortTypes.item(j).getChildNodes();
                                 for (int k=0; k<Messages.getLength(); k++ ) {
                                     if (Messages.item(k).getNodeType()==1){
-                                    
+
                                         attr = Messages.item(k).getAttributes();
                                         messageName = stripNameSpace(DOM.getAttributeValue(attr, "message"));
 
@@ -709,44 +709,44 @@ public class WSDL {
                                         }
                                         if (contains(Messages.item(k).getNodeName(), "output")) {
                                             Message.Output = messageName;
-                                        } 
+                                        }
                                         if (contains(Messages.item(k).getNodeName(), "documentation")) {
                                             Documentation = DOM.getNodeValue(Messages.item(k));
                                             if (Documentation.length()>0){
                                                 Message.Documentation = Documentation;
                                             }
-                                        }  
+                                        }
                                     }
                                 }
-                                
+
                                 return Message;
-                            
+
                             }
                         }
                     }
                 }
 
-                 
+
             }
-        }        
-        
+        }
+
         return Message;
-    }   
-    
-    
+    }
+
+
   //**************************************************************************
   //** getElements
-  //************************************************************************** 
+  //**************************************************************************
   /** Returns a list of elements (parameters) associated with a given message.
    *  definitions->message->part (element name attribute)
-   */    
+   */
     private java.util.ArrayList<Element> getElements(String MessageName){
 
         NodeList Definitions, Messages;
         NamedNodeMap attr;
-        
+
         String messageName, name, type, min, max;
-        
+
 
         java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
 
@@ -754,7 +754,7 @@ public class WSDL {
         Definitions = getDefinitions();
         for (int i=0; i<Definitions.getLength(); i++ ) {
             if (contains(Definitions.item(i).getNodeName(), "message")) {
-                
+
                 attr = Definitions.item(i).getAttributes();
                 messageName = DOM.getAttributeValue(attr, "name");
                 if (messageName.equals(MessageName)){
@@ -763,7 +763,7 @@ public class WSDL {
                   //Loop through Messages and Find Message Parts
                     Messages = Definitions.item(i).getChildNodes();
                     for (int j=0; j<Messages.getLength(); j++ ) {
-                        if (contains(Messages.item(j).getNodeName(), "part")) { 
+                        if (contains(Messages.item(j).getNodeName(), "part")) {
 
                             attr = Messages.item(j).getAttributes();
                             type = DOM.getAttributeValue(attr, "type");
@@ -776,15 +776,15 @@ public class WSDL {
                 }
             }
         }
-        
+
         return null;
     }
 
 
   //**************************************************************************
   //** getDefinitions
-  //**************************************************************************    
-    
+  //**************************************************************************
+
     private NodeList getDefinitions(){
         NodeList Definitions = wsdl.getChildNodes();
         if (Definitions!=null){
@@ -799,13 +799,13 @@ public class WSDL {
         }
         return null;
     }
-    
+
 
   //**************************************************************************
   //** getTypes
-  //**************************************************************************     
-    
-    private NodeList getTypes(){        
+  //**************************************************************************
+
+    private NodeList getTypes(){
         NodeList Definitions = getDefinitions();
         if (Definitions!=null){
             for (int i=0; i<Definitions.getLength(); i++ ) {
@@ -819,14 +819,14 @@ public class WSDL {
         }
         return null;
     }
-    
 
-    
+
+
   //**************************************************************************
   //** getShema
-  //**************************************************************************  
-    
-    private NodeList getSchema(){        
+  //**************************************************************************
+
+    private NodeList getSchema(){
         return Schema;
     }
 
@@ -930,7 +930,7 @@ public class WSDL {
                     Node schemaNode = schemaNodes.get(i);
                     Node importNode = getNode(schemaNode, "import");
                     if (importNode!=null){
-                        
+
                         if (followImports){
                             NamedNodeMap attr = importNode.getAttributes();
                             String schemaLocation = DOM.getAttributeValue(attr, "schemaLocation");
@@ -1030,7 +1030,7 @@ public class WSDL {
                     java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
                     Element element = new Element(elementNode);
                     decomposeComplexType(stripNameSpace(element.Name), element);
-                    
+
                     if (!DOM.hasChildren(elementNode)){ //Complex Type!
 
                         elements.add(element);
@@ -1069,7 +1069,7 @@ public class WSDL {
 
   //**************************************************************************
   //** decomposeComplexType
-  //**************************************************************************    
+  //**************************************************************************
   /** Used to find a complex type and break it down into a collection of simple
    *  types. Note that this is a recursive function.
    */
@@ -1077,16 +1077,16 @@ public class WSDL {
 
       //Find element in the list of known element types. Return match to bypass
       //the recursive reach and prevent possible stack overflow.
-        if (knownTypes.containsKey(ElementName)){            
+        if (knownTypes.containsKey(ElementName)){
             parentElement.addElement(knownTypes.get(ElementName));
             return;
         }
 
-        NodeList Schemas = getSchema(); 
+        NodeList Schemas = getSchema();
         for (int i=0; i<Schemas.getLength(); i++ ) {
 
             Node node = Schemas.item(i);
-            
+
             String typeName = DOM.getAttributeValue(node, "name");
             if (typeName.equals(ElementName)){
 
@@ -1098,7 +1098,7 @@ public class WSDL {
         }
     }
 
-    
+
 
     private void parseComplexNode(Node node, String ElementName, Element parentElement){
 
@@ -1308,7 +1308,7 @@ public class WSDL {
                     elements.add(element);
                     if (element.IsComplex){
                         decomposeComplexType(stripNameSpace(element.Type), element);
-                    }                    
+                    }
                 }
                 else if (attributeNodeName.equalsIgnoreCase("attributeGroup")){
                     java.util.Iterator<Element> it = getAttributes(attribute).iterator();
@@ -1387,10 +1387,10 @@ public class WSDL {
     }
 
 
-    
-    
+
+
   // </editor-fold>
-    
+
 // <editor-fold defaultstate="collapsed" desc="Public Members. Click on the + sign on the left to edit the code.">
 
 
@@ -1429,16 +1429,16 @@ public class WSDL {
   //**************************************************************************
   //** getService
   //**************************************************************************
-    
+
     public Service getService(String ServiceName){
-        
-        if (ServiceName==null) ServiceName = "";        
+
+        if (ServiceName==null) ServiceName = "";
         ServiceName = ServiceName.trim();
-        
+
         if (ServiceName.equals("")){
             return getService(0);
         }
-        
+
         Service[] arrServices = getServices();
         if (arrServices!=null){
             for (int i=0; i<arrServices.length; i++){
@@ -1449,12 +1449,12 @@ public class WSDL {
         }
         return null;
     }
-      
-    
+
+
   //**************************************************************************
   //** getService
   //**************************************************************************
-    
+
     public Service getService(int i){
         Service[] arrServices = getServices();
         if (arrServices!=null){
@@ -1467,7 +1467,7 @@ public class WSDL {
   //**************************************************************************
   //** getMethod
   //**************************************************************************
-    
+
     public Method getMethod(String ServiceName, String MethodName){
         Service service = getService(ServiceName);
         if (service!=null) return service.getMethod(MethodName);
@@ -1478,7 +1478,7 @@ public class WSDL {
   //**************************************************************************
   //** getMethod
   //**************************************************************************
-    
+
     public Method getMethod(String MethodName){
         Service Service = getService(0);
         if (Service!=null){
@@ -1491,7 +1491,7 @@ public class WSDL {
   //**************************************************************************
   //** getListOfMethods
   //**************************************************************************
-    
+
     public String[] getListOfMethods(String ServiceName){
         Service service = getService(ServiceName);
         if (service!=null){
@@ -1506,9 +1506,9 @@ public class WSDL {
         }
 
         return null;
-    }     
-    
-    
+    }
+
+
 // </editor-fold>
 
 
@@ -1547,17 +1547,17 @@ public class WSDL {
         if (HttpProxyServer!=null) request.setProxy(HttpProxyServer);
         return request.getResponse().getXML();
     }
-    
+
 
   //**************************************************************************
   //** stripNameSpace
   //**************************************************************************
-    
+
     private String stripNameSpace(String str){
         if (str.contains(":")) str = str.substring(str.lastIndexOf(":")+1);
         return str;
     }
-    
+
     private boolean contains(String a, String b){
         return a.toLowerCase().contains(b.toLowerCase());
     }

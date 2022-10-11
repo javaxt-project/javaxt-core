@@ -8,9 +8,10 @@ import javax.crypto.spec.*;
 //**  AES-256
 //******************************************************************************
 /**
- *   Provides static methods used to encrypt and decrypt text using AES 256 bit
- *   encryption. Based on code posted here:
- *   http://stackoverflow.com/a/992413/
+ *   Provides static methods used to encrypt and decrypt strings using AES 256
+ *   bit encryption.
+ *
+ *   @credit http://stackoverflow.com/a/992413/
  *
  ******************************************************************************/
 

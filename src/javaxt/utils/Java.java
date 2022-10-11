@@ -1,6 +1,16 @@
 package javaxt.utils;
 
+//******************************************************************************
+//**  Java Class
+//******************************************************************************
+/**
+ *   Used obtain the version of Java running this library.
+ *
+ ******************************************************************************/
+
 public class Java {
+
+    /** Static variable used to store the output of getJavaVersion() */
     public static final int version = getJavaVersion();
 
 

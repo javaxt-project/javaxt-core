@@ -26,7 +26,7 @@ import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
 
 
 //******************************************************************************
-//**  Image Utilities - By Peter Borissow
+//**  Image Class
 //******************************************************************************
 /**
  *   Used to open, resize, rotate, crop and save images.
@@ -413,7 +413,7 @@ public class Image {
   //**************************************************************************
   /** Returns an array with 4 histograms: red, green, blue, and average
     <pre>
-        ArrayList&lt;int[]> histogram = image.getHistogram();
+        ArrayList<int[]> histogram = image.getHistogram();
         int[] red = histogram.get(0);
         int[] green = histogram.get(1);
         int[] blue = histogram.get(2);
@@ -1770,7 +1770,7 @@ public class Image {
    *  this:
    <pre>
     javaxt.io.Image image = new javaxt.io.Image("/temp/image.jpg");
-    java.util.HashMap&lt;Integer, String&gt; iptc = image.getIptcTags();
+    java.util.HashMap<Integer, String> iptc = image.getIptcTags();
     System.out.println("Date: " + iptc.get(0x0237));
     System.out.println("Caption: " + iptc.get(0x0278));
     System.out.println("Copyright: " + iptc.get(0x0274));
@@ -1810,7 +1810,7 @@ public class Image {
    *  You can retrieve specific EXIF metadata values like this:
    <pre>
     javaxt.io.Image image = new javaxt.io.Image("/temp/image.jpg");
-    java.util.HashMap&lt;Integer, Object&gt; exif = image.getExifTags();
+    java.util.HashMap<Integer, Object> exif = image.getExifTags();
     System.out.println("Date: " + exif.get(0x0132));
     System.out.println("Camera: " + exif.get(0x0110));
     System.out.println("Focal Length: " + exif.get(0x920A));

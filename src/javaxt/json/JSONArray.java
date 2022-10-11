@@ -1,4 +1,5 @@
 package javaxt.json;
+import javaxt.json.JSONObject.JSONTokener;
 import java.io.IOException;
 import java.io.Writer;
 import javaxt.utils.Value;
@@ -7,8 +8,10 @@ import javaxt.utils.Value;
 //**  JSONArray
 //******************************************************************************
 /**
- *   A JSONArray is an ordered sequence of values. Its external text form is a
- *   string wrapped in square brackets with commas separating the values.
+ *   A JSON array is simply an array of objects. The string representation of a
+ *   JSON array is a widely-used standard format for exchanging data. The string
+ *   begins with a left square bracket "[" and ends with a right square bracket
+ *   "]". Each object in the array is separated by comma ",".
  *
  *   @author json.org
  *   @version 2016-08-15
@@ -33,7 +36,7 @@ public class JSONArray implements Iterable<Object> {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Used to create a new array from a String.
+  /** Used to create a new array from a String (e.g. "[1,2,3]").
    */
     public JSONArray(String source) throws JSONException {
         this(new JSONTokener(source));

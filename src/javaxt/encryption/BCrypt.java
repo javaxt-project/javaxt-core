@@ -6,15 +6,33 @@ import java.security.SecureRandom;
 //**  BCrypt
 //******************************************************************************
 /**
- *   Provides static methods used to encrypt passwords using a computationally-
- *   intensive hashing algorithm, based on Bruce Schneier's Blowfish cipher.
- * 
+ *   Provides static methods used to encrypt passwords. The encryption is
+ *   "one-way" meaning that passwords can be encrypted but not decrypted.
+ *   Although you cannot decrypt a password, you can still validate a password
+ *   using the checkpw() method. Example usage:
+ <pre>
+    public class User {
+        private String password;
+
+        public boolean authenticate(String password){
+            return BCrypt.checkpw(password, this.password);
+        }
+
+        public void setPassword(String password){
+            this.password = BCrypt.hashpw(password, BCrypt.gensalt());
+        }
+    }
+ </pre>
+ *
+ *   This class was originally developed by Damien Miller and is based on Bruce
+ *   Schneier's Blowfish cipher.
+ *
  *   @author Damien Miller
  *   @version 0.2
  ******************************************************************************/
 
 public class BCrypt {
-    
+
     // BCrypt parameters
     private static final int GENSALT_DEFAULT_LOG2_ROUNDS = 10;
     private static final int BCRYPT_SALT_LEN = 16;
@@ -22,7 +40,7 @@ public class BCrypt {
     // Blowfish parameters
     private static final int BLOWFISH_NUM_ROUNDS = 16;
 
-    
+
   //**************************************************************************
   //** hashpw
   //**************************************************************************
@@ -85,13 +103,13 @@ public class BCrypt {
             bf_crypt_ciphertext.length * 4 - 1));
         return rs.toString();
     }
-    
-    
+
+
   //**************************************************************************
   //** gensalt
   //**************************************************************************
   /** Generate a salt for use with the BCrypt.hashpw() method
-   *  @param log_rounds the log2 of the number of rounds of hashing to apply - 
+   *  @param log_rounds the log2 of the number of rounds of hashing to apply -
    *  the work factor therefore increases as 2**log_rounds.
    *  @param random an instance of SecureRandom to use
    *  @return an encoded salt value
@@ -114,13 +132,13 @@ public class BCrypt {
         rs.append(encode_base64(rnd, rnd.length));
         return rs.toString();
     }
-    
-    
+
+
   //**************************************************************************
   //** gensalt
   //**************************************************************************
   /** Generate a salt for use with the BCrypt.hashpw() method
-   *  @param log_rounds the log2 of the number of rounds of hashing to apply - 
+   *  @param log_rounds the log2 of the number of rounds of hashing to apply -
    *  the work factor therefore increases as 2**log_rounds.
    *  @return an encoded salt value
    */
@@ -132,7 +150,7 @@ public class BCrypt {
   //**************************************************************************
   //** gensalt
   //**************************************************************************
-  /** Generate a salt for use with the BCrypt.hashpw() method, selecting a 
+  /** Generate a salt for use with the BCrypt.hashpw() method, selecting a
    *  reasonable default for the number of hashing rounds to apply
    *  @return an encoded salt value
    */
@@ -164,8 +182,8 @@ public class BCrypt {
                     ret |= hashed_bytes[i] ^ try_bytes[i];
             return ret == 0;
     }
-    
-    
+
+
 
     /**
      * Encode a byte array using bcrypt's slightly-modified base64
@@ -399,7 +417,7 @@ public class BCrypt {
      * @param cdata         the plaintext to encrypt
      * @return	an array containing the binary hashed password
      */
-    public byte[] crypt_raw(byte password[], byte salt[], int log_rounds,
+    private byte[] crypt_raw(byte password[], byte salt[], int log_rounds,
         int cdata[]) {
             int rounds, i, j;
             int clen = cdata.length;
@@ -433,8 +451,8 @@ public class BCrypt {
             return ret;
     }
 
-    
-    
+
+
     // Initial contents of key schedule
     private static final int P_orig[] = {
             0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344,

@@ -10,7 +10,7 @@ import java.net.URI;
 import java.util.zip.*;
 
 //******************************************************************************
-//**  Jar Class - By Peter Borissow
+//**  Jar Class
 //******************************************************************************
 /**
  *   Used to find entries in a jar file associated with a given class or
@@ -149,8 +149,8 @@ public class Jar {
 
 
     System.out.println("\r\nOther Attributes:\r\n--------------------------");
-    java.util.Map&lt;String, java.util.jar.Attributes&gt; entries = manifest.getEntries();
-    java.util.Iterator&lt;String&gt; it = entries.keySet().iterator();
+    java.util.Map<String, java.util.jar.Attributes> entries = manifest.getEntries();
+    java.util.Iterator<String> it = entries.keySet().iterator();
     while (it.hasNext()){
         String key = it.next();
         printAttributes(entries.get(key));

@@ -13,7 +13,7 @@ import java.util.NoSuchElementException;
  *   Subclasses must define a method called {@link #run()} and may call
  *   {@link yield(T)} to return values one at a time. Example:
  <pre>
-    Generator&lt;String&gt; generator = new Generator&lt;String&gt;() {
+    Generator<String> generator = new Generator<String>() {
 
         @Override
         public void run() {
@@ -21,7 +21,7 @@ import java.util.NoSuchElementException;
             BufferedReader br = file.getBufferedReader("UTF-8");
 
             String row;
-            while ((row = br.readLine()) != null){  
+            while ((row = br.readLine()) != null){
                 yield(row);
             }
 
@@ -29,7 +29,7 @@ import java.util.NoSuchElementException;
         }
     };
  </pre>
- * 
+ *
  *   Clients can iterate through the generated results using standard iterators
  *   or an enhanced for loop like this:
  <pre>

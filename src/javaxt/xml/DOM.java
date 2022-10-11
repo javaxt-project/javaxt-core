@@ -12,7 +12,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 //******************************************************************************
-//**  DOM Utilities - By Peter Borissow
+//**  DOM Utilities
 //******************************************************************************
 /**
  *   Provides basic utilities to simplify loading and parsing xml
@@ -25,21 +25,21 @@ public class DOM {
   //** Private Constructor
   //**************************************************************************
   /**  Defeats Instantiation */
-    
+
     private DOM() {
     }
-    
-    
+
+
   //**************************************************************************
   //** createDocument
   //**************************************************************************
-  /**  Used to create a DOM document from a URL. */ 
-    
+  /**  Used to create a DOM document from a URL. */
+
     public static Document createDocument(java.net.URL url){
         return new javaxt.http.Request(url).getResponse().getXML();
     }
-    
-    
+
+
   //**************************************************************************
   //** createDocument
   //**************************************************************************
@@ -56,8 +56,8 @@ public class DOM {
             return null;
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** createDocument
   //**************************************************************************
@@ -69,7 +69,7 @@ public class DOM {
 
         xml = xml.trim();
         String encoding = "UTF-8";
-        
+
         try{
             String xmlHeader = xml.substring(xml.indexOf("<?"), xml.indexOf("?>"));
             if (xmlHeader.contains(" encoding")){
@@ -91,12 +91,12 @@ public class DOM {
             }
         }
         catch(Exception e){}
-        
+
         return createDocument(xml, encoding);
     }
 
 
-    
+
     public static Document createDocument(String xml, String charsetName){
         xml = xml.trim();
         try{
@@ -108,12 +108,12 @@ public class DOM {
         }
     }
 
-    
+
   //**************************************************************************
   //** createDocument
   //**************************************************************************
-  /**  Used to create a DOM document from an InputStream. */ 
-    
+  /**  Used to create a DOM document from an InputStream. */
+
     public static Document createDocument(InputStream is){
         try{
             DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
@@ -125,9 +125,9 @@ public class DOM {
             return null;
         }
     }
-    
-    
-    
+
+
+
   //**************************************************************************
   //** getOuterNode
   //**************************************************************************
@@ -166,12 +166,12 @@ public class DOM {
    *  @param xml A org.w3c.dom.Document
    */
     public static String getText(Document xml){
-        
+
         try{
             TransformerFactory factory = TransformerFactory.newInstance();
             Transformer transformer = factory.newTransformer();
             DOMSource source = new DOMSource(xml);
-            ByteArrayOutputStream bas = new ByteArrayOutputStream();            
+            ByteArrayOutputStream bas = new ByteArrayOutputStream();
             StreamResult result = new StreamResult(bas);
             transformer.transform(source, result);
             String encoding = xml.getXmlEncoding();
@@ -180,11 +180,11 @@ public class DOM {
         }
         catch (Exception e){
             //System.out.println(e.toString());
-            return "";            
+            return "";
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** getText
   //**************************************************************************
@@ -225,7 +225,7 @@ public class DOM {
   //** getAttributes
   //**************************************************************************
   /** Used to retrieve all of the attributes for a given node.   */
-    
+
     private static String getAttributes(Node node){
         if (node==null) return "";
         NamedNodeMap attr = node.getAttributes();
@@ -242,27 +242,27 @@ public class DOM {
         }
         return Attributes;
     }
-    
-    
+
+
   //**************************************************************************
   //** hasChildren
   //**************************************************************************
-  /** Used to determine whether a given node has any children. Differs from the 
+  /** Used to determine whether a given node has any children. Differs from the
    *  native DOM implementation in that this function only considers child
    *  nodes that have a node type value equal to 1.
-   */    
+   */
     public static boolean hasChildren(Node node){
-        
+
         NodeList nodeList = node.getChildNodes();
         for (int i=0; i<nodeList.getLength(); i++ ) {
             if (nodeList.item(i).getNodeType()==1){
                 return true;
-            }            
+            }
         }
         return false;
     }
 
-    
+
   //**************************************************************************
   //** getAttributeValue
   //**************************************************************************
@@ -270,7 +270,7 @@ public class DOM {
    *  insensitive. If no match is found, returns an empty string.
    */
     public static String getAttributeValue(NamedNodeMap attrCollection, String attrName){
-        
+
         if (attrCollection!=null){
             for (int i=0; i < attrCollection.getLength(); i++ ) {
                 Node node = attrCollection.item(i);
@@ -279,7 +279,7 @@ public class DOM {
                 }
             }
         }
-        return "";               
+        return "";
     }
 
 
@@ -293,25 +293,25 @@ public class DOM {
         return getAttributeValue(node.getAttributes(), attrName);
     }
 
-    
+
   //**************************************************************************
   //** setAttributeValue
   //**************************************************************************
-  /** Used to create or update an attribute. 
+  /** Used to create or update an attribute.
    */
     public static void setAttributeValue(Node node, String attrName, String attrValue){
-        
+
         if (node==null) return;
-        
+
         try{
             ((Element)node).setAttribute(attrName, attrValue);
         }
         catch(Exception e){
-            
+
           //Apparently some nodes can't be cast to an Element so we can try
           //to update the node's attribute collection.
             try{
-                
+
                 NamedNodeMap attrCollection = node.getAttributes();
                 for (int i=0; i<attrCollection.getLength(); i++ ) {
                     org.w3c.dom.Node attribute = attrCollection.item(i);
@@ -320,7 +320,7 @@ public class DOM {
                         return;
                     }
                 }
-                
+
                 //TODO: If we're still here, create new attribute
             }
             catch(Exception ex){
@@ -328,20 +328,20 @@ public class DOM {
         }
     }
 
-    
-    
+
+
   //**************************************************************************
   //** getNodeValue
-  //**************************************************************************    
+  //**************************************************************************
   /** Returns the value of a given node as text. If the node has children, the
    *  method will return an xml fragment which will include the input node as
    *  the outer node. This is a legacy feature which should be deprecated over
    *  time.
    */
     public static String getNodeValue(Node node){
-        
+
         String nodeValue = "";
-        
+
         if (hasChildren(node)) {
 
             StringBuffer xmlTree = new StringBuffer();
@@ -352,7 +352,7 @@ public class DOM {
         else{
             nodeValue = node.getTextContent();
         }
-        
+
         if (nodeValue == null){
             return "";
         }
@@ -360,13 +360,13 @@ public class DOM {
             return nodeValue;
         }
     }
-    
+
     private static void traverse(Node tree, StringBuffer xmlTree){
         if (tree.getNodeType()==1){
             String Attributes = getAttributes(tree);
             xmlTree.append("<" + tree.getNodeName() + Attributes + ">");
             if (hasChildren(tree)) {
-                
+
                 NodeList xmlNodeList = tree.getChildNodes();
                 for (int i=0; i<xmlNodeList.getLength(); i++){
                     traverse(xmlNodeList.item(i), xmlTree);
@@ -379,15 +379,15 @@ public class DOM {
                 if (nodeValue == null){
                     nodeValue = "";
                 }
-                
+
                 xmlTree.append(nodeValue);
             }
 
-            xmlTree.append("</" + tree.getNodeName() + ">");  
+            xmlTree.append("</" + tree.getNodeName() + ">");
         }
     }
-    
-    
+
+
   //**************************************************************************
   //** getDocumentAttributes
   //**************************************************************************
@@ -401,10 +401,10 @@ public class DOM {
                  return Definitions.item(i).getAttributes();
              }
         }
-        return null;        
+        return null;
     }
 
-    
+
   //**************************************************************************
   //** getTargetNameSpace
   //**************************************************************************
@@ -415,8 +415,8 @@ public class DOM {
         NamedNodeMap attr = getDocumentAttributes(xml);
         return getAttributeValue(attr,"targetNamespace");
     }
-    
-    
+
+
   //**************************************************************************
   //** getNameSpaces
   //**************************************************************************
@@ -509,7 +509,7 @@ public class DOM {
         }
     }
 
-    
+
   /** Converts a NodeList into an array to simplify nested loops. */
     public static Node[] getNodes(NodeList nodeList){
         java.util.ArrayList<Node> nodes = new java.util.ArrayList<Node>();

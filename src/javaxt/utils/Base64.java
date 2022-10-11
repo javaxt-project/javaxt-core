@@ -185,9 +185,6 @@ public class Base64 {
     }
 
 
-/* ********  P R I V A T E   F I E L D S  ******** */
-
-
     public final static int NO_OPTIONS = 0;
     private final static int ENCODE = 1;
     private final static int DECODE = 0;

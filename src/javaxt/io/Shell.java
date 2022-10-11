@@ -108,43 +108,43 @@ public class Shell {
    *  an example of how to process the output stream while the app is running.
    *  The getOutput() is called BEFORE the run() method is invoked.
    <pre>
-        File exe = new File("C:\\Program Files\\PostgreSQL\\8.4\\bin\\shp2pgsql.exe");
-        String[] options = new String[]{"-W", "UTF-8", "-s", "4326", "C:\country.shp", "t_country"};
+    File exe = new File("C:\\Program Files\\PostgreSQL\\8.4\\bin\\shp2pgsql.exe");
+    String[] options = new String[]{"-W", "UTF-8", "-s", "4326", "C:\country.shp", "t_country"};
 
-        javaxt.io.Shell cmd = new javaxt.io.Shell(exe, options);
-        java.util.List&lt;String&gt; output = cmd.getOutput();
-        cmd.run();
+    javaxt.io.Shell cmd = new javaxt.io.Shell(exe, options);
+    java.util.List<String> output = cmd.getOutput();
+    cmd.run();
 
-        String line;
-        while (true){
-            synchronized (output) {
-                while (output.isEmpty()) {
-                  try {
-                      output.wait();
-                  }
-                  catch (InterruptedException e) {
-                  }
-                }
-                line = output.remove(0);
+    String line;
+    while (true){
+        synchronized (output) {
+            while (output.isEmpty()) {
+              try {
+                  output.wait();
+              }
+              catch (InterruptedException e) {
+              }
             }
-
-            if (line!=null){
-                System.out.println(line);
-            }
-            else{
-                break;
-            }
+            line = output.remove(0);
         }
+
+        if (line!=null){
+            System.out.println(line);
+        }
+        else{
+            break;
+        }
+    }
    </pre>
    * If you want to get the entire output all at once, just call the getOutput()
    * AFTER the run() method. Example:
    <pre>
-        javaxt.io.Shell cmd = new javaxt.io.Shell(exe, options);
-        cmd.run();
-        java.util.List<String> output = cmd.getOutput();
-        for (int i=0; i<output.size(); i++){
-            System.out.println(output.get(i));
-        }
+    javaxt.io.Shell cmd = new javaxt.io.Shell(exe, options);
+    cmd.run();
+    java.util.List<String> output = cmd.getOutput();
+    for (int i=0; i<output.size(); i++){
+        System.out.println(output.get(i));
+    }
    </pre>
    *
    */
