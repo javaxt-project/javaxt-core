@@ -16,6 +16,7 @@ public class Element {
     private String innerHTML;
     private String outerHTML;
     private Parser parser;
+    private boolean isClosed;
 
 
   //**************************************************************************
@@ -70,9 +71,22 @@ public class Element {
 
       //Set innerHTML
         innerHTML = outerHTML.substring(gt);
-        if (innerHTML.trim().length()>0){
+        if (innerHTML.trim().length()>0){ //has inner html
+
             int idx = innerHTML.lastIndexOf("</" + nodeName);
-            if (idx>-1) innerHTML = innerHTML.substring(0, idx);
+            if (idx>-1){
+                innerHTML = innerHTML.substring(0, idx);
+                isClosed = true;
+            }
+            else{
+                isClosed = false;
+            }
+        }
+        else{ //no inner html
+
+          //Check if the tag is self enclosing (e.g. "<hr/>")
+            char c = outerHTML.charAt(gt-2); //character immediately before ">"
+            isClosed = c=='/';
         }
     }
 
@@ -95,6 +109,16 @@ public class Element {
    */
     public String getAttributes(){
         return attributes;
+    }
+
+
+  //**************************************************************************
+  //** isClosed
+  //**************************************************************************
+  /** Returns true if the element has a closing tag or is self closing
+   */
+    public boolean isClosed(){
+        return isClosed;
     }
 
 

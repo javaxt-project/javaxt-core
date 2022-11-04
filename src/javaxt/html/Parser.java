@@ -1,5 +1,6 @@
 package javaxt.html;
 import java.util.ArrayList;
+import static javaxt.utils.Console.console;
 
 //******************************************************************************
 //**  HTML Parser
@@ -467,9 +468,9 @@ public class Parser {
         int len = s.length();
         for (int i=x; i<len; i++){
             char c = s.charAt(i);
+            char p = s.charAt(i-1);
 
-
-            if (isBlank(c) || i==len-1 || (c=='<' && s.charAt(i-1)=='>')){
+            if (isBlank(c) || i==len-1 || (c=='<' && p=='>') || (c=='-' && p=='>')){
 
                 if (start>-1){
                     String str = s.substring(start, i);
@@ -546,10 +547,18 @@ public class Parser {
                                         numTags++;
                                     }
                                 }
+                                else{
+
+
+                                    //Hacky solution for comments that end with ">-->"
+                                      if (tagName.equals("--") && tag.equals("-")){
+                                        foundMatch = true;
+                                        numTags--;
+                                      }
+                                }
 
                             }
                         }
-
 
 
 //                        console.log("tag2:", tag, numTags, foundMatch);
