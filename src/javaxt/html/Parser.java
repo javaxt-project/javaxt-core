@@ -366,84 +366,90 @@ public class Parser {
         if (s==null) return elements;
 
 
-        int start = -1;
+        boolean insideComment = false;
+        boolean insideQuote = false;
 
+
+        int start = 0;
 
         int len = s.length();
         for (int i=0; i<len; i++){
             char c = s.charAt(i);
+            if (c=='<'){
 
-
-            if (isBlank(c) || i==len-1){
-                if (start>-1){
-                    String str = s.substring(start, i);
-//                    console.log("str:",str);
-
-
-                    int idx = str.indexOf("<");
-                    if (idx>-1){
-                        int outerStart = start+idx;
-                        int outerEnd;
-
-                        String tag = s.substring(outerStart+1, i);
-
-
-                        int a = tag.indexOf("/>");
-                        int b = tag.indexOf(">");
-
-                        if (a==-1 && b==-1){
-                            outerEnd = findEndTag(tag, i, s);
+                if (!insideComment && !insideQuote){
+                    if (i+3<len-1){
+                        String str = s.substring(i, i+4);
+                        if (str.equals("<!--")){
+                            insideComment = true;
+                            i += 3;
+                            continue;
                         }
-                        else{
-                            if (a<b && a>-1){
-                                outerEnd = outerStart+1+a+2;
+                    }
+                }
+
+
+                if (!insideComment && !insideQuote){
+                    start = i;
+                }
+
+            }
+            else if (c=='>'){
+
+                if (insideComment && !insideQuote){
+                    String str = s.substring(i-2, i+1);
+                    if (str.equals("-->")){
+                        insideComment = false;
+                        continue;
+                    }
+                }
+
+                if (!insideComment && !insideQuote){
+
+
+                    int end = -1;
+                    char p = s.charAt(i-1);
+                    if (p=='/'){
+                        end = i+1;
+                    }
+                    else{
+                        try{
+                            String str = s.substring(start, i+1);
+                            Element el = new Element(str);
+                            end = findEndTag(el.getName(), i+1, s);
+                            if (end==-1){
+                                end = i+1;
                             }
                             else{
-                                tag = tag.substring(0, b);
-                                outerEnd = findEndTag(tag, outerStart+1+b+1, s);
+                                end++;
                             }
                         }
-
-
-                        if (outerEnd==-1){ //unclosed tag like <link ...>
-                            outerEnd = findGT(outerStart, s);
-                        }
-
-
-                        if (outerEnd>-1){
-
-                            String outerHTML = s.substring(outerStart, outerEnd);
-//                            System.out.println("---------------------");
-//                            System.out.println(outerHTML+"|");
-//                            System.out.println("---------------------");
-
-
-                            try{
-                                elements.add(new Element(outerHTML));
-                            }
-                            catch(Exception e){}
-
-
-                            i = outerEnd;
-                        }
-//                        System.out.println();
-
+                        catch(Exception e){} //shouldn't happen
                     }
 
 
-                    start = -1;
+                    if (end>-1){
+                        String str = s.substring(start, end);
+                        try{
+                            Element el = new Element(str);
+                            elements.add(el);
+                        }
+                        catch(Exception e){} //shouldn't happen
+
+                        i = end;
+                        start = i;
+                    }
+                    else{
+                        console.log("error finding end tag!");
+                    }
+
                 }
-
             }
-            else{
-                if (start==-1) start = i;
-
-                if (c=='"'){
-                    String quote = readQuote(s, i, c);
-                    i += (quote.length()-1);
+            else if (c=='"'){
+                if (!insideComment){
+                    insideQuote = !insideQuote;
                 }
             }
-
         }
 
         return elements;
@@ -457,133 +463,148 @@ public class Parser {
    */
     private static int findEndTag(String tagName, int x, String s){
 
-
-        if (tagName.startsWith("!")) tagName = tagName.substring(1);
-//        console.log("tagName:",tagName);
-
         int numTags = 1;
-
-
         int start = -1;
+
+        boolean insideComment = false;
+        boolean insideQuote = false;
+        boolean insideClosingTag = false;
+        ArrayList<Object[]> tags = new ArrayList<Object[]>();
+
         int len = s.length();
         for (int i=x; i<len; i++){
             char c = s.charAt(i);
-            char p = s.charAt(i-1);
+            if (c=='<'){
 
-            if (isBlank(c) || i==len-1 || (c=='<' && p=='>') || (c=='-' && p=='>')){
-
-                if (start>-1){
-                    String str = s.substring(start, i);
-                    //console.log("test:",str);
-
-
-                    int a1 = str.indexOf("/>");
-                    int b1 = str.indexOf("<");
-
-
-
-                    if (a1<b1 && a1>-1){ //found "/>"
-
+                if (!insideComment && !insideQuote){
+                    if (i+3<len-1){
+                        String str = s.substring(i, i+4);
+                        if (str.equals("<!--")){
+                            insideComment = true;
+                            i += 3;
+                            continue;
+                        }
                     }
-                    else{ //found "<"
-
-                        String tag = s.substring(start+b1+1, i);
-                        if (tag.startsWith("!")) tag = tag.substring(1);
-                        boolean foundMatch = false;
-
-                        int a = tag.indexOf("/>");
-                        int b = tag.indexOf(">");
-
-//console.log("tag:", tag, a, b);
+                }
 
 
-                        if (a==-1 && b==-1){ //tag doesn't end with a ">" (e.g. "<link ..." or "</link ...")
-                            if (tag.equals("/" + tagName)){
-                                foundMatch = true;
+                if (!insideComment && !insideQuote){
+
+                    if (i+1<len-1){
+                        char n = s.charAt(i+1);
+                        if (n=='/'){
+                            insideClosingTag = true;
+                        }
+                    }
+
+
+                    start = i;
+                }
+
+            }
+            else if (c=='>'){
+
+                if (insideComment && !insideQuote){
+                    String str = s.substring(i-2, i+1);
+                    if (str.equals("-->")){
+                        insideComment = false;
+                        continue;
+                    }
+                }
+
+                if (!insideComment && !insideQuote){
+
+
+                  //Get tag name
+                    String currTagName = "";
+                    try{
+                        String str;
+                        if (insideClosingTag){
+                            str = "<" + s.substring(start+2, i+1);
+                        }
+                        else{
+                            str = s.substring(start, i+1);
+                        }
+                        Element el = new Element(str);
+                        currTagName = el.getName();
+                        tags.add(new Object[]{currTagName, insideClosingTag, start, i});
+                    }
+                    catch(Exception e){} //shouldn't happen
+
+
+
+                  //Compare current tag to the target tag. If there's a match,
+                  //update the numTags
+                    if (currTagName.equals(tagName)){
+                        char p = s.charAt(i-1);
+                        if (p=='/'){
+                            //self enclosing tag, don't update the numTags
+                        }
+                        else{
+                            String t = s.substring(start, i+1);
+
+                            if (insideClosingTag){
                                 numTags--;
                             }
-                            else if (tag.equals(tagName)){
-                                foundMatch = true;
+                            else{
                                 numTags++;
                             }
                         }
-                        else{
-                            if (a<b && a>-1){ //found "/>"
-                                tag = tag.substring(0, a);
+                    }
 
 
-                                if (tag.equals(tagName)){ //found self enclosed tag without whitespaces (e.g. "<link/>")
-                                    foundMatch = true;
-                                    numTags--;
-                                }
-                                else{
-                                    String t = s.substring(start+b1, start+b1+1);
-                                    if (!t.equals("<")){
-//                                        console.log("Go back and find start of /> tag");
-//                                        tag = findStartTag(start+b1, s);
-//                                        if (tag.equals(tagName)){
-//                                            foundMatch = true;
-//                                            numTags--;
-//                                        }
-                                    }
-                                }
-                            }
-                            else{
-                                tag = tag.substring(0, b);
-
-
-                                if (tag.equals("/" + tagName)){
-                                    tag = tag.substring(1);
-                                    foundMatch = true;
-                                    numTags--;
-                                }
-                                else if (tag.equals(tagName)){
-                                    foundMatch = true;
-
-                                    if (tagName.equals("--")){
-                                        numTags--;
-                                    }
-                                    else{
-                                        numTags++;
-                                    }
-                                }
-                                else{
-
-
-                                    //Hacky solution for comments that end with ">-->"
-                                      if (tagName.equals("--") && tag.equals("-")){
-                                        foundMatch = true;
-                                        numTags--;
-                                      }
-                                }
-
-                            }
-                        }
-
-
-//                        console.log("tag2:", tag, numTags, foundMatch);
+                  //If numTags is 0, we have found the end!
+                    if (numTags==0) return i;
 
 
 
-                        if (foundMatch && numTags==0){
-                            if (i==len-1) return i+1;
-                            return i;
-                        }
-
+                  //Update insideClosingTag variable as needed
+                    if (insideClosingTag){
+                        insideClosingTag = false;
                     }
 
                 }
-                start = -1;
             }
-            else{
-                if (start==-1) start = i;
-
-                if (c=='"'){
-                    String quote = readQuote(s, i, c);
-                    i += (quote.length()-1);
+            else if (c=='"'){
+                if (!insideComment){
+                    insideQuote = !insideQuote;
                 }
             }
         }
+
+
+
+      //Special case for tags like this: <div><div id="1"></div>
+      //In Chrome and Firefox, this translates to: <div><div id="1"></div></div>
+      //In this case, we want to return the position of the end of: </div>
+        if (!tags.isEmpty()){
+            Object[] nextTag = tags.get(0);
+            String nextTagName = (String) nextTag[0];
+            boolean isClosingTag = (Boolean) nextTag[1];
+            if (nextTagName.equals(tagName) && !isClosingTag){
+
+                Object[] lastTag = null;
+                for (int i=1; i<tags.size(); i++){
+                    Object[] tag = tags.get(i);
+                    String name = (String) tag[0];
+                    if (name.equals(tagName)){
+                        lastTag = tag;
+                    }
+                    else {
+                        break;
+                    }
+                }
+
+                if (lastTag!=null){
+                    String lastTagName = (String) lastTag[0];
+                    isClosingTag = (Boolean) lastTag[1];
+                    if (lastTagName.equals(tagName) && isClosingTag){
+                        return (Integer) lastTag[3];
+                    }
+                }
+            }
+        }
+
 
         return -1;
     }
@@ -597,129 +618,45 @@ public class Parser {
    */
     protected static int findGT(int x, String s){
 
-        int numComments = 0;
+        boolean insideComment = false;
+        boolean insideQuote = false;
 
-        int start = -1;
         int len = s.length();
         for (int i=x; i<len; i++){
             char c = s.charAt(i);
+            if (c=='<'){
 
-
-            if (isBlank(c) || i==len-1){
-
-                if (start>-1){
-                    int end = i;
-                    String str = s.substring(start, end);
-                    //console.log("test:",str, numComments);
-
-
-
-                    int a = str.indexOf("-->");
-                    int b = str.indexOf("<!--");
-
-
-
-                    if (a==-1 && b==-1){ //did not find a "<!--" or "-->"
-
-                        int idx = str.indexOf(">");
-                        if (idx>-1 && numComments==0) return start+idx+1;
-
-                    }
-                    else if (a>-1 && b>-1){ //contains both "<!--" and "-->"
-
-                        if (a<b){ //found "-->"
-                            numComments--;
-                            i = start+a+3;
-                            start = i;
-                            continue;
-                        }
-                        else{ //found "<!--"
-                            numComments++;
-                            i = start+b+4;
-                            start = i;
-                            continue;
-                        }
-
-                    }
-                    else{
-
-                        if (a>-1 && a>b){ //found "-->"
-                            numComments--;
-                            i = start+a+3;
-                            start = i;
-                            continue;
-                        }
-
-                        if (b>-1 && b>a){ //found "<!--"
-                            numComments++;
-                            i = start+b+4;
-                            start = i;
-                            continue;
+                if (!insideComment && !insideQuote){
+                    if (i+3<len-1){
+                        String str = s.substring(i, i+4);
+                        if (str.equals("<!--")){
+                            insideComment = true;
+                            i += 3;
                         }
                     }
-
                 }
-                start = -1;
             }
-            else{
-                if (start==-1) start = i;
+            else if (c=='>'){
 
-                if (c=='"'){
-                    String quote = readQuote(s, i, c);
-                    i += (quote.length()-1);
+                if (insideComment && !insideQuote){
+                    String str = s.substring(i-2, i+1);
+                    if (str.equals("-->")){
+                        insideComment = false;
+                        continue;
+                    }
+                }
+
+                if (!insideComment && !insideQuote){
+                    return i;
+                }
+            }
+            else if (c=='"'){
+                if (!insideComment){
+                    insideQuote = !insideQuote;
                 }
             }
         }
 
         return -1;
-    }
-
-
-  //**************************************************************************
-  //** isBlank
-  //**************************************************************************
-  /** Returns true if the given char is a white space, tab or return
-   */
-    protected static boolean isBlank(char c){
-        if (c==' ') return true;
-        if (c=='\r') return true;
-        if (c=='\n') return true;
-        if (c=='\t') return true;
-        return false;
-    }
-
-
-  //**************************************************************************
-  //** readQuote
-  //**************************************************************************
-  /** Returns a string encapsulated by either a single or double quote,
-   *  starting at a given index
-   */
-    private static String readQuote(String s, int i, char t){
-
-        StringBuilder str = new StringBuilder();
-        str.append(s.charAt(i));
-        boolean escaped = false;
-        for (int x=i+1; x<s.length(); x++){
-            char q = s.charAt(x);
-            str.append(q);
-
-            if (q==t){
-                if (!escaped){
-                    break;
-                }
-                else{
-                    escaped = false;
-                }
-            }
-            else if (q=='\\'){
-                escaped = !escaped;
-            }
-            else{
-                escaped = false;
-            }
-        }
-
-        return str.toString();
     }
 }

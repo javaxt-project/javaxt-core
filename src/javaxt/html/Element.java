@@ -32,7 +32,7 @@ public class Element {
         int ws = -1;
         for (int z=0; z<outerHTML.length(); z++){
             char t = outerHTML.charAt(z);
-            if (Parser.isBlank(t)){
+            if (isWhitespace(t)){
                 ws = z+1;
                 break;
             }
@@ -42,28 +42,28 @@ public class Element {
       //Get position of the first ">" character
         int gt = Parser.findGT(0, outerHTML+" ");
         if (gt==-1) throw new Exception("Invalid or unsupported html"); //includes html comments
-
+        gt++;
 
 
       //Set nodeName and attributes
-        int endNodeName;
+        int endNode;
         if (ws==-1){
-            endNodeName = gt-1;
+            endNode = gt-1;
             attributes = "";
         }
         else{
             if (gt<ws){
-                endNodeName = gt-1;
+                endNode = gt-1;
                 attributes = "";
             }
             else{
-                endNodeName = ws;
-                attributes = outerHTML.substring(endNodeName, gt-1).trim();
+                endNode = ws;
+                attributes = outerHTML.substring(endNode, gt-1).trim();
                 if (attributes.endsWith("/")) attributes = attributes.substring(0, attributes.length()-1).trim();
             }
 
         }
-        nodeName = outerHTML.substring(1, endNodeName);
+        nodeName = outerHTML.substring(1, endNode);
         if (nodeName.endsWith("/")) nodeName = nodeName.substring(0, nodeName.length()-1);
         nodeName = nodeName.trim();
 
@@ -365,5 +365,19 @@ public class Element {
              }
         }
         return "";
+    }
+
+
+  //**************************************************************************
+  //** isWhitespace
+  //**************************************************************************
+  /** Returns true if the given char is a white space, tab or return
+   */
+    private static boolean isWhitespace(char c){
+        if (c==' ') return true;
+        if (c=='\r') return true;
+        if (c=='\n') return true;
+        if (c=='\t') return true;
+        return false;
     }
 }
