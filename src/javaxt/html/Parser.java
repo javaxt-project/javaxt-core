@@ -440,7 +440,7 @@ public class Parser {
                         start = i;
                     }
                     else{
-                        console.log("error finding end tag!");
+                        //console.log("error finding end tag!");
                     }
 
                 }
