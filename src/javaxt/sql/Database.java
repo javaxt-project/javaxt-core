@@ -362,6 +362,9 @@ public class Database implements Cloneable {
                 if (vendor.equals("SQLServer")){
                     database = ";databaseName=" + name;
                 }
+                else if (vendor.equals("Oracle")){
+                    database = ":" + name; //only tested with thin driver
+                }
                 else if (vendor.equals("Derby")){
                     database = ";databaseName=" + name;
                 }
@@ -387,6 +390,9 @@ public class Database implements Cloneable {
                 path = driver.getProtocol() + "Tds:";
             }
         }
+        else if (vendor.equals("Oracle")){
+            path = driver.getProtocol() + ":thin:@"; //only tested with thin driver
+        }
         else if (vendor.equals("Derby") || vendor.equals("SQLite")){
             path = driver.getProtocol();
         }
@@ -394,7 +400,7 @@ public class Database implements Cloneable {
 
 
       //Set properties
-        StringBuffer props = new StringBuffer();
+        StringBuilder props = new StringBuilder();
         if (properties!=null){
             java.util.Iterator it = properties.keySet().iterator();
             while (it.hasNext()){

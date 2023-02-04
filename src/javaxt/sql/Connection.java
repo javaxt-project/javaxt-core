@@ -204,7 +204,7 @@ public class Connection {
             public void run() {
                 while (rs.hasNext()){
                     try{
-                        yield(rs);
+                        this.yield(rs);
                     }
                     catch(InterruptedException e){
                         return;

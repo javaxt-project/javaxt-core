@@ -34,7 +34,10 @@ public class Java {
         }
         catch (Throwable t){
             try{
-                version = getVersion(java.lang.Runtime.version().toString());
+                version = getVersion(
+                    java.lang.Runtime.class.getMethod("version").invoke(null).toString());
+                
+                //version = getVersion(java.lang.Runtime.version().toString());
             }
             catch (Throwable t2){
                 version = -1;

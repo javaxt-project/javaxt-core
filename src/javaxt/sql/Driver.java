@@ -10,19 +10,20 @@ package javaxt.sql;
  ******************************************************************************/
 
 public class Driver {
-    
+
     private String vendor;
     private String driver;
     private String protocol;
     private java.sql.Driver Driver = null;
-    
-    
+
+
     /** Static list of drivers and corresponding metadata */
     private static Driver[] drivers = new Driver[]{
         new Driver("SQLServer","com.microsoft.sqlserver.jdbc.SQLServerDriver","jdbc:sqlserver"),
         new Driver("DB2","com.ibm.db2.jcc.DB2Driver","jdbc:db2"), //"COM.ibm.db2.jdbc.net.DB2Driver"
         new Driver("Sybase","com.sybase.jdbc3.jdbc.SybDriver","jdbc:sybase"),
         new Driver("PostgreSQL","org.postgresql.Driver","jdbc:postgresql"),
+        new Driver("Oracle", "oracle.jdbc.driver.OracleDriver", "jdbc:oracle"),
         new Driver("Derby","org.apache.derby.jdbc.EmbeddedDriver","jdbc:derby"),
         new Driver("SQLite","org.sqlite.JDBC","jdbc:sqlite"),
         new Driver("Microsoft Access","sun.jdbc.odbc.JdbcOdbcDriver","jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)}"),
@@ -41,7 +42,6 @@ public class Driver {
         new Driver("Daffodil", "in.co.daffodil.db.jdbc.DaffodilDBDriver", "jdbc:daffodil"),
         new Driver("daffodilDB", "in.co.daffodil.db.rmi.RmiDaffodilDBDriver", "jdbc:daffodilDB"),
         new Driver("JTDS", "net.sourceforge.jtds.jdbc.Driver", "jdbc:jtds"), //Open source JDBC 3.0 type 4 driver for Microsoft SQL Server and Sybase ASE
-        new Driver("Oracle", "oracle.jdbc.driver.OracleDriver", "jdbc:oracle"),
         new Driver("derby net", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby:net"),
         //new Driver("derby //", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby://"),
         new Driver("Firebird", "org.firebirdsql.jdbc.FBDriver", "jdbc:firebirdsql"),
@@ -206,7 +206,7 @@ public class Driver {
             if (driver.getClassName().equalsIgnoreCase(this.getClassName()) &&
                 driver.getProtocol().toLowerCase().startsWith(this.getProtocol()) &&
                 driver.getVendor().equalsIgnoreCase(this.getVendor())
-            ){ 
+            ){
                  return true;
             }
             else{
@@ -215,11 +215,11 @@ public class Driver {
         }
         else if(obj instanceof java.lang.String){
             String driverName = obj.toString();
-            
+
             //Fetch/update protocol to avoid NPE
             String protocol = this.getProtocol();
             if (protocol==null) protocol = "";
-            
+
             if (driverName.equalsIgnoreCase(this.getClassName()) ||
                 driverName.toLowerCase().startsWith(protocol.toLowerCase()) ||
                 driverName.equalsIgnoreCase(this.getVendor())
@@ -256,7 +256,7 @@ public class Driver {
                 e.printStackTrace();
             }
         }
-        
+
         return null;
     }
 
