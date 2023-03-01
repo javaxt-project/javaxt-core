@@ -52,6 +52,8 @@ public class Parser {
     public String getOrderByString(){ return (String)sql.get("ORDER BY"); }
     public String getGroupByString() { return (String)sql.get("GROUP BY"); }
     public String getHavingString() { return (String)sql.get("HAVING"); }
+    public String getOffsetString() { return (String)sql.get("OFFSET"); }
+    public String getLimitString() { return (String)sql.get("LIMIT"); }
 
 
   //**************************************************************************
@@ -349,18 +351,48 @@ public class Parser {
 
 
   //**************************************************************************
+  //** setOffset
+  //**************************************************************************
+  /** Used to update the offset clause in the SQL String. Returns an updated
+   *  SQL statement.
+   */
+    public String setOffset(Integer offset){
+        if (offset==null || offset<0){
+            sql.remove("OFFSET");
+        }
+        else{
+            sql.put("OFFSET", offset);
+        }
+        return this.toString();
+    }
+
+
+  //**************************************************************************
+  //** setLimit
+  //**************************************************************************
+  /** Used to update the limit clause in the SQL String. Returns an updated
+   *  SQL statement.
+   */
+    public String setLimit(Integer limit){
+        if (limit==null || limit<0){
+            sql.remove("LIMIT");
+        }
+        else{
+            sql.put("LIMIT", limit);
+        }
+        return this.toString();
+    }
+
+
+  //**************************************************************************
   //** toString
   //**************************************************************************
-  /**  Returns an sql String, including any updates */
-
+  /** Returns an sql String, including any updates
+   */
     public String toString() {
 
         String selectClause = this.getSelectString();
         String fromClause = this.getFromString();
-        String whereClause = this.getWhereString();
-        String orderByClause = this.getOrderByString();
-        String groupByClause = this.getGroupByString();
-        String havingClause = this.getHavingString();
 
         if (selectClause==null || fromClause==null){
             return null;
@@ -372,16 +404,28 @@ public class Parser {
             StringBuffer sql = new StringBuffer();
             sql.append("SELECT "); sql.append(selectClause);
             sql.append(" FROM "); sql.append(fromClause);
+
+            String whereClause = this.getWhereString();
             if (whereClause!=null) sql.append(" WHERE " + whereClause);
+
+            String orderByClause = this.getOrderByString();
             if (orderByClause!=null) sql.append(" ORDER BY " + orderByClause);
+
+            String groupByClause = this.getGroupByString();
             if (groupByClause!=null) sql.append(" GROUP BY " + groupByClause);
+
+            String havingClause = this.getHavingString();
             if (havingClause!=null) sql.append(" HAVING " + havingClause);
+
+            String offsetClause = this.getOffsetString();
+            if (offsetClause!=null) sql.append(" OFFSET " + offsetClause);
+
+            String limitClause = this.getLimitString();
+            if (limitClause!=null) sql.append(" LIMIT " + limitClause);
+
             return sql.toString();
         }
     }
-
-
-
 
 
   //**************************************************************************
