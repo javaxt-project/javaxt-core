@@ -445,7 +445,21 @@ public class Database implements Cloneable {
    */
     public void initConnectionPool() throws SQLException {
         if (connectionPool!=null) return;
-        connectionPool = new ConnectionPool(this, maxConnections);
+        initConnectionPool(new ConnectionPool(this, maxConnections));
+    }
+
+
+  //**************************************************************************
+  //** initConnectionPool
+  //**************************************************************************
+  /** Used to configure the Database class to use a specific instance of a
+   *  javaxt.sql.ConnectionPool. Subsequent called to the getConnection()
+   *  method will return connections from the pool.
+   *  @param cp An instance of a javaxt.sql.ConnectionPool.
+   */
+    public void initConnectionPool(ConnectionPool cp) throws SQLException {
+        if (connectionPool!=null) return;
+        connectionPool = cp;
 
       //Create Shutdown Hook to clean up the connection pool on exit
         Runtime.getRuntime().addShutdownHook(new Thread() {
