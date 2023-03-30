@@ -8,11 +8,11 @@ import java.util.Map.Entry;
 //**  JSONObject
 //******************************************************************************
 /**
- *   A JSON object is an unordered set of key/value pairs. The string
- *   representation of a JSON object is a widely-used standard format for
- *   exchanging data. The string begins with a left brace "{" and ends with a
- *   right brace "}". Each name is followed by colon ":" and the name/value
- *   pairs are separated by comma ",".
+ *   A JSON object consists key/value pairs. The string representation of a
+ *   JSON object is a widely-used standard format for exchanging data. The
+ *   string begins with a left brace "{" and ends with a right brace "}".
+ *   Keys and values are separated by colon ":". Each key/value pair is
+ *   separated by comma ",".
  *
  *   @author Source adapted from json.org (2016-08-15)
  *
@@ -242,36 +242,6 @@ public class JSONObject extends javaxt.utils.Record {
    */
     public JSONValue remove(String key) {
         return new JSONValue(super.remove(key).toObject());
-    }
-
-
-  //**************************************************************************
-  //** equals
-  //**************************************************************************
-  /** Returns true if the given object is a JSONObject and the JSONObject
-   *  contains the same key/value pairs. Note that the order of the key/value
-   *  pairs is not important.
-   */
-    public boolean equals(Object obj){
-        if (obj instanceof JSONObject){
-            JSONObject json = (JSONObject) obj;
-            if (json.length()==this.length()){
-
-                for (String key : this.keySet()){
-                    if (!json.has(key)) return false;
-                    Object val = this.get(key).toObject();
-                    Object val2 = json.get(key).toObject();
-                    if (val==null){
-                        if (val2!=null) return false;
-                    }
-                    else{
-                        if (!val.equals(val2)) return false;
-                    }
-                }
-                return true;
-            }
-        }
-        return false;
     }
 
 
