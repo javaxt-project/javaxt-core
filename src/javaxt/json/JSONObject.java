@@ -18,16 +18,14 @@ import java.util.Map.Entry;
  *
  ******************************************************************************/
 
-public class JSONObject {
-
-    private final java.util.LinkedHashMap<String, Object> map;
+public class JSONObject extends javaxt.utils.Record {
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
     public JSONObject() {
-        map = new java.util.LinkedHashMap<String, Object>();
+        super();
     }
 
 
@@ -42,7 +40,7 @@ public class JSONObject {
    *  </small>.
    */
     public JSONObject(String source) throws JSONException {
-        this();
+        super();
         if (source!=null) init(new JSONTokener(source));
     }
 
@@ -53,7 +51,7 @@ public class JSONObject {
   /** Construct a JSONObject from a JSONTokener.
    */
     protected JSONObject(JSONTokener source) throws JSONException {
-        this();
+        super();
         if (source!=null) init(source);
     }
 
@@ -87,14 +85,14 @@ public class JSONObject {
 
             if (key != null) {
                 // Check if key exists
-                if (map.get(key) != null) {
+                if (get(key).toObject() != null) {
                     // key already exists
                     //throw x.syntaxError("Duplicate key \"" + key + "\"");
                 }
                 // Only add value if non-null
                 Object value = x.nextValue();
                 if (value!=null) {
-                    put(key, value);
+                    set(key, value);
                 }
             }
 
@@ -113,6 +111,18 @@ public class JSONObject {
             default:
                 throw x.syntaxError("Expected a ',' or '}'");
             }
+        }
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Construct a JSONObject from a javaxt.utils.Record.
+   */
+    public JSONObject(javaxt.utils.Record record) throws JSONException {
+        for (String key : record.keySet()){
+            this.set(key, record.get(key));
         }
     }
 
@@ -141,7 +151,9 @@ public class JSONObject {
             json.set(node.getNodeName(), node.getTextContent());
         }
 
-        this.map = json.map;
+        for (String key : json.keySet()){
+            this.set(key, json.get(key));
+        }
     }
 
 
@@ -168,8 +180,7 @@ public class JSONObject {
   /** Returns the value associated with a key.
    */
     public JSONValue get(String key) {
-        if (key == null) return new JSONValue(null);
-        return new JSONValue(map.get(key));
+        return new JSONValue(super.get(key).toObject());
     }
 
 
@@ -195,76 +206,6 @@ public class JSONObject {
 
 
   //**************************************************************************
-  //** has
-  //**************************************************************************
-  /** Returns true if the key exists in the JSONObject.
-   */
-    public boolean has(String key) {
-        return this.map.containsKey(key);
-    }
-
-
-  //**************************************************************************
-  //** isNull
-  //**************************************************************************
-  /** Returns true if there is no value associated with the key.
-   */
-    public boolean isNull(String key) {
-        return map.get(key)==null;
-    }
-
-
-  //**************************************************************************
-  //** isEmpty
-  //**************************************************************************
-  /** Returns true if there are no entries in the JSONObject.
-   */
-    public boolean isEmpty(){
-        return map.isEmpty();
-    }
-
-
-  //**************************************************************************
-  //** keys
-  //**************************************************************************
-  /** Returns an enumeration of the keys of the JSONObject. Modifying this key
-   *  Set will also modify the JSONObject. Use with caution.
-   */
-    public java.util.Iterator<String> keys() {
-        return this.keySet().iterator();
-    }
-
-
-  //**************************************************************************
-  //** keySet
-  //**************************************************************************
-  /** Returns a set of keys of the JSONObject. Modifying this key Set will
-   *  also modify the JSONObject. Use with caution.
-   */
-    public java.util.Set<String> keySet() {
-        return this.map.keySet();
-    }
-
-
-  //**************************************************************************
-  //** entrySet
-  //**************************************************************************
-    private java.util.Set<Entry<String, Object>> entrySet() {
-        return this.map.entrySet();
-    }
-
-
-  //**************************************************************************
-  //** length
-  //**************************************************************************
-  /** Returns the number of keys in the JSONObject.
-   */
-    public int length() {
-        return this.map.size();
-    }
-
-
-  //**************************************************************************
   //** set
   //**************************************************************************
   /** Used to set the value for a given key.
@@ -279,48 +220,16 @@ public class JSONObject {
             String str = (String) value;
             str = str.trim();
             if (str.length()==0) str = null;
-            put(key, str);
+            value = str;
         }
-        else{
-
-            /*
-          //Test whether the value is supported
-            if (value instanceof JSONObject || value instanceof JSONArray ||
-                value instanceof Integer || value instanceof Long ||
-                value instanceof Double || value instanceof Float ||
-                value instanceof Boolean
-            ){
-                put(key, value);
-            }
-            else{
-                throw new JSONException("Unsupported value type for " + key);
-            }
-            */
-
-            put(key, value);
-        }
-    }
 
 
-  //**************************************************************************
-  //** put
-  //**************************************************************************
-  /** Put a key/value pair in the JSONObject. If the value is null, then the
-   *  key will be removed from the JSONObject if it is present.
-   *  @param key A key string.
-   *  @param value An object which is the value. It should be of one of these
-   *  types: Boolean, Double, Integer, JSONArray, JSONObject, Long, or String.
-   */
-    private void put(String key, Object value) throws JSONException {
-        if (key == null) {
-            throw new NullPointerException("Null key.");
-        }
         if (value!=null) {
             testValidity(value);
-            map.put(key, value);
+            super.set(key, value);
         }
         else {
-            map.remove(key);
+            super.remove(key);
         }
     }
 
@@ -331,8 +240,8 @@ public class JSONObject {
   /** Remove a name and its value, if present. Returns the value that was
    *  associated with the name, or null if there was no value.
    */
-    public Object remove(String key) {
-        return map.remove(key);
+    public JSONValue remove(String key) {
+        return new JSONValue(super.remove(key).toObject());
     }
 
 
@@ -340,27 +249,18 @@ public class JSONObject {
   //** equals
   //**************************************************************************
   /** Returns true if the given object is a JSONObject and the JSONObject
-   *  contains the same key/value pairs. The comparison is made by cloning
-   *  the two JSONObjects using the toString() method. Example:
-   *  JSONObject j1 = new JSONObject(this.toString());
-   *  Note that the order of the key/value pairs is not important.
+   *  contains the same key/value pairs. Note that the order of the key/value
+   *  pairs is not important.
    */
     public boolean equals(Object obj){
         if (obj instanceof JSONObject){
             JSONObject json = (JSONObject) obj;
             if (json.length()==this.length()){
 
-
-                JSONObject j1 = new JSONObject(this.toString());
-                JSONObject j2 = new JSONObject(json.toString());
-
-
-                java.util.Iterator<String> it = j1.keySet().iterator();
-                while (it.hasNext()){
-                    String key = it.next();
-                    if (!j2.has(key)) return false;
-                    Object val = j1.get(key).toObject();
-                    Object val2 = j2.get(key).toObject();
+                for (String key : this.keySet()){
+                    if (!json.has(key)) return false;
+                    Object val = this.get(key).toObject();
+                    Object val2 = json.get(key).toObject();
                     if (val==null){
                         if (val2!=null) return false;
                     }
@@ -382,7 +282,6 @@ public class JSONObject {
    *  added. If this would not result in a syntactically correct JSON text,
    *  then null will be returned instead.
    */
-    @Override
     public String toString() {
         try {
             return this.toString(0);
@@ -491,7 +390,7 @@ public class JSONObject {
             writer.write('{');
 
             if (length == 1) {
-            	final Entry<String,?> entry = this.entrySet().iterator().next();
+            	final Entry<String,?> entry = super.entrySet().iterator().next();
                 final String key = entry.getKey();
                 writer.write(quote(key));
                 writer.write(':');
