@@ -13,14 +13,13 @@ import javaxt.utils.Value;
  *   begins with a left square bracket "[" and ends with a right square bracket
  *   "]". Each object in the array is separated by comma ",".
  *
- *   @author json.org
- *   @version 2016-08-15
+ *   @author Source adapted from json.org (2016-08-15)
  *
  ******************************************************************************/
 
-public class JSONArray implements Iterable<Object> {
+public class JSONArray implements Iterable<JSONValue> {
 
-    private final java.util.ArrayList<Object> arr;
+    private final java.util.ArrayList<JSONValue> arr;
 
 
   //**************************************************************************
@@ -29,7 +28,7 @@ public class JSONArray implements Iterable<Object> {
   /** Used to create a new/empty array.
    */
     public JSONArray() {
-        arr = new java.util.ArrayList<Object>();
+        arr = new java.util.ArrayList<JSONValue>();
     }
 
 
@@ -65,7 +64,7 @@ public class JSONArray implements Iterable<Object> {
                     //arr.add(JSONObject.NULL);
                 } else {
                     x.back();
-                    arr.add(x.nextValue());
+                    add(x.nextValue());
                 }
                 switch (x.nextClean()) {
                 case 0:
@@ -96,7 +95,7 @@ public class JSONArray implements Iterable<Object> {
   //** iterator
   //**************************************************************************
     @Override
-    public java.util.Iterator<Object> iterator() {
+    public java.util.Iterator<JSONValue> iterator() {
         return arr.iterator();
     }
 
@@ -138,14 +137,25 @@ public class JSONArray implements Iterable<Object> {
    */
     public void add(Object object) throws JSONException {
 
-        if (object instanceof Value){
-            object = ((Value) object).toObject();
+        JSONValue v;
+        Object o;
+        if (object instanceof JSONValue){
+            v = (JSONValue) object;
+            o = v.toObject();
+        }
+        else if (object instanceof Value){
+            o = ((Value) object).toObject();
+            v = new JSONValue(object);
+        }
+        else{
+            o = object;
+            v = new JSONValue(object);
         }
 
 
-        JSONObject.testValidity(object);
+        JSONObject.testValidity(o);
 
-        arr.add(object);
+        arr.add(v);
     }
 
 
@@ -157,13 +167,24 @@ public class JSONArray implements Iterable<Object> {
    */
     public JSONValue set(int index, Object object){
 
-        if (object instanceof Value){
-            object = ((Value) object).toObject();
+        JSONValue v;
+        Object o;
+        if (object instanceof JSONValue){
+            v = (JSONValue) object;
+            o = v.toObject();
+        }
+        else if (object instanceof Value){
+            o = ((Value) object).toObject();
+            v = new JSONValue(object);
+        }
+        else{
+            o = object;
+            v = new JSONValue(object);
         }
 
-        JSONObject.testValidity(object);
+        JSONObject.testValidity(o);
 
-        Object obj = arr.set(index, object);
+        Object obj = arr.set(index, v);
         return new JSONValue(obj);
     }
 
@@ -259,7 +280,7 @@ public class JSONArray implements Iterable<Object> {
 
             if (length == 1) {
                 try {
-                    JSONObject.writeValue(writer, arr.get(0), indentFactor, indent);
+                    JSONObject.writeValue(writer, arr.get(0).toObject(), indentFactor, indent);
                 }
                 catch (Exception e) {
                     throw new JSONException("Unable to write JSONArray value at index: 0", e);
@@ -277,7 +298,7 @@ public class JSONArray implements Iterable<Object> {
                     }
                     JSONObject.indent(writer, newindent);
                     try {
-                        JSONObject.writeValue(writer, arr.get(i), indentFactor, newindent);
+                        JSONObject.writeValue(writer, arr.get(i).toObject(), indentFactor, newindent);
                     }
                     catch (Exception e) {
                         throw new JSONException("Unable to write JSONArray value at index: " + i, e);
