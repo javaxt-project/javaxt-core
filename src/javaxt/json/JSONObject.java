@@ -14,8 +14,7 @@ import java.util.Map.Entry;
  *   right brace "}". Each name is followed by colon ":" and the name/value
  *   pairs are separated by comma ",".
  *
- *   @author json.org
- *   @version 2016-08-15
+ *   @author Source adapted from json.org (2016-08-15)
  *
  ******************************************************************************/
 

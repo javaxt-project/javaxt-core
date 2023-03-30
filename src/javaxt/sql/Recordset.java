@@ -161,8 +161,8 @@ public class Recordset {
   //**************************************************************************
   //** isReadOnly
   //**************************************************************************
-  /** Returns true if records are read-only. */
-
+  /** Returns true if records are read-only.
+   */
     public boolean isReadOnly(){
         return isReadOnly;
     }
@@ -444,7 +444,7 @@ public class Recordset {
             if (rs!=null) rs.close();
             if (stmt!=null){
 
-              //PostgreSQL (possibly others) will continue executing a long
+              //Some databases (e.g. PostgreSQL) will continue executing a long
               //query even after closing the recordset. The only way to stop
               //a long-running query is to cancel the statement. Note that
               //cancelling a statement in SQLite calls sqlite3_interrupt()
@@ -505,8 +505,8 @@ public class Recordset {
   //**************************************************************************
   //** getDatabase
   //**************************************************************************
-  /**  Returns connection information to the database.   */
-
+  /**  Returns connection information to the database.
+   */
     public Database getDatabase(){
         return this.Connection.getDatabase();
     }
@@ -526,11 +526,12 @@ public class Recordset {
         if (fetchSize>0) this.fetchSize = fetchSize;
     }
 
+
   //**************************************************************************
   //** getConnection
   //**************************************************************************
- /**  Returns the JDBC Connection used to create/open the recordset.  */
-
+  /**  Returns the JDBC Connection used to create/open the recordset.
+   */
     public Connection getConnection(){
         return Connection;
     }
@@ -1228,6 +1229,7 @@ public class Recordset {
         }
     }
 
+    
   //**************************************************************************
   //** getValue
   //**************************************************************************
@@ -1311,8 +1313,8 @@ public class Recordset {
   //**************************************************************************
   //** SetValue
   //**************************************************************************
-  /** Set Value with an Object value.  */
-
+  /** Set Value with an Object value.
+   */
     public void setValue(String FieldName, Object FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
@@ -1320,44 +1322,48 @@ public class Recordset {
   //**************************************************************************
   //** SetValue
   //**************************************************************************
-  /**  Set Value with a Boolean value */
-
+  /**  Set Value with a Boolean value
+   */
     public void setValue(String FieldName, boolean FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
 
+
   //**************************************************************************
   //** SetValue
   //**************************************************************************
-  /**  Set Value with a Long value */
-
+  /**  Set Value with a Long value
+   */
     public void setValue(String FieldName, long FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
 
+
   //**************************************************************************
   //** SetValue
   //**************************************************************************
-  /**  Set Value with an Integer value */
-
+  /**  Set Value with an Integer value
+   */
     public void setValue(String FieldName, int FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
 
+
   //**************************************************************************
   //** SetValue
   //**************************************************************************
-  /**  Set Value with a Double value */
-
+  /**  Set Value with a Double value
+   */
     public void setValue(String FieldName, double FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
 
+
   //**************************************************************************
   //** SetValue
   //**************************************************************************
-  /**  Set Value with a Short value */
-
+  /**  Set Value with a Short value
+   */
     public void setValue(String FieldName, short FieldValue){
         setValue(FieldName, new Value(FieldValue));
     }
@@ -1374,10 +1380,10 @@ public class Recordset {
 
 
   //**************************************************************************
-  //** MoveNext
+  //** moveNext
   //**************************************************************************
-  /** Move the cursor to the next record in the recordset. */
-
+  /** Move the cursor to the next record in the recordset
+   */
     public boolean moveNext(){
 
         if (EOF == true) return false;
