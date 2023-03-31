@@ -6,11 +6,11 @@ import javaxt.utils.Generator;
 //**  Connection Class
 //******************************************************************************
 /**
- *   Used to connect to a database via JDBC
+ *   Used to open and close a connection to a database.
  *
  ******************************************************************************/
 
-public class Connection {
+public class Connection implements AutoCloseable {
 
 
     private java.sql.Connection Conn = null;
@@ -170,6 +170,7 @@ public class Connection {
   /** Used to close a connection to the database, freeing up connections
    */
     public void close(){
+        //System.out.println("Closing connection...");
         try{Conn.close();}
         catch(Exception e){
             //e.printStackTrace();
@@ -192,28 +193,37 @@ public class Connection {
         conn.close();
     </pre>
    */
-    public Generator<Recordset> getRecordset(String sql, boolean readOnly) throws SQLException {
+    public Generator<Recordset> getRecordset(final String sql, final boolean readOnly) throws SQLException {
 
-        final Recordset rs = new Recordset();
-        if (readOnly) rs.setFetchSize(1000);
-        rs.open(sql, this, readOnly);
+        final Connection conn = this;
+        try (Generator g = new Generator<Recordset>(){
+            private Recordset rs;
 
-
-        return new Generator<Recordset>() {
             @Override
-            public void run() {
-                while (rs.hasNext()){
-                    try{
+            public void run() throws InterruptedException {
+                rs = new Recordset();
+                if (readOnly) rs.setFetchSize(1000);
+                try{
+                    rs.open(sql, conn, readOnly);
+                    while (rs.next()){
                         this.yield(rs);
                     }
-                    catch(InterruptedException e){
-                        return;
-                    }
-                    rs.moveNext();
                 }
-                rs.close();
+                catch(Exception e){
+                    InterruptedException ex = new InterruptedException(e.getMessage());
+                    ex.setStackTrace(e.getStackTrace());
+                    throw ex;
+                }
             }
-        };
+
+            @Override
+            public void close() {
+                //System.out.println("Closing recordset...");
+                if (rs!=null) rs.close();
+            }
+        }){
+            return g;
+        }
     }
 
 
