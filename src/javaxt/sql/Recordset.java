@@ -18,6 +18,7 @@ public class Recordset {
     private java.sql.ResultSet rs = null;
     private java.sql.Statement stmt = null;
     private int x;
+    private int n;
     private boolean isReadOnly = true;
     private String sqlString = null;
 
@@ -388,6 +389,7 @@ public class Recordset {
   /** Used to initialize fields
    */
     private void init(){
+        n = 0;
         try{
 
           //Create Fields
@@ -1158,6 +1160,20 @@ public class Recordset {
 
 
   //**************************************************************************
+  //** getRecord
+  //**************************************************************************
+  /** Returns field names and values as a javaxt.utils.Record
+   */
+    public javaxt.utils.Record getRecord(){
+        javaxt.utils.Record record = new javaxt.utils.Record();
+        for (Field field : Fields){
+            record.set(field.getName(), field.getValue());
+        }
+        return record;
+    }
+
+
+  //**************************************************************************
   //** getFields
   //**************************************************************************
   /** Used to retrieve the an array of fields in the current record.
@@ -1229,7 +1245,7 @@ public class Recordset {
         }
     }
 
-    
+
   //**************************************************************************
   //** getValue
   //**************************************************************************
@@ -1380,9 +1396,47 @@ public class Recordset {
 
 
   //**************************************************************************
+  //** next
+  //**************************************************************************
+  /** Used to move the cursor to the next record in the recordset. This method
+   *  is used to scroll through records like this:
+   <pre>
+    rs.open(sql, conn);
+    while (rs.next()){
+
+      //Do something with the record. Example:
+        System.out.println(rs.getValue(0));
+    }
+    rs.close();
+   </pre>
+   *  This pattern is an alternative to the hasNext/moveNext flow.
+   */
+    public boolean next(){
+        n++;
+        if (x==0 && n==1) return true;
+        return moveNext();
+    }
+
+
+  //**************************************************************************
   //** moveNext
   //**************************************************************************
-  /** Move the cursor to the next record in the recordset
+  /** Used to move the cursor to the next record in the recordset. This method
+   *  is used along with the hasNext() method to scroll through records like
+   *  this:
+   <pre>
+    rs.open(sql, conn);
+    while (rs.hasNext()){
+
+      //Do something with the record
+        System.out.println(rs.getValue(0));
+
+      //Move the cursor to the next record
+        rs.moveNext();
+    }
+    rs.close();
+   </pre>
+   *  This pattern is an alternative to the flow described in the next() method.
    */
     public boolean moveNext(){
 
