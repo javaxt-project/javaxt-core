@@ -126,7 +126,7 @@ public class JSONArray implements Iterable<JSONValue> {
   /** Returns the object value associated with an index.
    */
     public JSONValue get(int index) {
-        return new JSONValue(opt(index));
+        return (index < 0 || index >= this.length()) ? new JSONValue(null) : arr.get(index);
     }
 
 
@@ -318,13 +318,4 @@ public class JSONArray implements Iterable<JSONValue> {
         }
     }
 
-
-  //**************************************************************************
-  //** opt
-  //**************************************************************************
-  /** Returns an object value, or null if there is no object at that index.
-   */
-    private Object opt(int index) {
-        return (index < 0 || index >= this.length()) ? null : arr.get(index);
-    }
 }
