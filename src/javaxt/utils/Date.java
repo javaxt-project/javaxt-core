@@ -235,47 +235,49 @@ public class Date implements Comparable {
   /** Used to update the current date using a date string. The format parameter
    *  is used to create a SimpleDateFormat to parse the input date string.
    */
-    public void setDate(String date, String format) throws ParseException {
+    public javaxt.utils.Date setDate(String date, String format) throws ParseException {
         currDate = parseDate(date, format);
+        return this;
     }
 
 
   //**************************************************************************
   //** setDate
   //**************************************************************************
-  /**  Used to update the current date using a predefined java.util.Date */
-
-    public void setDate(java.util.Date date){
+  /** Used to update the current date using a predefined java.util.Date
+   */
+    public javaxt.utils.Date setDate(java.util.Date date){
         currDate = date;
+        return this;
     }
 
 
   //**************************************************************************
   //** setLocale
   //**************************************************************************
-  /**  Used to update the current local */
-
-    public void setLocale(Locale locale){
+  /** Used to update the current local
+   */
+    public javaxt.utils.Date setLocale(Locale locale){
         this.currentLocale = locale;
+        return this;
     }
-
 
 
   //**************************************************************************
   //** getLocale
   //**************************************************************************
-  /**  Used to retrieve the current local */
-
+  /** Returns the current local
+   */
     public Locale getLocale(){
         return currentLocale;
     }
 
 
   //**************************************************************************
-  //** ParseDate
+  //** parseDate
   //**************************************************************************
-  /**  Attempts to convert a String to a Date via the user-supplied Format */
-
+  /** Attempts to convert a String to a Date via the user-supplied Format
+   */
     private java.util.Date parseDate(String date, String format) throws ParseException {
         if (date!=null){
             date = date.trim();
@@ -350,8 +352,8 @@ public class Date implements Comparable {
    *  updated to 8PM. The preserveTimeStamp flag allows users to preserve the
    *  the timestamp so that the timestamp remains fixed at 4PM.
    */
-    public void setTimeZone(String timeZone, boolean preserveTimeStamp){
-        setTimeZone(getTimeZone(timeZone), preserveTimeStamp);
+    public javaxt.utils.Date setTimeZone(String timeZone, boolean preserveTimeStamp){
+        return setTimeZone(getTimeZone(timeZone), preserveTimeStamp);
     }
 
 
@@ -368,9 +370,9 @@ public class Date implements Comparable {
    *  updated to 8PM. The preserveTimeStamp flag allows users to preserve the
    *  the timestamp so that the timestamp remains fixed at 4PM.
    */
-    public void setTimeZone(java.util.TimeZone timeZone, boolean preserveTimeStamp){
+    public javaxt.utils.Date setTimeZone(java.util.TimeZone timeZone, boolean preserveTimeStamp){
 
-        if (timeZone==null) return;
+        if (timeZone==null) return this;
 
 
         if (preserveTimeStamp){
@@ -388,6 +390,8 @@ public class Date implements Comparable {
 
       //Do this last! Otherwise the getHour(), getMinute(), etc will be off...
         this.timeZone = timeZone;
+
+        return this;
     }
 
 
@@ -398,8 +402,8 @@ public class Date implements Comparable {
    *  and formatting dates.
    *  @param timeZone Name of the time zone (e.g. "UTC", "EST", etc.)
    */
-    public void setTimeZone(String timeZone){
-        setTimeZone(timeZone, false);
+    public javaxt.utils.Date setTimeZone(String timeZone){
+        return setTimeZone(timeZone, false);
     }
 
 
@@ -409,8 +413,8 @@ public class Date implements Comparable {
   /** Used to set the current time zone. The time zone is used when comparing
    *  and formatting dates.
    */
-    public void setTimeZone(java.util.TimeZone timeZone){
-        setTimeZone(timeZone, false);
+    public javaxt.utils.Date setTimeZone(java.util.TimeZone timeZone){
+        return setTimeZone(timeZone, false);
     }
 
 
@@ -676,7 +680,7 @@ public class Date implements Comparable {
    *  @param units Unit of measure (e.g. hours, minutes, seconds, days, weeks,
    *  months, years, etc.)
    */
-    public java.util.Date add(int amount, String units){
+    public javaxt.utils.Date add(int amount, String units){
 
         Calendar cal = getCalendar();
 
@@ -707,7 +711,7 @@ public class Date implements Comparable {
         }
         cal.add(div, amount);
         currDate = cal.getTime();
-        return currDate;
+        return this;
     }
 
   //**************************************************************************
@@ -717,7 +721,7 @@ public class Date implements Comparable {
    *  @param month Valid range is 1-12
    *  @param day Valid range is 1-31
    */
-    public java.util.Date setDate(int year, int month, int day){
+    public javaxt.utils.Date setDate(int year, int month, int day){
         Calendar cal = getCalendar();
 
         cal.set(Calendar.YEAR, year);
@@ -725,7 +729,7 @@ public class Date implements Comparable {
         cal.set(Calendar.DAY_OF_MONTH, day);
 
         currDate = cal.getTime();
-        return currDate;
+        return this;
     }
 
   //**************************************************************************
@@ -734,7 +738,7 @@ public class Date implements Comparable {
   /** Used to update the hours, minutes, seconds, and milliseconds of the
    *  current date.
    */
-    public java.util.Date setTime(int hours, int minutes, int seconds, int milliseconds){
+    public javaxt.utils.Date setTime(int hours, int minutes, int seconds, int milliseconds){
         Calendar cal = getCalendar();
 
         cal.set(Calendar.HOUR_OF_DAY, hours);
@@ -743,15 +747,15 @@ public class Date implements Comparable {
         cal.set(Calendar.MILLISECOND, milliseconds);
 
         currDate = cal.getTime();
-        return currDate;
+        return this;
     }
 
 
   //**************************************************************************
   //** getDate
   //**************************************************************************
-  /**  Returns the java.utils.Date representation of this object */
-
+  /** Returns the java.utils.Date representation of this object
+   */
     public java.util.Date getDate(){
         return currDate;
     }
@@ -933,8 +937,9 @@ public class Date implements Comparable {
   //**************************************************************************
   /** Updates the date by removing the timestamp
    */
-    public void removeTimeStamp(){
+    public javaxt.utils.Date removeTimeStamp(){
         currDate = getShortDate().currDate;
+        return this;
     }
 
 

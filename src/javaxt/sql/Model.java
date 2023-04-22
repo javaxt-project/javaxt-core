@@ -161,9 +161,10 @@ public abstract class Model {
    *  to a field. For example, "ST_AsText(coordinate) as coordinate".
    *  @deprecated This method will be removed in a future release.
    */
-    protected final void init(long id, String...fieldNames) throws SQLException {
+    private final void init(long id, String...fieldNames) throws SQLException {
 
 
+      //Compile query
         StringBuilder sql = new StringBuilder("select ");
         boolean addID = true;
         for (int i=0; i<fieldNames.length; i++){
@@ -178,14 +179,14 @@ public abstract class Model {
         sql.append(" where id=");
 
 
+      //Execute query
+        PreparedStatement stmt = null;
+        String query = sql.toString() + "?";
         try{
 
-          //Execute query using a prepared statement
+          //Get or create prepared statement
             synchronized(sqlCache){
-
-              //Get or create a prepared statement from the sql cache
-                String query = sql.toString() + "?";
-                PreparedStatement stmt = sqlCache.get(query);
+                stmt = sqlCache.get(query);
                 if (stmt==null){
                     Connection conn = getConnection(this.getClass());
                     stmt = conn.getConnection().prepareStatement(query);
@@ -194,21 +195,21 @@ public abstract class Model {
 
                     //TODO: Launch thread to close idle connections
                 }
-
-
-              //Execute prepared statement
-                stmt.setLong(1, id);
-                java.sql.ResultSet rs = stmt.executeQuery();
-                if (!rs.next()){
-                    rs.close();
-                    throw new IllegalArgumentException();
-                }
-
-                update(rs);
-                this.id = id;
-
-                rs.close();
             }
+
+
+          //Execute prepared statement
+            stmt.setLong(1, id);
+            java.sql.ResultSet rs = stmt.executeQuery();
+            if (!rs.next()){
+                rs.close();
+                throw new IllegalArgumentException();
+            }
+
+            update(rs);
+            this.id = id;
+
+            rs.close();
 
         }
         catch(IllegalArgumentException e){
@@ -217,13 +218,21 @@ public abstract class Model {
         catch(Exception e){
 
 
+            if (stmt!=null && stmt.getConnection().isClosed()){
+                synchronized(sqlCache){
+                    sqlCache.remove(query);
+                    sqlCache.notifyAll();
+                }
+            }
+
+
           //Execute query without a prepared statement
             Connection conn = null;
             try{
                 conn = getConnection(this.getClass());
 
                 Recordset rs = new Recordset();
-                String query = sql.toString() + id;
+                query = sql.toString() + id;
                 rs.open(query, conn);
                 if (rs.EOF){
                     rs.close();
@@ -278,7 +287,7 @@ public abstract class Model {
 
 
       //Identify and remove fields that we do not want to update in the database
-        ArrayList<java.lang.reflect.Field> arr = new ArrayList<java.lang.reflect.Field>();
+        ArrayList<java.lang.reflect.Field> arr = new ArrayList<>();
         it = fields.keySet().iterator();
         while (it.hasNext()){
             java.lang.reflect.Field f = it.next();
@@ -468,7 +477,17 @@ public abstract class Model {
                     stmt.executeUpdate();
                 }
                 catch(SQLException e){
-                    throw Exception("Failed to save " + className + ". " + e.getMessage(), e);
+
+                    if (stmt!=null && stmt.getConnection().isClosed()){
+                        synchronized(insertStatements){
+                            insertStatements.remove(className);
+                            insertStatements.notifyAll();
+                        }
+                        save();
+                    }
+                    else{
+                        throw Exception("Failed to save " + className + ". " + e.getMessage(), e);
+                    }
                 }
 
 
