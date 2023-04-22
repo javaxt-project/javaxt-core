@@ -7,7 +7,7 @@ import java.util.*;
 //**  Connection Class
 //******************************************************************************
 /**
- *   Used to open and close a connection to a database.
+ *   Used to open and close a connection to a database and execute queries.
  *
  ******************************************************************************/
 
@@ -106,7 +106,6 @@ public class Connection implements AutoCloseable {
 
         long startTime = System.currentTimeMillis();
         this.database = database;
-        boolean isClosed = true;
 
 
       //Load JDBC Driver
@@ -131,11 +130,11 @@ public class Connection implements AutoCloseable {
         Conn = Driver.connect(url, properties);
 
 
-        isClosed = Conn.isClosed();
+        boolean isClosed = Conn.isClosed();
 
 
-        long endTime = System.currentTimeMillis();
-        Speed = endTime-startTime;
+
+        Speed = System.currentTimeMillis()-startTime;
         return isClosed;
     }
 
@@ -263,11 +262,15 @@ public class Connection implements AutoCloseable {
    *  Example:
    <pre>
     try (javaxt.sql.Connection conn = db.getConnection()){
-        for (Recordset rs : conn.getRecordset("select * from contacts",
+        for (Recordset rs : conn.getRecordset(
+
+            "select * from contacts",
+
             new HashMap&lt;String, Object&gt;() {{
                 put("readOnly", true);
                 put("fetchSize", 1000);
-            }}))
+            }}
+        ))
         {
 
             System.out.println(rs.getValue("first_name") + " " + rs.getValue("last_name"));
