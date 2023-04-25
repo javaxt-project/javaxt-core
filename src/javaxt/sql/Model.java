@@ -22,34 +22,24 @@ public abstract class Model {
     private String[] keywords;
 
     private static ConcurrentHashMap<String, PreparedStatement>
-    sqlCache = new ConcurrentHashMap<String, PreparedStatement>();
+    sqlCache = new ConcurrentHashMap<>();
 
     private static ConcurrentHashMap<String, PreparedStatement>
-    insertStatements = new ConcurrentHashMap<String, PreparedStatement>();
+    insertStatements = new ConcurrentHashMap<>();
 
     private static ConcurrentHashMap<String, ConnectionPool>
-    connPool = new ConcurrentHashMap<String, ConnectionPool>();
+    connPool = new ConcurrentHashMap<>();
 
     private static ConcurrentHashMap<String, String[]>
-    reservedKeywords = new ConcurrentHashMap<String, String[]>();
+    reservedKeywords = new ConcurrentHashMap<>();
 
     private static ConcurrentHashMap<String, Field[]>
-    fields = new ConcurrentHashMap<String, Field[]>();
+    fields = new ConcurrentHashMap<>();
 
     private static ConcurrentHashMap<String, String[]>
-    tables = new ConcurrentHashMap<String, String[]>();
+    tables = new ConcurrentHashMap<>();
 
 
-  //**************************************************************************
-  //** Constructor
-  //**************************************************************************
-  /** Legacy constructor. Relies on the init(long id, String...fieldNames)
-   *  method when initializing the model using a record in the database.
-   *  @deprecated This constructor will be removed in a future release.
-   */
-    protected Model(String tableName){
-        this(tableName, null);
-    }
 
   //**************************************************************************
   //** Constructor
@@ -88,7 +78,7 @@ public abstract class Model {
 
 
       //Set fieldMap
-        this.fieldMap = new HashMap<String, String>();
+        this.fieldMap = new HashMap<>();
         Iterator<String> it = fieldMap.keySet().iterator();
         while (it.hasNext()){
             String key = it.next();
@@ -122,7 +112,9 @@ public abstract class Model {
    */
     protected final void init(long id) throws SQLException {
 
-        ArrayList<String> fieldNames = new ArrayList<String>();
+
+      //Generate a list of fields names
+        ArrayList<String> fieldNames = new ArrayList<>();
         for (java.lang.reflect.Field f : this.getClass().getDeclaredFields()){
             String fieldName = f.getName();
             String columnName = fieldMap.get(fieldName);
@@ -145,31 +137,14 @@ public abstract class Model {
                 }
             }
         }
-        init(id, fieldNames.toArray(new String[fieldNames.size()]));
-    }
-
-
-  //**************************************************************************
-  //** init
-  //**************************************************************************
-  /** Used to initialize the model using a record in the database.
-   *  @param id Primary key in the database table associated with this model.
-   *  @param fieldNames A comma-delimited list of column names found in the
-   *  database table that backs this model. The column names will be used in
-   *  a select statement to populate the fields in the model. The column names
-   *  may include SQL functions in which case there must be an alias that maps
-   *  to a field. For example, "ST_AsText(coordinate) as coordinate".
-   *  @deprecated This method will be removed in a future release.
-   */
-    private final void init(long id, String...fieldNames) throws SQLException {
 
 
       //Compile query
         StringBuilder sql = new StringBuilder("select ");
         boolean addID = true;
-        for (int i=0; i<fieldNames.length; i++){
+        for (int i=0; i<fieldNames.size(); i++){
             if (i>0) sql.append(", ");
-            String fieldName = fieldNames[i];
+            String fieldName = fieldNames.get(i);
             if (fieldName.equalsIgnoreCase("id")) addID = false;
             sql.append(escape(fieldName));
         }
@@ -179,38 +154,44 @@ public abstract class Model {
         sql.append(" where id=");
 
 
-      //Execute query
+      //Execute query using a PreparedStatement stored in the sqlCache. Note
+      //that PreparedStatements are not thread-safe and we are only caching one
+      //PreparedStatement per model. As a result, we can only execute one
+      //query at a time. In the future, we could add an option to allow users
+      //to specify the number of PreparedStatement per model.
         PreparedStatement stmt = null;
         String query = sql.toString() + "?";
         try{
-
-          //Get or create prepared statement
             synchronized(sqlCache){
+
+              //Get or create prepared statement
                 stmt = sqlCache.get(query);
                 if (stmt==null){
                     Connection conn = getConnection(this.getClass());
                     stmt = conn.getConnection().prepareStatement(query);
                     sqlCache.put(query, stmt);
                     sqlCache.notify();
-
-                    //TODO: Launch thread to close idle connections
                 }
-            }
 
 
-          //Execute prepared statement
-            stmt.setLong(1, id);
-            java.sql.ResultSet rs = stmt.executeQuery();
-            if (!rs.next()){
+              //Execute prepared statement
+                stmt.setLong(1, id);
+                java.sql.ResultSet rs = stmt.executeQuery();
+                if (!rs.next()){
+                    rs.close();
+                    throw new IllegalArgumentException();
+                }
+
+
+              //Update model attributes
+                update(rs);
+                this.id = id;
+
+
+              //Close recordset
                 rs.close();
-                throw new IllegalArgumentException();
+
             }
-
-            update(rs);
-            this.id = id;
-
-            rs.close();
-
         }
         catch(IllegalArgumentException e){
             throw new SQLException(modelName + " not found");
@@ -219,14 +200,25 @@ public abstract class Model {
 
 
             if (stmt!=null && stmt.getConnection().isClosed()){
+
+              //Remove the statement from the cache
                 synchronized(sqlCache){
                     sqlCache.remove(query);
                     sqlCache.notifyAll();
                 }
+
+
+              //Try closing the statement
+                try{stmt.close();}catch(Exception ex){}
+
+
+              //Call this method again
+                init(id);
+                return;
             }
 
 
-          //Execute query without a prepared statement
+          //If we're still here, execute query without a prepared statement
             Connection conn = null;
             try{
                 conn = getConnection(this.getClass());
@@ -294,7 +286,7 @@ public abstract class Model {
             String fieldName = f.getName();
             Class fieldType = f.getType();
 
-            if (fieldType.equals(java.util.ArrayList.class)){
+            if (fieldType.equals(ArrayList.class)){
                 arr.add(f);
             }
 
@@ -343,7 +335,7 @@ public abstract class Model {
 
 
           //Generate list of database fields for insert
-            ArrayList<Field> updates = new ArrayList<Field>();
+            ArrayList<Field> updates = new ArrayList<>();
             it = fields.keySet().iterator();
             while (it.hasNext()){
                 java.lang.reflect.Field f = it.next();
@@ -576,7 +568,7 @@ public abstract class Model {
    */
     private SQLException Exception(String err, SQLException e){
         SQLException ex = new SQLException(err);
-        ArrayList<StackTraceElement> stackTrace = new ArrayList<StackTraceElement>();
+        ArrayList<StackTraceElement> stackTrace = new ArrayList<>();
         boolean addElement = false;
         StackTraceElement[] arr = ex.getStackTrace();
         for (int i=2; i<arr.length; i++){
@@ -610,8 +602,8 @@ public abstract class Model {
 
               //Check if the val is a Model or an array of Models. If so,
               //convert the val to JSON
-                if (val instanceof java.util.ArrayList){
-                    java.util.ArrayList list = (java.util.ArrayList) val;
+                if (val instanceof ArrayList){
+                    ArrayList list = (ArrayList) val;
                     if (!list.isEmpty()){
                         Class c = list.get(0).getClass();
                         if (javaxt.sql.Model.class.isAssignableFrom(c)){
@@ -733,7 +725,7 @@ public abstract class Model {
 
 
       //Execute query
-        java.util.ArrayList<Long> ids = new java.util.ArrayList<Long>();
+        ArrayList<Long> ids = new ArrayList<>();
         Connection conn = null;
         try{
             conn = getConnection(c);
@@ -754,7 +746,7 @@ public abstract class Model {
 
       //Return model
         if (!ids.isEmpty()){
-            java.util.ArrayList arr = new java.util.ArrayList(ids.size());
+            ArrayList arr = new ArrayList(ids.size());
             for (long id : ids){
                 try{
                     arr.add(c.getConstructor(long.class).newInstance(id));
@@ -861,7 +853,16 @@ public abstract class Model {
    */
     public static void init(Class c, ConnectionPool connectionPool) throws SQLException {
 
+
+      //Check if class is a model
+        if (!Model.class.isAssignableFrom(c)){
+            throw new IllegalArgumentException();
+        }
+
+
+      //Get class name
         String className = c.getName();
+
 
       //Associate model with the connection pool
         synchronized(connPool){
@@ -1025,8 +1026,7 @@ public abstract class Model {
   /** Returns a list of private fields in the class and any associated values.
    */
     private LinkedHashMap<java.lang.reflect.Field, Object> getFields(){
-        LinkedHashMap<java.lang.reflect.Field, Object> fields =
-        new LinkedHashMap<java.lang.reflect.Field, Object>();
+        LinkedHashMap<java.lang.reflect.Field, Object> fields = new LinkedHashMap<>();
         for (java.lang.reflect.Field f : this.getClass().getDeclaredFields()){
             String fieldName = f.getName();
             if (fieldMap.containsKey(fieldName)){
