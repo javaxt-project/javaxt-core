@@ -44,11 +44,9 @@ public class Recordset {
     public boolean EOF = false;
 
    /**
-    * An array of fields. Each field contains information about a column in a
-    * Recordset object. There is one Field object for each column in the
-    * Recordset.
+    * Current record in the Recordset
     */
-    private Field[] Fields = null;
+    private Record record;
 
 
    /**
@@ -93,7 +91,7 @@ public class Recordset {
     private static AtomicBoolean shuttingDown = new AtomicBoolean(false);
     private static final Thread shutdownHook = getShutdownHook();
     private static final ConcurrentHashMap<String, Recordset> queries =
-    new ConcurrentHashMap<String, Recordset>();
+    new ConcurrentHashMap<>();
 
 
   //**************************************************************************
@@ -395,10 +393,11 @@ public class Recordset {
           //Create Fields
             java.sql.ResultSetMetaData rsmd = rs.getMetaData();
             int cols = rsmd.getColumnCount();
-            Fields = new Field[cols];
+            Field[] fields = new Field[cols];
             for (int i=1; i<=cols; i++) {
-                 Fields[i-1] = new Field(i, rsmd);
+                fields[i-1] = new Field(i, rsmd);
             }
+            this.record = new Record(fields);
             rsmd = null;
 
             x=-1;
@@ -408,7 +407,7 @@ public class Recordset {
 
                     EOF = false;
                     for (int i=1; i<=cols; i++) {
-                         Fields[i-1].Value = new Value(rs.getObject(i));
+                        fields[i-1].Value = new Value(rs.getObject(i));
                     }
                     x+=1;
                 }
@@ -490,13 +489,7 @@ public class Recordset {
         sqlString = null;
         keys.clear();
 
-        if (Fields!=null){
-            for (Field f : Fields){
-                f.clear();
-                f = null;
-            }
-            Fields = null;
-        }
+        if (record!=null) record.clear();
 
         endTime = System.currentTimeMillis();
         EllapsedTime = endTime-startTime;
@@ -568,11 +561,7 @@ public class Recordset {
     public void addNew(){
         if (State==1){
             InsertOnUpdate = true;
-            for (int i=1; i<=Fields.length; i++) {
-                Field Field = Fields[i-1];
-                Field.Value = null;
-                Field.RequiresUpdate = false;
-            }
+            record.update(null);
         }
     }
 
@@ -592,25 +581,26 @@ public class Recordset {
 
 
       //Generate list of fields that require updates
-        java.util.ArrayList<Field> fields = new java.util.ArrayList<Field>();
-        for (Field field : Fields){
+        java.util.ArrayList<Field> fields = new java.util.ArrayList<>();
+        for (Field field : record.fields){
             if (field.getName()!=null && field.RequiresUpdate) fields.add(field);
         }
         int numUpdates = fields.size();
 
 
       //Get table name
-        String tableName = Fields[0].getTable();
-        String schemaName = Fields[0].getSchema();
+        Field f = record.getField(0);
+        String tableName = f.getTable();
+        String schemaName = f.getSchema();
         if (tableName==null){
             updateFields();
-            tableName = Fields[0].getTable();
-            schemaName = Fields[0].getSchema();
+            tableName = f.getTable();
+            schemaName = f.getSchema();
         }
         else{
             if (schemaName==null){
                 updateFields();
-                schemaName = Fields[0].getSchema();
+                schemaName = f.getSchema();
             }
         }
         //if (tableName.contains(" ")) tableName = "[" + tableName + "]";
@@ -656,7 +646,7 @@ public class Recordset {
                 try{
                     java.sql.Connection Conn = Connection.getConnection();
                     java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
-                    java.sql.ResultSet r2 = dbmd.getTables(null,null,Fields[0].getTable(),new String[]{"TABLE"});
+                    java.sql.ResultSet r2 = dbmd.getTables(null,null,f.getTable(),new String[]{"TABLE"});
                     if (r2.next()) {
                         Table table = new Table(r2, dbmd);
                         Key[] arr = table.getPrimaryKeys();
@@ -1162,13 +1152,9 @@ public class Recordset {
   //**************************************************************************
   //** getRecord
   //**************************************************************************
-  /** Returns field names and values as a javaxt.utils.Record
+  /** Returns field names and values as a javaxt.sql.Record
    */
-    public javaxt.utils.Record getRecord(){
-        javaxt.utils.Record record = new javaxt.utils.Record();
-        for (Field field : Fields){
-            record.set(field.getName(), field.getValue());
-        }
+    public javaxt.sql.Record getRecord(){
         return record;
     }
 
@@ -1179,12 +1165,8 @@ public class Recordset {
   /** Used to retrieve the an array of fields in the current record.
    */
     public Field[] getFields(){
-        Field[] arr = new Field[Fields.length];
-        for (int i=0; i<arr.length; i++){
-            arr[i] = Fields[i].clone();
-            arr[i].Value = Fields[i].Value;
-        }
-        return arr;
+        if (record==null) return new Field[0];
+        return record.getFields();
     }
 
 
@@ -1195,38 +1177,8 @@ public class Recordset {
    *  field name is not found.
    */
     public Field getField(String FieldName){
-        if (Fields==null || Fields.length==0) return null;
-
-        if (FieldName==null) return null;
-        FieldName = FieldName.trim();
-        if (FieldName.length()==0) return null;
-
-        String[] arr = FieldName.split("\\.");
-
-        for (Field field : Fields) {
-
-            String fieldName = field.getName();
-            if (fieldName==null) continue;
-
-            String tableName = field.getTable()==null? "" : field.getTable();
-            String schemaName = field.getSchema()==null? "" : field.getSchema();
-
-            if (arr.length==3){
-                 if (fieldName.equalsIgnoreCase(arr[2]) && tableName.equalsIgnoreCase(arr[1]) && schemaName.equalsIgnoreCase(arr[0])){
-                     return field;
-                 }
-            }
-            else if (arr.length==2){
-                if (fieldName.equalsIgnoreCase(arr[1]) && tableName.equalsIgnoreCase(arr[0])){
-                     return field;
-                }
-            }
-            else if (arr.length==1){
-                if (fieldName.equalsIgnoreCase(arr[0])) return field;
-            }
-        }
-
-        return null;
+        if (record==null) return null;
+        return record.getField(FieldName);
     }
 
 
@@ -1237,12 +1189,8 @@ public class Recordset {
    *  index is out of range.
    */
     public Field getField(int i){
-        if (Fields!=null && i<Fields.length){
-            return Fields[i];
-        }
-        else{
-            return null;
-        }
+        if (record==null) return null;
+        return record.getField(i);
     }
 
 
@@ -1255,9 +1203,8 @@ public class Recordset {
    *  the value is null.
    */
     public Value getValue(String FieldName){
-        Field field = getField(FieldName);
-        if (field!=null) return field.getValue();
-        return new Value(null);
+        if (record==null) return new Value(null);
+        return record.get(FieldName);
     }
 
 
@@ -1270,10 +1217,8 @@ public class Recordset {
    *  the value is null.
    */
     public Value getValue(int i){
-        if (Fields!=null && i<Fields.length){
-            return Fields[i].getValue();
-        }
-        return new Value(null);
+        if (record==null) return new Value(null);
+        return record.get(i);
     }
 
 
@@ -1294,34 +1239,18 @@ public class Recordset {
    </pre>
    */
     public boolean isDirty(){
-        for (Field field : Fields){
-            if (field.isDirty()) return true;
-        }
-        return false;
+        if (record==null) return false;
+        return record.isDirty();
     }
 
 
   //**************************************************************************
   //** SetValue
   //**************************************************************************
-
     public void setValue(String FieldName, Value FieldValue){
+        if (record==null) return;
         if (State==1){
-            for (int i=0; i<Fields.length; i++ ) {
-                String name = Fields[i].getName();
-                if (name!=null){
-                    if (name.equalsIgnoreCase(FieldName)){
-                        if (FieldValue==null) FieldValue = new Value(null);
-
-                       //Update the Field Value as needed.
-                         if (!Fields[i].getValue().equals(FieldValue)){
-                             Fields[i].Value = FieldValue;
-                             Fields[i].RequiresUpdate = true;
-                         }
-                         break;
-                    }
-                }
-            }
+            record.set(FieldName, FieldValue);
         }
     }
 
@@ -1449,11 +1378,7 @@ public class Recordset {
         else{
             try{
                 if (rs.next()){
-                    for (int i=1; i<=Fields.length; i++) {
-                        Field Field = Fields[i-1];
-                        Field.Value = new Value(rs.getObject(i));
-                        Field.RequiresUpdate = false;
-                    }
+                    record.update(rs);
                     x+=1;
                     return true;
                 }
@@ -1515,15 +1440,8 @@ public class Recordset {
         catch(Exception e){}
 
 
-      //Update Field
-        try{
-            for (int i=1; i<=Fields.length; i++) {
-                 Field Field = Fields[i-1];
-                 Field.Value = new Value(rs.getObject(i));
-                 Field.RequiresUpdate = false;
-            }
-        }
-        catch(Exception e){}
+      //Update record
+        record.update(rs);
 
     }
 
@@ -1536,12 +1454,12 @@ public class Recordset {
    */
     private void updateFields(){
 
-        if (Fields==null) return;
+        if (record==null) return;
 
 
      //Check whether any of the fields are missing table or schema information
         boolean updateFields = false;
-        for (Field field : Fields){
+        for (Field field : record.fields){
 
           //Check the field name. If it's missing, then the field is probably
           //derived from a function. In some cases, it may be trivial to find
@@ -1570,7 +1488,7 @@ public class Recordset {
 
 
       //Match selected tables to tables found in this database
-        java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
+        java.util.ArrayList<Table> tables = new java.util.ArrayList<>();
         if (Tables==null) Tables = Database.getTables(Connection);
         for (String selectedTable : selectedTables){
             String tableName;
@@ -1606,7 +1524,7 @@ public class Recordset {
 
 
       //Iterate through all the fields and update the Table and Schema attributes
-        for (Field field : Fields){
+        for (Field field : record.fields){
 
             if (field.getTable()==null){
 
@@ -1644,7 +1562,7 @@ public class Recordset {
    */
     private Column[] getColumns(Field field, java.util.ArrayList<Table> tables){
 
-        java.util.ArrayList<Column> matches = new java.util.ArrayList<Column>();
+        java.util.ArrayList<Column> matches = new java.util.ArrayList<>();
 
         for (Table table : tables){
             for (Column column : table.getColumns()){
@@ -1658,7 +1576,7 @@ public class Recordset {
         if (matches.size()==1) return new Column[]{matches.get(0)};
         if (matches.size()>1){
 
-            java.util.ArrayList<Column> columns = new java.util.ArrayList<Column>();
+            java.util.ArrayList<Column> columns = new java.util.ArrayList<>();
             for (Column column : matches){
                 if (column.getType().equalsIgnoreCase(field.Type)){
                     columns.add(column);
