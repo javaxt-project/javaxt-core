@@ -5,7 +5,7 @@ import java.util.Map;
 //**  Record Class
 //******************************************************************************
 /**
- *   The Record class is used to store an ordered list of key value pairs.
+ *   Used to store an ordered list of key value pairs.
  *
  ******************************************************************************/
 
@@ -18,7 +18,7 @@ public class Record {
   //** Constructor
   //**************************************************************************
     public Record() {
-        map = new java.util.LinkedHashMap<String, Object>();
+        map = new java.util.LinkedHashMap<>();
     }
 
 
@@ -55,7 +55,7 @@ public class Record {
   //**************************************************************************
   //** has
   //**************************************************************************
-  /** Returns true if the key exists in the JSONObject.
+  /** Returns true if a key exists.
    */
     public boolean has(String key) {
         return this.map.containsKey(key);
@@ -65,13 +65,23 @@ public class Record {
   //**************************************************************************
   //** remove
   //**************************************************************************
-  /** Remove a name and its value, if present. Returns the value that was
-   *  associated with the name, or null if there was no value.
+  /** Removes a key and its value, if present. Returns the value that was
+   *  associated with the key, or null if there was no value.
    */
     public Value remove(String key) {
         Object o = map.remove(key);
         if (o instanceof Value) return (Value) o;
         else return new Value(o);
+    }
+
+
+  //**************************************************************************
+  //** clear
+  //**************************************************************************
+  /** Removes all key/value pairs from the record.
+   */
+    public void clear(){
+        map.clear();
     }
 
 
@@ -88,7 +98,7 @@ public class Record {
   //**************************************************************************
   //** isEmpty
   //**************************************************************************
-  /** Returns true if there are no entries in the JSONObject.
+  /** Returns true if there are no entries in the Record.
    */
     public boolean isEmpty(){
         return map.isEmpty();
@@ -98,8 +108,8 @@ public class Record {
   //**************************************************************************
   //** keySet
   //**************************************************************************
-  /** Returns a set of keys of the JSONObject. Modifying this key Set will
-   *  also modify the JSONObject. Use with caution.
+  /** Returns all the keys in this Record. Note that modifying the keySet will
+   *  also modify the record. Use with caution.
    */
     public java.util.Set<String> keySet() {
         return this.map.keySet();
@@ -109,6 +119,9 @@ public class Record {
   //**************************************************************************
   //** entrySet
   //**************************************************************************
+  /** Returns all the values in this Record. Note that modifying the entrySet
+   *  will also modify the record. Use with caution.
+   */
     public java.util.Set<Map.Entry<String, Object>> entrySet() {
         return this.map.entrySet();
     }
