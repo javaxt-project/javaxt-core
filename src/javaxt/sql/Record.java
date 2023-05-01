@@ -199,6 +199,7 @@ public class Record { //extends javaxt.utils.Record
   //** clear
   //**************************************************************************
     protected void clear(){
+        if (fields==null) return;
         for (Field f : fields){
             f.clear();
             f = null;

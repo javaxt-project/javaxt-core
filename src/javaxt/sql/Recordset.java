@@ -13,7 +13,7 @@ import java.util.UUID;
  *
  ******************************************************************************/
 
-public class Recordset {
+public class Recordset implements AutoCloseable {
 
     private java.sql.ResultSet rs = null;
     private java.sql.Statement stmt = null;
@@ -22,7 +22,7 @@ public class Recordset {
     private boolean isReadOnly = true;
     private String sqlString = null;
 
-    private Connection Connection = null;
+    private Connection connection = null;
     private Driver driver = null;
     private boolean autoCommit = true;
 
@@ -35,7 +35,7 @@ public class Recordset {
     * Returns a value that describes if the Recordset object is open, closed,
     * connecting, executing or retrieving data
     */
-    public int State = 0;
+    private int State = 0;
 
    /**
     * Returns true if the current record position is after the last record,
@@ -46,7 +46,7 @@ public class Recordset {
    /**
     * Current record in the Recordset
     */
-    private Record record;
+    private javaxt.sql.Record record;
 
 
    /**
@@ -55,35 +55,13 @@ public class Recordset {
     private Table[] Tables = null;
 
 
-   /**
-    * Sets or returns the maximum number of records to return to a Recordset
-    * object from a query.
-    */
-    public int MaxRecords = 1000000000;
+    private Integer maxRecords = null;
+    private Integer fetchSize = null;
+    private int numBatches=0;
+    private int batchSize=1;
+    private java.util.HashMap<String, java.sql.PreparedStatement> batchedStatements;
 
-   /**
-    * Returns the number of records in a Recordset object. This property is a
-    * bit unreliable. Recommend using the getRecordCount() method instead.
-    */
-    public int RecordCount;
-
-   /**
-    * Returns the time it took to execute a given query. Units are in
-    * milliseconds
-    */
-    public long QueryResponseTime;
-
-   /**
-    * Returns the total elapsed time between open and close operations. Units
-    * are in milliseconds
-    */
-    public long EllapsedTime;
-
-   /**
-    * Returns the elapsed time it took to retrieve additional metadata not
-    * correctly supported by the jdbc driver. Units are in milliseconds.
-    */
-    public long MetadataQueryTime;
+    private long queryResponseTime, ellapsedTime, metadataQueryTime;
     private long startTime, endTime;
 
 
@@ -188,14 +166,16 @@ public class Recordset {
   /** Used to execute a query and access records in the database.
    *
    *  @param sqlString SQL Query. Example: "SELECT * FROM EMPLOYEE"
-   *  @param Connection An active connection to the database.
+   *  @param connection An active connection to the database.
    *  @param ReadOnly Set whether the records are read-only. If true, records
    *  fetched using this method cannot be updated or deleted and new records
    *  cannot be inserted into the database. If false, records can be updated
    *  or deleted and new records can be inserted into the database.
    */
-    public java.sql.ResultSet open(String sqlString, Connection Connection, boolean ReadOnly) throws SQLException {
+    public java.sql.ResultSet open(String sqlString, Connection connection, boolean ReadOnly) throws SQLException {
         if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
+        if (connection==null) throw new SQLException("Connection is null.");
+        if (connection.isClosed()) throw new SQLException("Connection is closed.");
 
         rs = null;
         stmt = null;
@@ -203,20 +183,17 @@ public class Recordset {
         EOF = true;
         Tables = null;
         this.sqlString = sqlString;
-        this.Connection = Connection;
+        this.connection = connection;
         this.isReadOnly = ReadOnly;
-        this.driver = Connection.getDatabase().getDriver();
+        this.driver = connection.getDatabase().getDriver();
         if (driver==null) driver = new Driver("","","");
 
 
-        if (Connection==null) throw new SQLException("Connection is null.");
-        if (Connection.isClosed()) throw new SQLException("Connection is closed.");
-
-
         startTime = System.currentTimeMillis();
+        queryResponseTime = ellapsedTime = metadataQueryTime = endTime = 0;
 
 
-        java.sql.Connection Conn = Connection.getConnection();
+        java.sql.Connection Conn = connection.getConnection();
         autoCommit = Conn.getAutoCommit();
         queryID = UUID.randomUUID().toString();
         synchronized(queries){
@@ -355,7 +332,7 @@ public class Recordset {
 
 
         endTime = System.currentTimeMillis();
-        QueryResponseTime = endTime-startTime;
+        queryResponseTime = endTime-startTime;
 
         init();
 
@@ -371,6 +348,7 @@ public class Recordset {
     public void open(java.sql.ResultSet resultSet){
         if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
         startTime = System.currentTimeMillis();
+        queryResponseTime = ellapsedTime = metadataQueryTime = endTime = 0;
         EOF = true;
         rs = resultSet;
         queryID = UUID.randomUUID().toString();
@@ -397,7 +375,7 @@ public class Recordset {
             for (int i=1; i<=cols; i++) {
                 fields[i-1] = new Field(i, rsmd);
             }
-            this.record = new Record(fields);
+            this.record = new javaxt.sql.Record(fields);
             rsmd = null;
 
             x=-1;
@@ -418,7 +396,7 @@ public class Recordset {
                 //updateFields();
                 //long mEnd = java.util.Calendar.getInstance().getTimeInMillis();
                 //MetadataQueryTime = mEnd-mStart;
-                MetadataQueryTime = 0;
+                metadataQueryTime = 0;
             }
 
 
@@ -475,7 +453,7 @@ public class Recordset {
 
       //Reset autocommit
         try{
-            Connection.getConnection().setAutoCommit(autoCommit);
+            connection.getConnection().setAutoCommit(autoCommit);
         }
         catch(Exception e){
             //e.printStackTrace();
@@ -492,23 +470,19 @@ public class Recordset {
         if (record!=null) record.clear();
 
         endTime = System.currentTimeMillis();
-        EllapsedTime = endTime-startTime;
+        ellapsedTime = endTime-startTime;
     }
-
 
 
   //**************************************************************************
   //** getDatabase
   //**************************************************************************
-  /**  Returns connection information to the database.
+  /** Returns connection information to the database
    */
     public Database getDatabase(){
-        return this.Connection.getDatabase();
+        return this.connection.getDatabase();
     }
 
-
-
-    private Integer fetchSize = null;
 
   //**************************************************************************
   //** setFetchSize
@@ -521,15 +495,30 @@ public class Recordset {
         if (fetchSize>0) this.fetchSize = fetchSize;
     }
 
+    public Integer getFetchSize(){
+        return fetchSize;
+    }
+
+
+  //**************************************************************************
+  //** setMaxRecords
+  //**************************************************************************
+  /** Sets the maximum number of records to process
+   */
+    public void setMaxRecords(int maxRecords){
+        if (maxRecords>0) this.maxRecords = maxRecords;
+    }
+
 
   //**************************************************************************
   //** getConnection
   //**************************************************************************
-  /**  Returns the JDBC Connection used to create/open the recordset.
+  /** Returns the database connection used to create/open the recordset.
    */
     public Connection getConnection(){
-        return Connection;
+        return connection;
     }
+
 
   //**************************************************************************
   //** Commit
@@ -540,8 +529,7 @@ public class Recordset {
     public void commit(){
         try{
             //stmt.executeQuery("COMMIT");
-            java.sql.Connection Conn = Connection.getConnection();
-            Conn.commit();
+            connection.getConnection().commit();
         }
         catch(Exception e){
             //System.out.println(e.toString());
@@ -644,8 +632,8 @@ public class Recordset {
           //quite a bit but we need it for the "where" clause.
             if (keys.isEmpty()){
                 try{
-                    java.sql.Connection Conn = Connection.getConnection();
-                    java.sql.DatabaseMetaData dbmd = Conn.getMetaData();
+                    java.sql.Connection conn = connection.getConnection();
+                    java.sql.DatabaseMetaData dbmd = conn.getMetaData();
                     java.sql.ResultSet r2 = dbmd.getTables(null,null,f.getTable(),new String[]{"TABLE"});
                     if (r2.next()) {
                         Table table = new Table(r2, dbmd);
@@ -740,22 +728,22 @@ public class Recordset {
 
       //Get prepared statement
         java.sql.PreparedStatement stmt;
-        java.sql.Connection Conn = Connection.getConnection();
+        java.sql.Connection conn = connection.getConnection();
         if (batchSize>1){
-            if (batchedStatements==null) batchedStatements = new java.util.HashMap<String, java.sql.PreparedStatement>();
+            if (batchedStatements==null) batchedStatements = new java.util.HashMap<>();
             stmt = batchedStatements.get(sql.toString());
             if (stmt==null){
-                stmt = Conn.prepareStatement(sql.toString());
+                stmt = conn.prepareStatement(sql.toString());
                 batchedStatements.put(sql.toString(), stmt);
-                Conn.setAutoCommit(false);
+                conn.setAutoCommit(false);
             }
         }
         else{
             try{
-                stmt = Conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                stmt = conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
             }
             catch(Exception e){ //not all databases support auto generated keys
-                stmt = Conn.prepareStatement(sql.toString());
+                stmt = conn.prepareStatement(sql.toString());
             }
         }
 
@@ -920,10 +908,9 @@ public class Recordset {
   //**************************************************************************
   //** escape
   //**************************************************************************
-
     private String escape(String colName){
         if (colName==null) return null;
-        String[] keywords = Database.getReservedKeywords(Connection);
+        String[] keywords = Database.getReservedKeywords(connection);
         colName = colName.trim();
         if (colName.contains(" ") && !colName.startsWith("[")){
             colName = "[" + colName + "]";
@@ -969,14 +956,14 @@ public class Recordset {
         java.lang.Package _package = value.getClass().getPackage();
         String packageName = _package==null ? "" : _package.getName();
         if (packageName.startsWith("javaxt.geospatial.geometry")){
-            String STGeomFromText = getSTGeomFromText(field, Connection);
+            String STGeomFromText = getSTGeomFromText(field, connection);
             field.Value = new Value(value.toString());
             field.Class = "java.lang.String";
             return STGeomFromText + "(?,4326)";
         }
         else if (packageName.startsWith("com.vividsolutions.jts.geom") ||
             packageName.startsWith("org.locationtech.jts.geom")){
-            String STGeomFromText = getSTGeomFromText(field, Connection);
+            String STGeomFromText = getSTGeomFromText(field, connection);
             field.Value = new Value(value.toString());
             field.Class = "java.lang.String";
             int srid = 4326; //getSRID();
@@ -1037,9 +1024,6 @@ public class Recordset {
 
 
 
-    private int numBatches=0;
-    private int batchSize=1;
-    private java.util.HashMap<String, java.sql.PreparedStatement> batchedStatements;
 
 
   //**************************************************************************
@@ -1126,7 +1110,7 @@ public class Recordset {
             int[] rowsUpdated = stmt.executeBatch();
             if (rowsUpdated.length>0) ttl+=rowsUpdated.length;
 
-            java.sql.Connection Conn = Connection.getConnection();
+            java.sql.Connection Conn = connection.getConnection();
             if (Conn.getAutoCommit()==false){
                 Conn.commit();
             }
@@ -1371,28 +1355,30 @@ public class Recordset {
 
         if (EOF == true) return false;
 
-        if (x>=MaxRecords-1) {
-            EOF = true;
-            return false;
-        }
-        else{
-            try{
-                if (rs.next()){
-                    record.update(rs);
-                    x+=1;
-                    return true;
-                }
-                else{
-                    EOF = true;
-                    return false;
-                }
-            }
-            catch(Exception e){
+        if (maxRecords!=null){
+            if (x>=maxRecords-1) {
                 EOF = true;
                 return false;
-                //System.out.println("ERROR MoveNext: " + e.toString());
             }
         }
+
+        try{
+            if (rs.next()){
+                record.update(rs);
+                x+=1;
+                return true;
+            }
+            else{
+                EOF = true;
+                return false;
+            }
+        }
+        catch(Exception e){
+            EOF = true;
+            return false;
+            //System.out.println("ERROR MoveNext: " + e.toString());
+        }
+
         //return false;
     }
 
@@ -1489,7 +1475,7 @@ public class Recordset {
 
       //Match selected tables to tables found in this database
         java.util.ArrayList<Table> tables = new java.util.ArrayList<>();
-        if (Tables==null) Tables = Database.getTables(Connection);
+        if (Tables==null) Tables = Database.getTables(connection);
         for (String selectedTable : selectedTables){
             String tableName;
             String schemaName;
@@ -1610,7 +1596,7 @@ public class Recordset {
             String sql = new Parser(sqlString).setSelect("count(*)");
             Recordset rs = new Recordset();
             try{
-                rs.open(sql, Connection);
+                rs.open(sql, connection);
                 numRecords = rs.getValue(0).toLong();
                 rs.close();
             }

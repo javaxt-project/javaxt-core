@@ -179,90 +179,39 @@ public class Connection implements AutoCloseable {
 
 
   //**************************************************************************
-  //** getRecordset
+  //** getRecords
   //**************************************************************************
-  /** Used to execute a SQL statement and returns a Recordset as an iterator.
+  /** Used to execute a SQL statement and returns Records as an iterator.
    *  Example:
    <pre>
     try (javaxt.sql.Connection conn = db.getConnection()){
-        for (Recordset rs : conn.getRecordset("select distinct(first_name) from contacts")){
-            System.out.println(rs.getValue(0));
+        for (javaxt.sql.Record record : conn.getRecords("select distinct(first_name) from contacts")){
+            System.out.println(record.get(0));
         }
     }
     catch(Exception e){
         e.printStackTrace();
     }
    </pre>
-   *  Note that records returned by this method are read-only. See the other
-   *  getRecordset() methods for options to create or update records.
+   *  Note that records returned by this method are read-only.
    */
-    public Generator<Recordset> getRecordset(String sql) throws SQLException {
-        return getRecordset(sql, true);
-    }
-
-
-  //**************************************************************************
-  //** getRecordset
-  //**************************************************************************
-  /** Used to execute a SQL statement and returns a Recordset as an iterator.
-   *  Provides an option to return records that are read-only or editable. To
-   *  perform a query with read-only records, do something like this:
-   <pre>
-    try (javaxt.sql.Connection conn = db.getConnection()){
-        for (Recordset rs : conn.getRecordset("select * from contacts", true)){
-            System.out.println(rs.getValue(0));
-        }
-    }
-    catch(Exception e){
-        e.printStackTrace();
-    }
-   </pre>
-   *  To insert records, do something like this:
-   <pre>
-    try (javaxt.sql.Connection conn = db.getConnection()){
-        for (Recordset rs : conn.getRecordset("select * from contacts where id=-1", false)){
-            rs.addNew();
-            rs.setValue("first_name", "John");
-            rs.setValue("last_name", "Smith");
-            rs.update();
-        }
-    }
-    catch(Exception e){
-        e.printStackTrace();
-    }
-   </pre>
-   *  To update existing records, do something like this:
-   <pre>
-    try (javaxt.sql.Connection conn = db.getConnection()){
-        for (Recordset rs : conn.getRecordset("select * from contacts where last_name='Smith'", false)){
-            String firstName = rs.getValue("first_name").toString();
-            if (firstName.equals("John")){
-                rs.setValue("name", "Jonathan");
-                rs.update();
-            }
-        }
-    }
-    catch(Exception e){
-        e.printStackTrace();
-    }
-   </pre>
-   */
-    public Generator<Recordset> getRecordset(String sql, boolean readOnly) throws SQLException {
+    public Generator<javaxt.sql.Record> getRecords(String sql) throws SQLException {
+        boolean readOnly = true;
         HashMap<String, Object> props = new HashMap<>();
         props.put("readOnly", readOnly);
         if (readOnly) props.put("fetchSize", 1000);
-        return getRecordset(sql, props);
+        return getRecords(sql, props);
     }
 
 
   //**************************************************************************
-  //** getRecordset
+  //** getRecords
   //**************************************************************************
-  /** Used to execute a SQL statement and returns a Recordset as an iterator.
+  /** Used to execute a SQL statement and returns a Records as an iterator.
    *  Example:
    <pre>
     try (javaxt.sql.Connection conn = db.getConnection()){
-        for (Recordset rs : conn.getRecordset(
+        for (javaxt.sql.Record record : conn.getRecords(
 
             "select * from contacts",
 
@@ -273,7 +222,7 @@ public class Connection implements AutoCloseable {
         ))
         {
 
-            System.out.println(rs.getValue("first_name") + " " + rs.getValue("last_name"));
+            System.out.println(record.get("first_name") + " " + record.get("last_name"));
         }
     }
     catch(Exception e){
@@ -285,10 +234,10 @@ public class Connection implements AutoCloseable {
    *  See the Recordset class for more information about this properties. This
    *  parameter is optional.
    */
-    public Generator<Recordset> getRecordset(final String sql, Map<String, Object> props) throws SQLException {
+    public Generator<javaxt.sql.Record> getRecords(final String sql, Map<String, Object> props) throws SQLException {
 
-        if (props==null){
-            props = new HashMap<>();
+        if (props==null) props = new HashMap<>();
+        if (props.isEmpty()){
             props.put("readOnly", true);
             props.put("fetchSize", 1000);
         }
@@ -307,7 +256,7 @@ public class Connection implements AutoCloseable {
 
 
         final Connection conn = this;
-        try (Generator g = new Generator<Recordset>(){
+        try (Generator g = new Generator<javaxt.sql.Record>(){
             private Recordset rs;
 
             @Override
@@ -318,7 +267,7 @@ public class Connection implements AutoCloseable {
                     rs.open(sql, conn, _readOnly);
                     if (!_readOnly) rs.setBatchSize(_batchSize);
                     while (rs.next()){
-                        this.yield(rs);
+                        this.yield(rs.getRecord());
                     }
                 }
                 catch(Exception e){
@@ -340,15 +289,93 @@ public class Connection implements AutoCloseable {
 
 
   //**************************************************************************
+  //** getRecordset
+  //**************************************************************************
+  /** Used to execute a SQL statement and return an open Recordset. The caller
+   *  must explicitly close the Recordset when finished or invoke the
+   *  getRecordset() method it in a try/catch statement.
+   *  @param sql Query statement. This parameter is required.
+   *  @param props Recordset options (e.g. readOnly, fetchSize, batchSize).
+   *  See the getRecords() method for an example of how to set properties.
+   *  This parameter is optional.
+   */
+    public Recordset getRecordset(String sql, Map<String, Object> props) throws SQLException {
+
+        if (props==null) props = new HashMap<>();
+        if (props.isEmpty()){
+            props.put("readOnly", true);
+            props.put("fetchSize", 1000);
+        }
+
+        Boolean readOnly = new Value(props.get("readOnly")).toBoolean();
+        if (readOnly==null) readOnly = true;
+        Integer fetchSize = new Value(props.get("fetchSize")).toInteger();
+        if (fetchSize==null) fetchSize = 1000;
+        Integer batchSize = new Value(props.get("batchSize")).toInteger();
+        if (batchSize==null) batchSize = 0;
+
+        Recordset rs = new Recordset();
+        if (readOnly) rs.setFetchSize(fetchSize);
+        rs.open(sql, this, readOnly);
+        if (!readOnly) rs.setBatchSize(batchSize);
+        return rs;
+    }
+
+
+  //**************************************************************************
+  //** getRecordset
+  //**************************************************************************
+  /** Used to execute a SQL statement and return an open Recordset. The caller
+   *  must explicitly close the Recordset when finished or invoke the
+   *  getRecordset() method it in a try/catch statement. Example usage:
+   <pre>
+    try (javaxt.sql.Connection conn = db.getConnection()){
+
+      //Open recordset
+        javaxt.sql.Recordset rs = conn.getRecordset("select * from contacts", true);
+
+      //Iterate through the records
+        while (rs.next()){
+
+          //Do something with the record. Example:
+            System.out.println(rs.getValue(0));
+        }
+
+      //Close the recordset
+        rs.close();
+    }
+    catch(Exception e){
+        e.printStackTrace();
+    }
+   </pre>
+   *  @param sql Query statement. This parameter is required.
+   *  @param readOnly If true, will
+   */
+    public Recordset getRecordset(String sql, boolean readOnly) throws SQLException {
+        HashMap<String, Object> props = new HashMap<>();
+        props.put("readOnly", readOnly);
+        if (readOnly) props.put("fetchSize", 1000);
+        return getRecordset(sql, props);
+    }
+
+
+  //**************************************************************************
   //** execute
   //**************************************************************************
   /** Used to execute a prepared sql statement (e.g. "delete from my_table").
    */
     public void execute(String sql) throws SQLException {
-        java.sql.PreparedStatement preparedStmt = Conn.prepareStatement(sql);
-        preparedStmt.execute();
-        preparedStmt.close();
-        preparedStmt = null;
+        java.sql.PreparedStatement stmt = null;
+        try{
+            stmt = Conn.prepareStatement(sql);
+            stmt.execute();
+        }
+        catch(Exception e){
+            throw e;
+        }
+        finally{
+            if (stmt!=null) stmt.close();
+        }
     }
 
 
