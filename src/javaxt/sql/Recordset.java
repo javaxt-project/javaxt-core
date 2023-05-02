@@ -467,7 +467,7 @@ public class Recordset implements AutoCloseable {
         sqlString = null;
         keys.clear();
 
-        if (record!=null) record.clear();
+        record = null;
 
         endTime = System.currentTimeMillis();
         ellapsedTime = endTime-startTime;

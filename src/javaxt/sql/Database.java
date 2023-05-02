@@ -3,13 +3,14 @@ import java.sql.ResultSet;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import javax.sql.ConnectionPoolDataSource;
+import javaxt.utils.Generator;
 
 //******************************************************************************
 //**  Database
 //******************************************************************************
 /**
- *   Object used to represent all of the information required to connect to a
- *   database.
+ *   Used to encapsulate database connection information, open connections to
+ *   the database, and execute queries.
  *
  ******************************************************************************/
 
@@ -63,8 +64,8 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**  Creates a new instance of Database using a jdbc connection. */
-
+  /** Creates a new instance of this class using a java.sql.Connection.
+   */
     public Database(java.sql.Connection conn){
         try{
             DatabaseMetaData dbmd = conn.getMetaData();
@@ -79,11 +80,10 @@ public class Database implements Cloneable {
     }
 
 
-
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of a Database using a jdbc connection string.
+  /** Creates a new instance of this class using a jdbc connection string.
    *  Username and password may be appended to the end of the connection string
    *  in the property list.
    *  @param connStr A jdbc connection string/url. All connection URLs
@@ -678,24 +678,87 @@ public class Database implements Cloneable {
 
 
   //**************************************************************************
+  //** getRecord
+  //**************************************************************************
+  /** Used to retrieve a single record from this database.
+   */
+    public javaxt.sql.Record getRecord(String sql) throws SQLException {
+        try (Connection conn = getConnection()){
+            return conn.getRecord(sql);
+        }
+    }
+
+  //**************************************************************************
+  //** getRecords
+  //**************************************************************************
+  /** Used to retrieve records from this database.
+   */
+    public Generator<javaxt.sql.Record> getRecords(String sql) throws SQLException {
+        return new Generator<javaxt.sql.Record>(){
+            public void run() throws InterruptedException {
+                try (Connection conn = getConnection()){
+
+                    for (javaxt.sql.Record record : conn.getRecords(sql)){
+                        try{
+                            this.yield(record);
+                        }
+                        catch(InterruptedException e){
+                            return;
+                        }
+                    }
+
+                }
+                catch(Exception e){
+                    RuntimeException ex = new RuntimeException(e.getMessage());
+                    ex.setStackTrace(e.getStackTrace());
+                    throw ex;
+                }
+            }
+        };
+    }
+
+
+  //**************************************************************************
   //** getTables
   //**************************************************************************
   /** Used to retrieve an array of tables found in this database.
    */
+    public Table[] getTables() throws SQLException {
+        try (Connection conn = getConnection()){
+            return getTables(conn);
+        }
+    }
+
+
+  //**************************************************************************
+  //** getTables
+  //**************************************************************************
+  /** Used to retrieve an array of tables found in a database.
+   */
     public static Table[] getTables(Connection conn){
+        java.util.ArrayList<Table> tables = new java.util.ArrayList<>();
         try{
-            java.util.ArrayList<Table> tables = new java.util.ArrayList<Table>();
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
-            ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"});
-            while (rs.next()) {
-                tables.add(new Table(rs, dbmd));
+            try(ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"})){
+                while (rs.next()) {
+                    tables.add(new Table(rs, dbmd));
+                }
             }
-            rs.close();
-            rs = null;
-            return tables.toArray(new Table[tables.size()]);
         }
         catch(Exception e){
-            return null;
+        }
+        return tables.toArray(new Table[tables.size()]);
+    }
+
+
+  //**************************************************************************
+  //** getCatalogs
+  //**************************************************************************
+  /** Used to retrieve a list of available databases found on this server.
+   */
+    public String[] getCatalogs() throws SQLException{
+        try (Connection conn = getConnection()){
+            return getCatalogs(conn);
         }
     }
 
@@ -703,7 +766,7 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getCatalogs
   //**************************************************************************
-  /**  Used to retrieve a list of available databases found on this server.
+  /**  Used to retrieve a list of available databases found on a server.
    */
     public static String[] getCatalogs(Connection conn){
         try{

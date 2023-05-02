@@ -279,12 +279,30 @@ public class Connection implements AutoCloseable {
 
             @Override
             public void close() {
-                //System.out.println("Closing recordset...");
                 if (rs!=null) rs.close();
             }
         }){
             return g;
         }
+    }
+
+
+  //**************************************************************************
+  //** getRecord
+  //**************************************************************************
+    public javaxt.sql.Record getRecord(String sql) throws SQLException {
+        HashMap<String, Object> props = new HashMap<>();
+        props.put("readOnly", true);
+        props.put("fetchSize", 1);
+
+        javaxt.sql.Record record = null;
+        try (Recordset rs = getRecordset(sql, props)){
+            if (rs.hasNext()) record = rs.getRecord();
+        }
+        catch(SQLException e){
+            throw e;
+        }
+        return record;
     }
 
 
@@ -356,6 +374,14 @@ public class Connection implements AutoCloseable {
         props.put("readOnly", readOnly);
         if (readOnly) props.put("fetchSize", 1000);
         return getRecordset(sql, props);
+    }
+
+
+  //**************************************************************************
+  //** getRecordset
+  //**************************************************************************
+    public Recordset getRecordset(String sql) throws SQLException {
+        return getRecordset(sql, true);
     }
 
 
