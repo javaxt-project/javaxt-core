@@ -219,27 +219,19 @@ public abstract class Model {
 
 
           //If we're still here, execute query without a prepared statement
-            Connection conn = null;
-            try{
-                conn = getConnection(this.getClass());
+            try (Connection conn = getConnection(this.getClass())){
 
-                Recordset rs = new Recordset();
                 query = sql.toString() + id;
-                rs.open(query, conn);
-                if (rs.EOF){
-                    rs.close();
-                    conn.close();
-                    throw new SQLException(modelName + " not found");
+
+                try (Recordset rs = conn.getRecordset(query)){
+                    rs.open(query, conn);
+                    if (rs.EOF) throw new SQLException(modelName + " not found");
+
+                    update(rs);
+                    this.id = id;
                 }
-
-                update(rs);
-                this.id = id;
-
-                rs.close();
-                conn.close();
             }
             catch(SQLException ex){
-                if (conn!=null) conn.close();
                 throw ex;
             }
         }
@@ -494,15 +486,13 @@ public abstract class Model {
         }
         else{ //update existing record
 
-            Connection conn = null;
-            try{
-                conn = getConnection(this.getClass());
+            try (Connection conn = getConnection(this.getClass())){
 
                 javaxt.sql.Driver driver = conn.getDatabase().getDriver();
                 if (driver==null) driver = new Driver("","","");
 
-                Recordset rs = new Recordset();
-                rs.open("select * from " + tableName + " where id=" + id, conn, false);
+                Recordset rs = conn.getRecordset(
+                "select * from " + tableName + " where id=" + id, false);
                 if (rs.EOF){
                     rs.addNew();
                     rs.setValue("id", id);
@@ -530,10 +520,9 @@ public abstract class Model {
                 }
                 rs.update();
                 rs.close();
-                conn.close();
+
             }
             catch(SQLException e){
-                if (conn!=null) conn.close();
                 throw Exception("Failed to update " + className + "#" + id + ". " + e.getMessage(), e);
             }
         }
@@ -547,14 +536,10 @@ public abstract class Model {
    */
     public void delete() throws SQLException {
         if (id==null) return;
-        Connection conn = null;
-        try{
-            conn = getConnection(this.getClass());
+        try (Connection conn = getConnection(this.getClass())){
             conn.execute("delete from " + tableName + " where id=" + id);
-            conn.close();
         }
         catch(SQLException e){
-            if (conn!=null) conn.close();
             String className = this.getClass().getName();
             throw Exception("Failed to delete " + className + "#" + id + ". " + e.getMessage(), e);
         }
@@ -684,17 +669,11 @@ public abstract class Model {
 
       //Execute query
         Long id = null;
-        Connection conn = null;
-        try{
-            conn = getConnection(c);
-            javaxt.sql.Recordset rs = new javaxt.sql.Recordset();
-            rs.open(sql, conn);
-            if (!rs.EOF) id = rs.getValue(0).toLong();
-            rs.close();
-            conn.close();
+        try (Connection conn = getConnection(c)){
+            javaxt.sql.Record record = conn.getRecord(sql);
+            if (record!=null) id = record.get(0).toLong();
         }
         catch(SQLException e){
-            if (conn!=null) conn.close();
             throw e;
         }
 
@@ -726,21 +705,10 @@ public abstract class Model {
 
       //Execute query
         ArrayList<Long> ids = new ArrayList<>();
-        Connection conn = null;
-        try{
-            conn = getConnection(c);
-            javaxt.sql.Recordset rs = new javaxt.sql.Recordset();
-            rs.open(sql, conn);
-            while (rs.hasNext()){
-                ids.add(rs.getValue(0).toLong());
-                rs.moveNext();
+        try (Connection conn = getConnection(c)){
+            for (javaxt.sql.Record record : conn.getRecords(sql)){
+                ids.add(record.get(0).toLong());
             }
-            rs.close();
-            conn.close();
-        }
-        catch(SQLException e){
-            if (conn!=null) conn.close();
-            throw e;
         }
 
 
@@ -864,27 +832,18 @@ public abstract class Model {
         String className = c.getName();
 
 
-      //Associate model with the connection pool
-        synchronized(connPool){
-            connPool.put(className, connectionPool);
-            connPool.notifyAll();
-        }
 
 
       //Get database connection
-        Connection conn = null;
-        try{
-            conn = connectionPool.getConnection();
-        }
-        catch(Exception e){
-            SQLException ex = new SQLException("Failed to acquire database connection");
-            ex.setStackTrace(e.getStackTrace());
-            throw ex;
-        }
+        try (Connection conn = connectionPool.getConnection()){
 
 
-      //Get database metadata
-        try{
+          //Associate model with the connection pool
+            synchronized(connPool){
+                connPool.put(className, connectionPool);
+                connPool.notifyAll();
+            }
+
 
           //Get reserved keywords associated with the database
             String[] keywords = Database.getReservedKeywords(conn);
@@ -896,17 +855,16 @@ public abstract class Model {
 
           //Generate list of fields
             Model model = ((Model) c.newInstance());
-            Recordset rs = new Recordset();
-            rs.open("select * from " + model.tableName + " where id is null", conn);
-            synchronized(fields){
-                fields.put(className, rs.getFields());
-                fields.notifyAll();
+            String sql = "select * from " + model.tableName + " where id is null";
+            try (Recordset rs = conn.getRecordset(sql)){
+                synchronized(fields){
+                    fields.put(className, rs.getFields());
+                    fields.notifyAll();
+                }
             }
-            rs.close();
-            conn.close();
+
         }
         catch(Exception e){
-            if (conn!=null) conn.close();
             SQLException ex = new SQLException("Failed to initialize Model: " + className);
             ex.setStackTrace(e.getStackTrace());
             throw ex;

@@ -845,6 +845,37 @@ public class Database implements Cloneable {
     }
 
 
+  //**************************************************************************
+  //** addModel
+  //**************************************************************************
+  /** Used to register a javaxt.sql.Model with the database. The model is
+   *  initialized and associated with the database connection pool. Once the
+   *  model is initialized, it can be used to find records in the database
+   *  and execute CRUD operations.
+   *  @param c A Java class that extends the javaxt.sql.Model abstract class.
+   */
+    public void addModel(Class c) throws SQLException {
+
+
+      //Check if class is a model
+        if (!Model.class.isAssignableFrom(c)){
+            throw new IllegalArgumentException();
+        }
+
+        
+      //Initialize connectionPool as needed
+        if (connectionPool==null) initConnectionPool();
+        if (connectionPool==null){
+            throw new SQLException("Connection pool has not been initialized");
+        }
+
+        Model.init(c, connectionPool);
+    }
+
+
+  //**************************************************************************
+  //** displayDbProperties
+  //**************************************************************************
     public static void displayDbProperties(Connection conn){
 
         java.sql.DatabaseMetaData dm = null;
