@@ -299,9 +299,6 @@ public class Connection implements AutoCloseable {
         try (Recordset rs = getRecordset(sql, props)){
             if (rs.hasNext()) record = rs.getRecord();
         }
-        catch(SQLException e){
-            throw e;
-        }
         return record;
     }
 

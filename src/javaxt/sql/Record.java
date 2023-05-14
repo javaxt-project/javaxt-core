@@ -215,25 +215,10 @@ public class Record { //extends javaxt.utils.Record
    */
     public JSONObject toJson(){
         JSONObject json = new JSONObject();
-
-        HashMap<String, Integer> keys = new HashMap<>();
         for (Field field : fields){
-            String key = field.getName();
-            Integer x = keys.get(field.getName());
-            if (x==null){
-                x = 1;
-            }
-            else{
-                x = x+1;
-            }
-            keys.put(key, x);
-
-            if (x>1) key+="_"+x;
-            json.set(key, field.getValue());
+            json.set(field.getName(), field.getValue());
         }
-
         return json;
     }
-
 
 }
