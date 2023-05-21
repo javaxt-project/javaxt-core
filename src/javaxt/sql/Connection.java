@@ -36,7 +36,7 @@ public class Connection implements AutoCloseable {
   //**************************************************************************
   //** isOpen
   //**************************************************************************
-  /** Used to determine whether the connection is open.
+  /** Returns true if the connection is open.
    */
     public boolean isOpen(){
         return !isClosed();
@@ -46,7 +46,7 @@ public class Connection implements AutoCloseable {
   //**************************************************************************
   //** isClosed
   //**************************************************************************
-  /** Used to determine whether the connection is closed.
+  /** Returns true if the connection is closed.
    */
     public boolean isClosed(){
         try{
@@ -79,14 +79,14 @@ public class Connection implements AutoCloseable {
     }
 
 
-
   //**************************************************************************
-  //** Open
+  //** open
   //**************************************************************************
-  /** Used to open a connection to the database.
+  /** Used to open a connection to the database using a JDBC connection
+   *  string. Returns true if the connection was opened successfully.
    *
-   *  @param ConnectionString A jdbc connection string/url. All connection URLs
-   *  have the following form:
+   *  @param ConnectionString A jdbc connection string/url. All connection
+   *  URLs have the following form:
    *  <pre> jdbc:[dbVendor]://[dbName][propertyList] </pre>
    *
    *  Example:
@@ -98,9 +98,10 @@ public class Connection implements AutoCloseable {
 
 
   //**************************************************************************
-  //** Open
+  //** open
   //**************************************************************************
-  /** Used to open a connection to the database.
+  /** Used to open a connection to the database using a javaxt.sql.Database.
+   *  Returns true if the connection was opened successfully.
    */
     public boolean open(Database database) throws SQLException {
 
@@ -142,12 +143,12 @@ public class Connection implements AutoCloseable {
   //**************************************************************************
   //** open
   //**************************************************************************
-  /** Used to open a connection to the database using a JDBC Connection. This
-   *  is particularly useful when using JDBC connection pools.
+  /** Used establish a connection to the database using a previously opened
+   *  java.sql.Connection. Returns true if the connection is open.
    */
     public boolean open(java.sql.Connection conn){
 
-        boolean isClosed = true;
+        boolean isClosed;
         try{
             database = new Database(conn);
             Conn = conn;
@@ -167,7 +168,20 @@ public class Connection implements AutoCloseable {
   //**************************************************************************
   //** close
   //**************************************************************************
-  /** Used to close a connection to the database, freeing up connections
+  /** Used to close a connection to the database, freeing up server resources.
+   *  It is imperative that the database connection is closed after it is no
+   *  longer needed, especially if the connection came from a ConnectionPool.
+   *  That said, this class implements the AutoCloseable interface so you do
+   *  not have to call this method if the connection was opened as part of a
+   *  "try" statement. Example:
+   <pre>
+    try (javaxt.sql.Connection conn = database.getConnection()){
+
+    }
+    catch(Exception e){
+        e.printStackTrace();
+    }
+   </pre>
    */
     public void close(){
         //System.out.println("Closing connection...");
@@ -184,13 +198,8 @@ public class Connection implements AutoCloseable {
   /** Used to execute a SQL statement and returns Records as an iterator.
    *  Example:
    <pre>
-    try (javaxt.sql.Connection conn = db.getConnection()){
-        for (javaxt.sql.Record record : conn.getRecords("select distinct(first_name) from contacts")){
-            System.out.println(record.get(0));
-        }
-    }
-    catch(Exception e){
-        e.printStackTrace();
+    for (javaxt.sql.Record record : conn.getRecords("select id from contacts")){
+        System.out.println(record.get(0));
     }
    </pre>
    *  Note that records returned by this method are read-only.
@@ -210,23 +219,17 @@ public class Connection implements AutoCloseable {
   /** Used to execute a SQL statement and returns a Records as an iterator.
    *  Example:
    <pre>
-    try (javaxt.sql.Connection conn = db.getConnection()){
-        for (javaxt.sql.Record record : conn.getRecords(
+    for (javaxt.sql.Record record : conn.getRecords(
 
-            "select * from contacts",
+        "select first_name, last_name from contacts",
 
-            new HashMap&lt;String, Object&gt;() {{
-                put("readOnly", true);
-                put("fetchSize", 1000);
-            }}
-        ))
-        {
-
-            System.out.println(record.get("first_name") + " " + record.get("last_name"));
-        }
-    }
-    catch(Exception e){
-        e.printStackTrace();
+        new HashMap&lt;String, Object&gt;() {{
+            put("readOnly", true);
+            put("fetchSize", 1000);
+        }}
+    ))
+    {
+        System.out.println(record.get("first_name") + " " + record.get("last_name"));
     }
    </pre>
    *  @param sql Query statement. This parameter is required.
@@ -290,6 +293,13 @@ public class Connection implements AutoCloseable {
   //**************************************************************************
   //** getRecord
   //**************************************************************************
+  /** Returns a single record from the database. Example:
+   <pre>
+    javaxt.sql.Record record = conn.getRecord("select count(*) from contacts");
+    if (record!=null) System.out.println(record.get(0));
+   </pre>
+   *  Note that records returned by this method are read-only.
+   */
     public javaxt.sql.Record getRecord(String sql) throws SQLException {
         HashMap<String, Object> props = new HashMap<>();
         props.put("readOnly", true);
@@ -377,6 +387,12 @@ public class Connection implements AutoCloseable {
   //**************************************************************************
   //** getRecordset
   //**************************************************************************
+  /** Used to execute a SQL statement and return an open Recordset. The caller
+   *  must explicitly close the Recordset when finished or invoke the
+   *  getRecordset() method it in a try/catch statement. See the other
+   *  getRecordset() for an example. Note that records returned by this method
+   *  are read-only.
+   */
     public Recordset getRecordset(String sql) throws SQLException {
         return getRecordset(sql, true);
     }
