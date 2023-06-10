@@ -580,6 +580,7 @@ public class Recordset implements AutoCloseable {
         Field f = record.getField(0);
         String tableName = f.getTable();
         String schemaName = f.getSchema();
+        System.out.println(schemaName);
         if (tableName==null){
             updateFields();
             tableName = f.getTable();
@@ -627,6 +628,7 @@ public class Recordset implements AutoCloseable {
                     sql.append(", ");
                 }
             }
+            System.out.println(sql);
 
           //Find primary key for the table. This slows things down
           //quite a bit but we need it for the "where" clause.
@@ -1473,7 +1475,8 @@ public class Recordset implements AutoCloseable {
         String[] selectedTables = new Parser(sqlString).getTables();
 
 
-      //Match selected tables to tables found in this database
+      //Match selectedTables to tables found in this database. Note that there
+      //may be multiple tables with the same name found in different schemas.
         java.util.ArrayList<Table> tables = new java.util.ArrayList<>();
         if (Tables==null) Tables = Database.getTables(connection);
         for (String selectedTable : selectedTables){
@@ -1494,7 +1497,6 @@ public class Recordset implements AutoCloseable {
 
                     if (schemaName==null){
                         tables.add(table);
-                        break;
                     }
                     else{
                         if (schemaName.equalsIgnoreCase(table.getSchema())){
@@ -1508,45 +1510,58 @@ public class Recordset implements AutoCloseable {
 
 
 
-
       //Iterate through all the fields and update the Table and Schema attributes
         for (Field field : record.fields){
 
+            java.util.ArrayList<Column> columns = null;
             if (field.getTable()==null){
 
               //Update Table and Schema
-                Column[] columns = getColumns(field, tables);
+                columns = getColumns(field, tables);
                 if (columns!=null){
-                    Column column = columns[0]; //<-- Need to implement logic to
-                    field.setTableName(column.getTable().getName());
-                    field.setSchemaName(column.getTable().getSchema());
+                    if (columns.size()==1){
+                        Column column = columns.get(0);
+                        field.setTableName(column.getTable().getName());
+                        field.setSchemaName(column.getTable().getSchema());
+                    }
                 }
             }
 
             if (field.getSchema()==null) {
 
               //Update Schema
+                java.util.ArrayList<Table> matches = new java.util.ArrayList<>();
                 for (Table table : tables){
                     if (table.getName().equalsIgnoreCase(field.getTable())){
-                        field.setSchemaName(table.getSchema());
-                        break;
+                        matches.add(table);
+                    }
+                }
+
+                if (matches.size()==1){
+                    Table table = matches.get(0);
+                    field.setSchemaName(table.getSchema());
+                }
+                else{
+                    if (columns==null) columns = getColumns(field, tables);
+                    if (columns!=null){
+                        if (columns.size()==1){
+                            Column column = columns.get(0);
+                            field.setSchemaName(column.getTable().getSchema());
+                        }
                     }
                 }
             }
         }
 
-        tables.clear();
-        tables = null;
     }
 
 
   //**************************************************************************
   //** getColumns
   //**************************************************************************
-  /**  Used to find a column in the database that corresponds to a given field.
-   *   This method is only used when a field/column's parent table is unknown.
+  /** Used to find columns in the database that corresponds to a given field.
    */
-    private Column[] getColumns(Field field, java.util.ArrayList<Table> tables){
+    private java.util.ArrayList<Column> getColumns(Field field, java.util.ArrayList<Table> tables){
 
         java.util.ArrayList<Column> matches = new java.util.ArrayList<>();
 
@@ -1559,7 +1574,7 @@ public class Recordset implements AutoCloseable {
         }
 
         if (matches.isEmpty()) return null;
-        if (matches.size()==1) return new Column[]{matches.get(0)};
+        if (matches.size()==1) return matches;
         if (matches.size()>1){
 
             java.util.ArrayList<Column> columns = new java.util.ArrayList<>();
@@ -1570,7 +1585,7 @@ public class Recordset implements AutoCloseable {
             }
 
             if (columns.isEmpty()) return null;
-            else return columns.toArray(new Column[columns.size()]);
+            else return columns;
         }
         return null;
     }
