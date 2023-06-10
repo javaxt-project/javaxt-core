@@ -3,6 +3,8 @@ import java.sql.SQLException;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.UUID;
 
 //******************************************************************************
@@ -28,7 +30,7 @@ public class Recordset implements AutoCloseable {
 
     private Value GeneratedKey;
 
-    private java.util.ArrayList keys = new java.util.ArrayList();
+    private ArrayList keys = new ArrayList();
 
 
    /**
@@ -569,7 +571,7 @@ public class Recordset implements AutoCloseable {
 
 
       //Generate list of fields that require updates
-        java.util.ArrayList<Field> fields = new java.util.ArrayList<>();
+        ArrayList<Field> fields = new ArrayList<>();
         for (Field field : record.fields){
             if (field.getName()!=null && field.RequiresUpdate) fields.add(field);
         }
@@ -580,7 +582,7 @@ public class Recordset implements AutoCloseable {
         Field f = record.getField(0);
         String tableName = f.getTable();
         String schemaName = f.getSchema();
-        System.out.println(schemaName);
+
         if (tableName==null){
             updateFields();
             tableName = f.getTable();
@@ -600,7 +602,7 @@ public class Recordset implements AutoCloseable {
 
 
       //Construct a SQL insert/update statement
-        StringBuffer sql = new StringBuffer();
+        StringBuilder sql = new StringBuilder();
         if (InsertOnUpdate){
             sql.append("INSERT INTO " + tableName + " (");
             for (int i=0; i<numUpdates; i++){
@@ -628,7 +630,7 @@ public class Recordset implements AutoCloseable {
                     sql.append(", ");
                 }
             }
-            System.out.println(sql);
+
 
           //Find primary key for the table. This slows things down
           //quite a bit but we need it for the "where" clause.
@@ -704,7 +706,7 @@ public class Recordset implements AutoCloseable {
 
               //Warn user that there might be a problem with the update
                 if (numRecords>1){
-                    StringBuffer msg = new StringBuffer();
+                    StringBuilder msg = new StringBuilder();
                     msg.append("WARNING: Updating " + tableName + " table without a unique key.\r\n");
                     msg.append("Multiple rows may be affected with this update.\r\n");
                     try{ int x = 1/0; } catch(Exception e){
@@ -761,7 +763,7 @@ public class Recordset implements AutoCloseable {
             }
             catch(SQLException e){
 
-                StringBuffer err = new StringBuffer();
+                StringBuilder err = new StringBuilder();
                 err.append("Error executing update:\n");
                 err.append(sql.toString());
                 err.append("\n");
@@ -811,7 +813,7 @@ public class Recordset implements AutoCloseable {
   /** Used to set values in a PreparedStatement for inserting or updating
    *  records.
    */
-    protected static void update(java.sql.PreparedStatement stmt, java.util.ArrayList<Field> fields) throws SQLException {
+    protected static void update(java.sql.PreparedStatement stmt, ArrayList<Field> fields) throws SQLException {
 
         try{ stmt.clearParameters(); }
         catch(Exception e){}
@@ -1440,7 +1442,7 @@ public class Recordset implements AutoCloseable {
   /** Used to populate the Table and Schema attributes for each Field in the
    *  Fields Array.
    */
-    private void updateFields(){
+    private void updateFields() throws SQLException {
 
         if (record==null) return;
 
@@ -1471,15 +1473,11 @@ public class Recordset implements AutoCloseable {
         if (!updateFields) return;
 
 
-      //Get selected tables from the SQL
-        String[] selectedTables = new Parser(sqlString).getTables();
 
+      //Parse SQL and get selected tables
+        ArrayList<HashMap<String, String>> selectedTables = new ArrayList<>();
+        for (String selectedTable : new Parser(sqlString).getTables()){
 
-      //Match selectedTables to tables found in this database. Note that there
-      //may be multiple tables with the same name found in different schemas.
-        java.util.ArrayList<Table> tables = new java.util.ArrayList<>();
-        if (Tables==null) Tables = Database.getTables(connection);
-        for (String selectedTable : selectedTables){
             String tableName;
             String schemaName;
             int idx = selectedTable.indexOf(".");
@@ -1491,6 +1489,60 @@ public class Recordset implements AutoCloseable {
                 tableName = selectedTable;
                 schemaName = null;
             }
+
+            HashMap<String, String> props = new HashMap<>();
+            props.put("selectedTable", selectedTable);
+            props.put("tableName", tableName);
+            props.put("schemaName", schemaName);
+            selectedTables.add(props);
+        }
+
+
+
+
+      //If there's only one selected table and the table name and schema name
+      //are both available, update the fields and exit
+        if (selectedTables.size()==1){
+            HashMap<String, String> props = selectedTables.get(0);
+            String tableName = props.get("tableName");
+            String schemaName = props.get("schemaName");
+            if (tableName!=null && schemaName!=null){
+                for (Field field : record.fields){
+                    if (field.getTable()==null){
+                        field.setTableName(tableName);
+                    }
+                    if (field.getSchema()==null){
+                        field.setSchemaName(schemaName);
+                    }
+                }
+                return;
+            }
+        }
+
+
+      //If we're still here, get list of tables from the database
+        if (Tables==null){
+            long startTime = System.currentTimeMillis();
+            Database database = connection.getDatabase();
+            if (database==null){
+                Tables = Database.getTables(connection);
+            }
+            else{
+                Tables = database.getTables();
+            }
+            System.out.println("Table lookup in " + (System.currentTimeMillis()-startTime) + "ms");
+        }
+
+
+
+      //Match selectedTables to tables found in the database. Note that there
+      //may be multiple tables with the same name found in different schemas.
+        ArrayList<Table> tables = new ArrayList<>();
+        for (HashMap<String, String> props : selectedTables){
+            //String selectedTable = props.get("selectedTable");
+            String tableName = props.get("tableName");
+            String schemaName = props.get("schemaName");
+
 
             for (Table table : Tables){
                 if (tableName.equalsIgnoreCase(table.getName())){
@@ -1513,7 +1565,7 @@ public class Recordset implements AutoCloseable {
       //Iterate through all the fields and update the Table and Schema attributes
         for (Field field : record.fields){
 
-            java.util.ArrayList<Column> columns = null;
+            ArrayList<Column> columns = null;
             if (field.getTable()==null){
 
               //Update Table and Schema
@@ -1530,7 +1582,7 @@ public class Recordset implements AutoCloseable {
             if (field.getSchema()==null) {
 
               //Update Schema
-                java.util.ArrayList<Table> matches = new java.util.ArrayList<>();
+                ArrayList<Table> matches = new ArrayList<>();
                 for (Table table : tables){
                     if (table.getName().equalsIgnoreCase(field.getTable())){
                         matches.add(table);
@@ -1561,9 +1613,9 @@ public class Recordset implements AutoCloseable {
   //**************************************************************************
   /** Used to find columns in the database that corresponds to a given field.
    */
-    private java.util.ArrayList<Column> getColumns(Field field, java.util.ArrayList<Table> tables){
+    private ArrayList<Column> getColumns(Field field, ArrayList<Table> tables){
 
-        java.util.ArrayList<Column> matches = new java.util.ArrayList<>();
+        ArrayList<Column> matches = new ArrayList<>();
 
         for (Table table : tables){
             for (Column column : table.getColumns()){
@@ -1577,7 +1629,7 @@ public class Recordset implements AutoCloseable {
         if (matches.size()==1) return matches;
         if (matches.size()>1){
 
-            java.util.ArrayList<Column> columns = new java.util.ArrayList<>();
+            ArrayList<Column> columns = new ArrayList<>();
             for (Column column : matches){
                 if (column.getType().equalsIgnoreCase(field.Type)){
                     columns.add(column);

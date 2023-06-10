@@ -29,6 +29,10 @@ public class Database implements Cloneable {
     private static final Class<?>[] integerType = { Integer.TYPE };
     private ConnectionPool connectionPool;
     private int maxConnections = 15;
+    private Table[] tables = null;
+    private String[] catalogs = null;
+    private boolean cacheMetadata = false;
+
 
   //**************************************************************************
   //** Constructor
@@ -167,8 +171,8 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** setName
   //**************************************************************************
-  /** Sets the name of the catalog used to store tables, views, etc. */
-
+  /** Sets the name of the catalog used to store tables, views, etc.
+   */
     public void setName(String name){
         this.name = name;
     }
@@ -177,8 +181,8 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getName
   //**************************************************************************
-  /** Gets the name of the catalog used to store tables, views, etc. */
-
+  /** Gets the name of the catalog used to store tables, views, etc.
+   */
     public String getName(){
         return name;
     }
@@ -187,8 +191,8 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** setHost
   //**************************************************************************
-  /** Used to set the path to the database (server name and port). */
-
+  /** Used to set the path to the database (server name and port).
+   */
     public void setHost(String host, int port){
         this.host = host;
         this.port = port;
@@ -420,20 +424,15 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getConnection
   //**************************************************************************
-  /** Used to open a connection to the database. If a connection pool has been
-   *  initialized (initConnectionPool), then an open connection is returned
-   *  from the pool. Otherwise, a new connection is created. In either case,
-   *  the connection must be closed when you are finished with it.
+  /** Returns a connection to the database. If a connection pool has been
+   *  initialized, a connection is returned from the pool. Otherwise, a new
+   *  connection is created. In either case, the connection must be closed
+   *  immediately after use. See Connection.close() for details.
    */
     public Connection getConnection() throws SQLException {
-        if (connectionPool==null){
-            Connection connection = new Connection();
-            connection.open(this);
-            return connection;
-        }
-        else{
-            return connectionPool.getConnection();
-        }
+        Connection connection = new Connection();
+        connection.open(this);
+        return connection;
     }
 
 
@@ -736,6 +735,11 @@ public class Database implements Cloneable {
   /** Used to retrieve an array of tables found in a database.
    */
     public static Table[] getTables(Connection conn){
+        Database database = conn.getDatabase();
+        if (database!=null){
+            if (database.tables!=null) return database.tables;
+        }
+
         java.util.ArrayList<Table> tables = new java.util.ArrayList<>();
         try{
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
@@ -747,14 +751,19 @@ public class Database implements Cloneable {
         }
         catch(Exception e){
         }
-        return tables.toArray(new Table[tables.size()]);
+        Table[] arr = tables.toArray(new Table[tables.size()]);
+        if (database!=null){
+            if (database.cacheMetadata) database.tables = arr;
+        }
+        return arr;
     }
 
 
   //**************************************************************************
   //** getCatalogs
   //**************************************************************************
-  /** Used to retrieve a list of available databases found on this server.
+  /** Used to retrieve a list of available catalogs (aka databases) found on
+   *  this server.
    */
     public String[] getCatalogs() throws SQLException{
         try (Connection conn = getConnection()){
@@ -766,22 +775,33 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getCatalogs
   //**************************************************************************
-  /**  Used to retrieve a list of available databases found on a server.
+  /**  Used to retrieve a list of available catalogs (aka databases) found on
+   *   a server.
    */
     public static String[] getCatalogs(Connection conn){
+        Database database = conn.getDatabase();
+        if (database!=null){
+            if (database.catalogs!=null) return database.catalogs;
+        }
+
+        java.util.TreeSet<String> catalogs = new java.util.TreeSet<String>();
         try{
-            java.util.TreeSet<String> catalogs = new java.util.TreeSet<String>();
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
-            ResultSet rs  = dbmd.getCatalogs();
+            ResultSet rs = dbmd.getCatalogs();
             while (rs.next()) {
                 catalogs.add(rs.getString(1));
             }
             rs.close();
-            return catalogs.toArray(new String[catalogs.size()]);
         }
         catch(Exception e){
             return null;
         }
+
+        String[] arr = catalogs.toArray(new String[catalogs.size()]);
+        if (database!=null){
+            if (database.cacheMetadata) database.catalogs = arr;
+        }
+        return arr;
     }
 
 
@@ -846,6 +866,25 @@ public class Database implements Cloneable {
 
 
   //**************************************************************************
+  //** enableMetadataCache
+  //**************************************************************************
+  /** Used to enable/disable metadata caching. If caching is enabled, calls
+   *  to getTables() and getCatalogs() will return cached results. This is
+   *  appropriate if the database schema doesn't change often and may increase
+   *  performance when inserting and updating records via the Recordset class.
+   *  @param b If true, will cache database metadata. If false, will disable
+   *  metadata caching and delete any information than was previously cached.
+   */
+    public void enableMetadataCache(boolean b){
+        cacheMetadata = b;
+        if (b==false){
+            tables = null;
+            catalogs = null;
+        }
+    }
+
+
+  //**************************************************************************
   //** addModel
   //**************************************************************************
   /** Used to register a javaxt.sql.Model with the database. The model is
@@ -862,7 +901,7 @@ public class Database implements Cloneable {
             throw new IllegalArgumentException();
         }
 
-        
+
       //Initialize connectionPool as needed
         if (connectionPool==null) initConnectionPool();
         if (connectionPool==null){

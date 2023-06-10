@@ -109,30 +109,36 @@ public class Connection implements AutoCloseable {
         this.database = database;
 
 
-      //Load JDBC Driver
-        java.sql.Driver Driver = (java.sql.Driver) database.getDriver().load();
+        ConnectionPool connectionPool = database.getConnectionPool();
+        if (connectionPool==null){
+
+          //Load JDBC Driver
+            java.sql.Driver Driver = (java.sql.Driver) database.getDriver().load();
 
 
-        //if (Conn!=null && Conn.isOpen()) Conn.close();
+            //if (Conn!=null && Conn.isOpen()) Conn.close();
 
 
-        String url = database.getURL();
-        String username = database.getUserName();
-        String password = database.getPassword();
+            String url = database.getURL();
+            String username = database.getUserName();
+            String password = database.getPassword();
 
-        java.util.Properties properties = database.getProperties();
-        if (properties==null) properties = new java.util.Properties();
-        if (username!=null){
-            properties.put("user", username);
-            properties.put("password", password);
+            java.util.Properties properties = database.getProperties();
+            if (properties==null) properties = new java.util.Properties();
+            if (username!=null){
+                properties.put("user", username);
+                properties.put("password", password);
+            }
+
+
+            Conn = Driver.connect(url, properties);
+        }
+        else{
+            Conn = connectionPool.getConnection().getConnection();
         }
 
 
-        Conn = Driver.connect(url, properties);
-
-
         boolean isClosed = Conn.isClosed();
-
 
 
         Speed = System.currentTimeMillis()-startTime;
