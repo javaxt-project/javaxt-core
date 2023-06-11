@@ -1522,7 +1522,7 @@ public class Recordset implements AutoCloseable {
 
       //If we're still here, get list of tables from the database
         if (Tables==null){
-            long startTime = System.currentTimeMillis();
+            //long startTime = System.currentTimeMillis();
             Database database = connection.getDatabase();
             if (database==null){
                 Tables = Database.getTables(connection);
@@ -1530,7 +1530,7 @@ public class Recordset implements AutoCloseable {
             else{
                 Tables = database.getTables();
             }
-            System.out.println("Table lookup in " + (System.currentTimeMillis()-startTime) + "ms");
+            //System.out.println("Table lookup in " + (System.currentTimeMillis()-startTime) + "ms");
         }
 
 
