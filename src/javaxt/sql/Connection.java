@@ -127,7 +127,7 @@ public class Connection implements AutoCloseable {
             if (properties==null) properties = new java.util.Properties();
             if (username!=null){
                 properties.put("user", username);
-                properties.put("password", password);
+                if (password!=null) properties.put("password", password);
             }
 
 
@@ -142,7 +142,23 @@ public class Connection implements AutoCloseable {
 
 
         Speed = System.currentTimeMillis()-startTime;
-        return isClosed;
+        return !isClosed;
+    }
+
+
+  //**************************************************************************
+  //** open
+  //**************************************************************************
+  /** Used establish a connection to the database using a previously opened
+   *  java.sql.Connection. Returns true if the connection is open.
+   *  @param conn An open java.sql.Connection
+   *  @param database Used to associate a database instance with this
+   *  connection. In doing so, you can avoid a potentially costly call parse
+   *  connection metadata.
+   */
+    public boolean open(java.sql.Connection conn, Database database){
+        this.database = database;
+        return open(conn);
     }
 
 
@@ -156,7 +172,7 @@ public class Connection implements AutoCloseable {
 
         boolean isClosed;
         try{
-            database = new Database(conn);
+            if (database==null) database = new Database(conn);
             Conn = conn;
             isClosed = Conn.isClosed();
         }
@@ -167,7 +183,7 @@ public class Connection implements AutoCloseable {
         }
 
         Speed = 0;
-        return isClosed;
+        return !isClosed;
     }
 
 

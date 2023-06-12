@@ -49,6 +49,7 @@ public class ConnectionPool {
     private boolean                        isDisposed;                   // true if this connection pool has been disposed
     private boolean                        doPurgeConnection;            // flag to purge the connection currently beeing closed instead of recycling it
     private PooledConnection               connectionInTransition;       // a PooledConnection which is currently within a PooledConnection.getConnection() call, or null
+    private Database database;
 
 
     /**
@@ -72,6 +73,7 @@ public class ConnectionPool {
    */
     public ConnectionPool(Database database, int maxConnections) throws SQLException {
         this(database.getConnectionPoolDataSource(), maxConnections);
+        this.database = database;
     }
 
 
@@ -82,6 +84,7 @@ public class ConnectionPool {
    */
     public ConnectionPool(Database database, int maxConnections, int timeout) throws SQLException{
         this(database.getConnectionPoolDataSource(), maxConnections, timeout);
+        this.database = database;
     }
 
 
@@ -160,7 +163,9 @@ public class ConnectionPool {
     public Connection getConnection() throws SQLException {
         int javaVersion = javaxt.utils.Java.getVersion();
         if (javaVersion<6){
-            return new Connection(getConnection2(timeoutMs));
+            Connection c = new Connection();
+            c.open(getConnection2(timeoutMs), database);
+            return c;
         }
         else{
             return getValidConnection();
@@ -239,7 +244,9 @@ public class ConnectionPool {
        while (true) {
           java.sql.Connection conn = getValidConnection2(time, timeoutTime);
           if (conn != null) {
-             return new Connection(conn);
+            Connection c = new Connection();
+            c.open(conn, database);
+            return c;
           }
           triesWithoutDelay--;
           if (triesWithoutDelay <= 0) {
