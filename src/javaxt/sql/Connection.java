@@ -426,16 +426,9 @@ public class Connection implements AutoCloseable {
   /** Used to execute a prepared sql statement (e.g. "delete from my_table").
    */
     public void execute(String sql) throws SQLException {
-        java.sql.PreparedStatement stmt = null;
-        try{
-            stmt = Conn.prepareStatement(sql);
+        try (java.sql.PreparedStatement stmt = Conn.prepareStatement(sql)){
             stmt.execute();
-        }
-        catch(Exception e){
-            throw e;
-        }
-        finally{
-            if (stmt!=null) stmt.close();
+            try { Conn.commit(); } catch(Exception e){}
         }
     }
 
