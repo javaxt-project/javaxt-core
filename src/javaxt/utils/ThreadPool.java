@@ -60,13 +60,13 @@ public class ThreadPool {
   //**************************************************************************
     public ThreadPool(int numThreads, Integer maxPoolSize){
         this.numThreads = numThreads;
-        threads = new ArrayList<Thread>();
+        threads = new ArrayList<>();
         pool = new LinkedList();
         if (maxPoolSize!=null){
             if (maxPoolSize<1) maxPoolSize = null;
         }
         this.maxPoolSize = maxPoolSize;
-        params = new ConcurrentHashMap<Long, HashMap<String, Object>>();
+        params = new ConcurrentHashMap<>();
     }
 
     public ThreadPool(int numThreads){
@@ -139,11 +139,49 @@ public class ThreadPool {
   /** Returns a variable for an individual thread
    */
     public Object get(String key){
-        long id = Thread.currentThread().getId();
+        return get(key, null);
+    }
+
+
+  //**************************************************************************
+  //** get
+  //**************************************************************************
+  /** Returns a variable associated with an individual thread
+   *  @param key The name of the variable
+   *  @param setter Optional. Used to generate a value if the value has not
+   *  been set. The following example shows how to call the get method with
+   *  a setter as a lamba expression to return a new database connection:
+   <pre>
+        Connection conn = (Connection) get("conn", () -> {
+            return database.getConnection();
+        });
+   </pre>
+   */
+    public Object get(String key, Setter setter) {
+        long id = getThreadID();
         Object val = null;
         synchronized(params){
             HashMap<String, Object> map = params.get(id);
-            if (map!=null) val = map.get(key);
+
+            if (map==null && setter!=null){
+                map = new HashMap<>();
+                params.put(id, map);
+            }
+
+            if (map!=null){
+                val = map.get(key);
+                if (val==null && setter!=null){
+                    try{
+                        val = setter.getValue();
+                        if (val==null) throw new Exception("Setter cannot return a null value");
+                        map.put(key, val);
+                    }
+                    catch(Exception e){
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+            params.notifyAll();
         }
         return val;
     }
@@ -155,15 +193,48 @@ public class ThreadPool {
   /** Used to set a variable for an individual thread
    */
     public void set(String key, Object value){
-        long id = Thread.currentThread().getId();
+        long id = getThreadID();
         synchronized(params){
             HashMap<String, Object> map = params.get(id);
             if (map==null){
-                map = new HashMap<String, Object>();
+                map = new HashMap<>();
                 params.put(id, map);
             }
             map.put(key, value);
+            params.notifyAll();
         }
+    }
+
+
+  //**************************************************************************
+  //** getThreadID
+  //**************************************************************************
+    private long getThreadID(){
+        long id = Thread.currentThread().getId();
+        for (Thread t : threads){
+            if (id==t.getId()){
+                return id;
+            }
+        }
+
+
+        ThreadGroup threadGroup = Thread.currentThread().getThreadGroup();
+        for (Thread t : threads){
+            if (t.getThreadGroup().parentOf(threadGroup)){
+                return t.getId();
+            }
+        }
+        //ThreadGroup parentGroup = threadGroup.getParent();
+
+        throw new RuntimeException("Thread not found");
+    }
+
+
+  //**************************************************************************
+  //** Setter Interface
+  //**************************************************************************
+    public static interface Setter {
+        public Object getValue() throws Exception;
     }
 
 
@@ -227,6 +298,7 @@ public class ThreadPool {
     public void join() throws InterruptedException{
         while (true) {
             for (Thread thread : threads){
+                //System.out.println(thread.getId() + " " + thread.isAlive());
                 thread.join();
             }
             break;
