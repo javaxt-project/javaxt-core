@@ -417,13 +417,11 @@ public class Connection implements AutoCloseable {
             return new java.util.Iterator<javaxt.sql.Record>(){
                 @Override
                 public boolean hasNext(){
-                    System.out.println(rs.hasNext());
                     return rs.hasNext();
                 }
                 @Override
                 public javaxt.sql.Record next(){
                     javaxt.sql.Record record = rs.getRecord();
-                    System.out.println(record.toJson());
                     rs.moveNext();
                     return record;
                 }
