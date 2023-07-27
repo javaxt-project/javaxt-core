@@ -3,7 +3,6 @@ import java.sql.ResultSet;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import javax.sql.ConnectionPoolDataSource;
-import javaxt.utils.Generator;
 
 //******************************************************************************
 //**  Database
@@ -687,13 +686,23 @@ public class Database implements Cloneable {
         }
     }
 
+
   //**************************************************************************
   //** getRecords
   //**************************************************************************
-  /** Used to retrieve records from this database.
+  /** Used to retrieve records from this database. Note that this method
+   *  relies on a Generator to yield records. This is fine for relatively
+   *  small record sets. However, for large record sets, we recommend opening
+   *  a database connection first and calling Connection.getRecords() like
+   *  this:
+   <pre>
+        try (Connection conn = database.getConnection()){
+            return conn.getRecords(sql);
+        }
+   </pre>
    */
-    public Generator<javaxt.sql.Record> getRecords(String sql) throws SQLException {
-        return new Generator<javaxt.sql.Record>(){
+    public Iterable<javaxt.sql.Record> getRecords(String sql) throws SQLException {
+        return new javaxt.utils.Generator<javaxt.sql.Record>(){
             public void run() throws InterruptedException {
                 try (Connection conn = getConnection()){
 

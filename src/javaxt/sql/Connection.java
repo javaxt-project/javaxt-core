@@ -1,6 +1,5 @@
 package javaxt.sql;
 import java.sql.SQLException;
-import javaxt.utils.Generator;
 import java.util.*;
 
 //******************************************************************************
@@ -226,12 +225,8 @@ public class Connection implements AutoCloseable {
    </pre>
    *  Note that records returned by this method are read-only.
    */
-    public Generator<javaxt.sql.Record> getRecords(String sql) throws SQLException {
-        boolean readOnly = true;
-        HashMap<String, Object> props = new HashMap<>();
-        props.put("readOnly", readOnly);
-        if (readOnly) props.put("fetchSize", 1000);
-        return getRecords(sql, props);
+    public Iterable<javaxt.sql.Record> getRecords(String sql) throws SQLException {
+        return getRecords(sql, null);
     }
 
 
@@ -259,56 +254,8 @@ public class Connection implements AutoCloseable {
    *  See the Recordset class for more information about this properties. This
    *  parameter is optional.
    */
-    public Generator<javaxt.sql.Record> getRecords(final String sql, Map<String, Object> props) throws SQLException {
-
-        if (props==null) props = new HashMap<>();
-        if (props.isEmpty()){
-            props.put("readOnly", true);
-            props.put("fetchSize", 1000);
-        }
-
-        Boolean readOnly = new Value(props.get("readOnly")).toBoolean();
-        if (readOnly==null) readOnly = true;
-        Integer fetchSize = new Value(props.get("fetchSize")).toInteger();
-        if (fetchSize==null) fetchSize = 1000;
-        Integer batchSize = new Value(props.get("batchSize")).toInteger();
-        if (batchSize==null) batchSize = 0;
-
-
-        final boolean _readOnly = readOnly;
-        final int _fetchSize = fetchSize;
-        final int _batchSize = batchSize;
-
-
-        final Connection conn = this;
-        try (Generator g = new Generator<javaxt.sql.Record>(){
-            private Recordset rs;
-
-            @Override
-            public void run() throws InterruptedException {
-                rs = new Recordset();
-                if (_readOnly) rs.setFetchSize(_fetchSize);
-                try{
-                    rs.open(sql, conn, _readOnly);
-                    if (!_readOnly) rs.setBatchSize(_batchSize);
-                    while (rs.next()){
-                        this.yield(rs.getRecord());
-                    }
-                }
-                catch(Exception e){
-                    RuntimeException ex = new RuntimeException(e.getMessage());
-                    ex.setStackTrace(e.getStackTrace());
-                    throw ex;
-                }
-            }
-
-            @Override
-            public void close() {
-                if (rs!=null) rs.close();
-            }
-        }){
-            return g;
-        }
+    public Iterable<javaxt.sql.Record> getRecords(String sql, Map<String, Object> props) throws SQLException {
+        return new RecordIterator(getRecordset(sql, props));
     }
 
 
@@ -450,5 +397,43 @@ public class Connection implements AutoCloseable {
    */
     public Database getDatabase(){
         return database;
+    }
+
+
+  //**************************************************************************
+  //** RecordIterator
+  //**************************************************************************
+  /** Class used to iterate through records in a Recordset
+   */
+    private class RecordIterator implements Iterable<javaxt.sql.Record>, AutoCloseable {
+        private final Recordset rs;
+
+        public RecordIterator(Recordset rs){
+            this.rs = rs;
+        }
+
+        @Override
+        public java.util.Iterator<javaxt.sql.Record> iterator() {
+            return new java.util.Iterator<javaxt.sql.Record>(){
+                @Override
+                public boolean hasNext(){
+                    System.out.println(rs.hasNext());
+                    return rs.hasNext();
+                }
+                @Override
+                public javaxt.sql.Record next(){
+                    javaxt.sql.Record record = rs.getRecord();
+                    System.out.println(record.toJson());
+                    rs.moveNext();
+                    return record;
+                }
+            };
+        }
+
+
+        @Override
+        public void close() {
+            if (rs!=null) rs.close();
+        }
     }
 }

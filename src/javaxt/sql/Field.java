@@ -34,7 +34,7 @@ public class Field {
 
        //Special case. Discovered that the column name was returning a
        //table prefix when performing a union quiries with SQLite
-         if (Name!=null && Name.contains(".")){
+        if (Name!=null && Name.contains(".")){
             String[] arr = Name.split("\\.");
             if (arr.length==3){
                 Name = arr[2];
@@ -48,7 +48,7 @@ public class Field {
             else if (arr.length==1){
                 Name = arr[0];
             }
-         }
+        }
     }
 
     private Field(){}
