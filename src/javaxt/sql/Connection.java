@@ -421,7 +421,13 @@ public class Connection implements AutoCloseable {
                 }
                 @Override
                 public javaxt.sql.Record next(){
-                    javaxt.sql.Record record = rs.getRecord();
+                    Field[] fields = rs.getFields();
+                    Field[] clones = new Field[fields.length];
+                    for (int i=0; i<fields.length; i++){
+                        clones[i] = fields[i].clone();
+                        clones[i].Value = fields[i].Value;
+                    }
+                    javaxt.sql.Record record = new javaxt.sql.Record(clones);
                     rs.moveNext();
                     return record;
                 }
