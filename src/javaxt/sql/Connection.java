@@ -118,7 +118,7 @@ public class Connection implements AutoCloseable {
             //if (Conn!=null && Conn.isOpen()) Conn.close();
 
 
-            String url = database.getURL();
+            String url = database.getURL(false);
             String username = database.getUserName();
             String password = database.getPassword();
 

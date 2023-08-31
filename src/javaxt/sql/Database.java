@@ -331,7 +331,7 @@ public class Database implements Cloneable {
     public String getConnectionString(){
 
       //Set User Info
-        String path = getURL();
+        String path = getURL(false);
         if (username!=null) path += ";user=" + username;
         if (password!=null) path += ";password=" + password;
         return path;
@@ -344,7 +344,7 @@ public class Database implements Cloneable {
   //**************************************************************************
   /** Used to construct a JDBC connection string
    */
-    protected String getURL(){
+    protected String getURL(boolean appendProperties){
 
       //Update Server Name
         String server = host;
@@ -383,11 +383,11 @@ public class Database implements Cloneable {
 
 
       //Set Path
-        String path = "";
-        path = driver.getProtocol() + "://";
+        String path = driver.getProtocol() + "://";
 
 
-      //Special case for Sybase
+
+      //Update path as needed
         if (vendor.equals("Sybase")){
             if (path.toLowerCase().contains((CharSequence) "tds:")==false){
                 path = driver.getProtocol() + "Tds:";
@@ -399,24 +399,42 @@ public class Database implements Cloneable {
         else if (vendor.equals("Derby") || vendor.equals("SQLite")){
             path = driver.getProtocol();
         }
+        else if (vendor.equals("H2")){
 
-
-
-      //Set properties
-        StringBuilder props = new StringBuilder();
-        if (properties!=null){
-            java.util.Iterator it = properties.keySet().iterator();
-            while (it.hasNext()){
-                Object key = it.next();
-                Object val = properties.get(key);
-                props.append(";" + key + "=" + val);
+          //Special case for newer versions of H2. In the 2.x releases of H2,
+          //the protocol changed for embedded file databases. The following
+          //logic will update the path to set the correct protocol depending
+          //on which version of the driver we have.
+            if (driver.getProtocol().equals("jdbc:h2")){
+                java.sql.Driver d = driver.getDriver();
+                try{
+                    if (d==null) d = driver.load();
+                    if (d.getMajorVersion()>1){
+                        path = driver.getProtocol() + ":file:";
+                    }
+                }
+                catch(Exception e){
+                }
             }
         }
 
 
 
       //Assemble Connection String
-        return path + server + database; // + props.toString()
+        String url = path + server + database;
+        if (appendProperties){
+            StringBuilder props = new StringBuilder();
+            if (properties!=null){
+                java.util.Iterator it = properties.keySet().iterator();
+                while (it.hasNext()){
+                    Object key = it.next();
+                    Object val = properties.get(key);
+                    props.append(";" + key + "=" + val);
+                }
+            }
+            url+= props.toString();
+        }
+        return url;
     }
 
 
@@ -553,7 +571,7 @@ public class Database implements Cloneable {
             "Failed to create a ConnectionPoolDataSource. Please specify a driver.");
 
         String className = null;
-        java.util.HashMap<String, Object> methods = new java.util.HashMap<String, Object>();
+        java.util.HashMap<String, Object> methods = new java.util.HashMap<>();
 
 
         if (driver.equals("sqlite")){
@@ -579,7 +597,21 @@ public class Database implements Cloneable {
 
             className = ("org.h2.jdbcx.JdbcDataSource");
 
-            methods.put("setURL", "jdbc:h2:file:" + host);
+
+          //URL requirements changed from 1.x to 2.x. Starting with 2.x, we
+          //now have to add properties to the end of the url
+            String url = null;
+            java.sql.Driver d = driver.getDriver();
+            try{
+                if (d==null) d = driver.load();
+                if (d.getMajorVersion()>1){
+                    url = getURL(true);
+                }
+            }
+            catch(Exception e){}
+
+
+            methods.put("setURL", url==null ? getURL(false) : url);
             methods.put("setUser", username);
             methods.put("setPassword", password);
 
@@ -796,11 +828,11 @@ public class Database implements Cloneable {
         java.util.TreeSet<String> catalogs = new java.util.TreeSet<String>();
         try{
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
-            ResultSet rs = dbmd.getCatalogs();
-            while (rs.next()) {
-                catalogs.add(rs.getString(1));
+            try (ResultSet rs = dbmd.getCatalogs()){
+                while (rs.next()) {
+                    catalogs.add(rs.getString(1));
+                }
             }
-            rs.close();
         }
         catch(Exception e){
             return null;
@@ -820,7 +852,8 @@ public class Database implements Cloneable {
   /**  Used to retrieve a list of reserved keywords for a given database.
    */
     public static String[] getReservedKeywords(Connection conn){
-        javaxt.sql.Driver driver = conn.getDatabase().getDriver();
+        Database database = conn.getDatabase();
+        javaxt.sql.Driver driver = database.getDriver();
         if (driver==null) driver = new Driver("","","");
 
         if (driver.equals("Firebird")){
@@ -830,7 +863,26 @@ public class Database implements Cloneable {
             return msKeywords;
         }
         else if (driver.equals("H2")){
-            return h2Keywords;
+
+
+          //Check if a "MODE" is set
+            String mode = "";
+            java.util.Properties properties = database.getProperties();
+            if (properties!=null){
+                Object o = properties.get("MODE");
+                if (o!=null) mode = o.toString();
+            }
+
+
+            if (mode.equalsIgnoreCase("PostgreSQL")){
+                return java.util.stream.Stream.concat(
+                    java.util.Arrays.stream(h2Keywords),
+                    java.util.Arrays.stream(pgKeywords)
+                ).toArray(String[]::new);
+            }
+            else{
+                return h2Keywords;
+            }
         }
         else if (driver.equals("PostgreSQL")){
 
@@ -839,22 +891,22 @@ public class Database implements Cloneable {
           //the parser but are allowed as column or table names. Therefore, we
           //will ignore "non-reserved" keywords from our query.
             if (pgKeywords==null){
-                java.util.HashSet<String> arr = new java.util.HashSet<String>();
-                java.sql.ResultSet rs = null;
-                java.sql.Statement stmt = null;
-                try{
-                    stmt = conn.getConnection().createStatement(rs.TYPE_FORWARD_ONLY, rs.CONCUR_READ_ONLY, rs.FETCH_FORWARD);
-                    rs = stmt.executeQuery("select word from pg_get_keywords() where catcode='R'");
-                    while(rs.next()){
-                        arr.add(rs.getString(1));
+                java.util.HashSet<String> arr = new java.util.HashSet<>();
+
+                try (java.sql.Statement stmt = conn.getConnection().createStatement(
+                    java.sql.ResultSet.TYPE_FORWARD_ONLY,
+                    java.sql.ResultSet.CONCUR_READ_ONLY,
+                    java.sql.ResultSet.FETCH_FORWARD)){
+
+                    try (java.sql.ResultSet rs = stmt.executeQuery(
+                    "select word from pg_get_keywords() where catcode='R'")){
+                        while(rs.next()){
+                            arr.add(rs.getString(1));
+                        }
                     }
-                    rs.close();
-                    stmt.close();
                 }
                 catch(java.sql.SQLException e){
                     e.printStackTrace();
-                    if (rs!=null) try{ rs.close(); } catch(Exception ex){}
-                    if (stmt!=null) try{ stmt.close(); } catch(Exception ex){}
                 }
                 String[] keywords = new String[arr.size()];
                 int i=0;
@@ -925,34 +977,30 @@ public class Database implements Cloneable {
   //** displayDbProperties
   //**************************************************************************
     public static void displayDbProperties(Connection conn){
+        if (conn==null){
+            System.out.println("Error: Connection is null");
+            return;
+        }
 
-        java.sql.DatabaseMetaData dm = null;
-        java.sql.ResultSet rs = null;
         try{
-            if (conn!=null){
-                dm = conn.getConnection().getMetaData();
-                System.out.println("Driver Information");
-                System.out.println("\tDriver Name: "+ dm.getDriverName());
-                System.out.println("\tDriver Version: "+ dm.getDriverVersion ());
-                System.out.println("\nDatabase Information ");
-                System.out.println("\tDatabase Name: "+ dm.getDatabaseProductName());
-                System.out.println("\tDatabase Version: "+ dm.getDatabaseProductVersion());
-                System.out.println("Avalilable Catalogs ");
+            java.sql.DatabaseMetaData dm = conn.getConnection().getMetaData();
+            System.out.println("Driver Information");
+            System.out.println("\tDriver Name: "+ dm.getDriverName());
+            System.out.println("\tDriver Version: "+ dm.getDriverVersion ());
+            System.out.println("\nDatabase Information ");
+            System.out.println("\tDatabase Name: "+ dm.getDatabaseProductName());
+            System.out.println("\tDatabase Version: "+ dm.getDatabaseProductVersion());
+            System.out.println("Avalilable Catalogs ");
 
-                rs = dm.getCatalogs();
+            try (java.sql.ResultSet rs = dm.getCatalogs()){
                 while(rs.next()){
-                     System.out.println("\tcatalog: "+ rs.getString(1));
+                    System.out.println("\tcatalog: "+ rs.getString(1));
                 }
-                rs.close();
-                rs = null;
-
             }
-            else
-               System.out.println("Error: No active Connection");
-        }catch(Exception e){
+        }
+        catch(Exception e){
            e.printStackTrace();
         }
-        dm=null;
     }
 
 
@@ -968,7 +1016,7 @@ public class Database implements Cloneable {
         str.append("Port: " + port + "\r\n");
         str.append("UserName: " + username + "\r\n");
         str.append("Driver: " + driver + "\r\n");
-        str.append("URL: " + getURL() + "\r\n");
+        str.append("URL: " + getURL(false) + "\r\n");
         str.append("ConnStr: " + this.getConnectionString());
         return str.toString();
     }
@@ -1060,8 +1108,22 @@ public class Database implements Cloneable {
     };
 
 
-  /** PostgreSQL reserved keywords. */
-    private static String[] pgKeywords = null;
+  /** PostgreSQL reserved keywords. Source:
+   *
+   */
+    private static String[] pgKeywords = new String[]{
+        "ALL","ANALYSE","ANALYZE","AND","ANY","ARRAY","AS","ASC","ASYMMETRIC",
+        "BOTH","CASE","CAST","CHECK","COLLATE","COLUMN","CONSTRAINT","CREATE",
+        "CURRENT_CATALOG","CURRENT_DATE","CURRENT_ROLE","CURRENT_TIME",
+        "CURRENT_TIMESTAMP","CURRENT_USER","DEFAULT","DEFERRABLE","DESC",
+        "DISTINCT","DO","ELSE","END","EXCEPT","FALSE","FETCH","FOR","FOREIGN",
+        "FROM","GRANT","GROUP","HAVING","IN","INITIALLY","INTERSECT","INTO",
+        "LATERAL","LEADING","LIMIT","LOCALTIME","LOCALTIMESTAMP","NOT","NULL",
+        "OFFSET","ON","ONLY","OR","ORDER","PLACING","PRIMARY","REFERENCES",
+        "RETURNING","SELECT","SESSION_USER","SOME","SYMMETRIC","TABLE","THEN",
+        "TO","TRAILING","TRUE","UNION","UNIQUE","USER","USING","VARIADIC",
+        "WHEN","WHERE","WINDOW","WITH"
+    };
 
 
   /** Superset of SQL-92, SQL-99, SQL-2003 reserved keywords. */

@@ -12,29 +12,33 @@ package javaxt.sql;
 public class Driver {
 
     private String vendor;
-    private String driver;
+    private String driverClass;
     private String protocol;
-    private java.sql.Driver Driver = null;
+    private java.sql.Driver driver;
 
 
     /** Static list of drivers and corresponding metadata */
     private static Driver[] drivers = new Driver[]{
+
+      //The following drivers have been tested worked at some point
+        new Driver("PostgreSQL","org.postgresql.Driver","jdbc:postgresql"),
+        new Driver("Oracle", "oracle.jdbc.driver.OracleDriver", "jdbc:oracle"),
         new Driver("SQLServer","com.microsoft.sqlserver.jdbc.SQLServerDriver","jdbc:sqlserver"),
         new Driver("DB2","com.ibm.db2.jcc.DB2Driver","jdbc:db2"), //"COM.ibm.db2.jdbc.net.DB2Driver"
         new Driver("Sybase","com.sybase.jdbc3.jdbc.SybDriver","jdbc:sybase"),
-        new Driver("PostgreSQL","org.postgresql.Driver","jdbc:postgresql"),
-        new Driver("Oracle", "oracle.jdbc.driver.OracleDriver", "jdbc:oracle"),
+        new Driver("MySQL", "com.mysql.jdbc.Driver", "jdbc:mysql"),
         new Driver("Derby","org.apache.derby.jdbc.EmbeddedDriver","jdbc:derby"),
         new Driver("SQLite","org.sqlite.JDBC","jdbc:sqlite"),
+        new Driver("H2", "org.h2.Driver", "jdbc:h2"),
+        new Driver("Firebird", "org.firebirdsql.jdbc.FBDriver", "jdbc:firebirdsql"),
         new Driver("Microsoft Access","sun.jdbc.odbc.JdbcOdbcDriver","jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)}"),
 
-      //The rest of these drivers have not been tested
+      //The rest of these drivers have never been tested
         new Driver("FrontBase", "com.frontbase.jdbc.FBJDriver", "jdbc:FrontBase"),
         new Driver("Informix", "com.informix.jdbc.IfxDriver", "jdbc:informix-sqli"),
         new Driver("Cache", "com.intersys.jdbc.CacheDriver", "jdbc:Cache"),
         new Driver("microsoft", "com.microsoft.jdbc.sqlserver.SQLServerDriver", "jdbc:microsoft"),
         new Driver("Mimer", "com.mimer.jdbc.Driver", "jdbc:mimer"),
-        new Driver("MySQL", "com.mysql.jdbc.Driver", "jdbc:mysql"),
         new Driver("Teradata", "com.ncr.teradata.TeraDriver", "jdbc:teradata"),
         new Driver("Pervasive", "com.pervasive.jdbc.v2.Driver", "jdbc:pervasive"),
         new Driver("Pointbase", "com.pointbase.jdbc.jdbcUniversalDriver", "jdbc:pointbase"),
@@ -44,8 +48,6 @@ public class Driver {
         new Driver("JTDS", "net.sourceforge.jtds.jdbc.Driver", "jdbc:jtds"), //Open source JDBC 3.0 type 4 driver for Microsoft SQL Server and Sybase ASE
         new Driver("derby net", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby:net"),
         //new Driver("derby //", "org.apache.derby.jdbc.ClientDriver", "jdbc:derby://"),
-        new Driver("Firebird", "org.firebirdsql.jdbc.FBDriver", "jdbc:firebirdsql"),
-        new Driver("H2", "org.h2.Driver", "jdbc:h2"),
         new Driver("HyperSQL", "org.hsqldb.jdbcDriver", "jdbc:hsqldb"),
         new Driver("odbc", "sun.jdbc.odbc.JdbcOdbcDriver", "jdbc:odbc")
 
@@ -113,7 +115,7 @@ public class Driver {
    */
     public Driver(String vendor, String driver, String protocol){
         this.vendor = vendor;
-        this.driver = driver;
+        this.driverClass = driver;
         this.protocol = protocol;
     }
 
@@ -126,8 +128,8 @@ public class Driver {
     public Driver(java.sql.Driver driver){
 
         String className = driver.getClass().getCanonicalName();
-        this.driver = className;
-        this.Driver = driver;
+        this.driverClass = className;
+        this.driver = driver;
 
         for (Driver d : drivers){
             if (d.equals(className)){
@@ -157,7 +159,7 @@ public class Driver {
    *  com.microsoft.sqlserver.jdbc.SQLServerDriver).
    */
     public String getClassName(){
-        return driver;
+        return driverClass;
     }
 
 
@@ -178,18 +180,22 @@ public class Driver {
    *  the driver class specified in the constructor.
    */
     public java.sql.Driver load() throws java.sql.SQLException{
-        if (Driver==null){
+        if (driver==null){
             //System.out.print("Loading Driver...");
             try{
-                Driver = (java.sql.Driver) Class.forName(driver).newInstance();
+                driver = (java.sql.Driver) Class.forName(driverClass).newInstance();
             }
             catch(Exception e){
-                throw new java.sql.SQLException("Failed to load driver " + driver, e);
+                throw new java.sql.SQLException("Failed to load driver " + driverClass, e);
             }
             //DriverManager.registerDriver(Driver);
             //System.out.println("Done");
         }
-        return Driver;
+        return driver;
+    }
+
+    protected java.sql.Driver getDriver(){
+        return driver;
     }
 
 
