@@ -61,7 +61,7 @@ public class Recordset implements AutoCloseable {
     private Integer fetchSize = null;
     private int numBatches=0;
     private int batchSize=1;
-    private java.util.HashMap<String, java.sql.PreparedStatement> batchedStatements;
+    private HashMap<String, java.sql.PreparedStatement> batchedStatements;
 
     private long queryResponseTime, ellapsedTime, metadataQueryTime;
     private long startTime, endTime;
@@ -387,7 +387,7 @@ public class Recordset implements AutoCloseable {
 
                     EOF = false;
                     for (int i=1; i<=cols; i++) {
-                        fields[i-1].Value = new Value(rs.getObject(i));
+                        fields[i-1].setValue(new Value(rs.getObject(i)));
                     }
                     x+=1;
                 }
@@ -573,19 +573,19 @@ public class Recordset implements AutoCloseable {
       //Generate list of fields that require updates
         ArrayList<Field> fields = new ArrayList<>();
         for (Field field : record.fields){
-            if (field.getName()!=null && field.RequiresUpdate) fields.add(field);
+            if (field.getName()!=null && field.isDirty()) fields.add(field);
         }
         int numUpdates = fields.size();
 
 
       //Get table name
         Field f = record.getField(0);
-        String tableName = f.getTable();
+        String tableName = f.getTableName();
         String schemaName = f.getSchema();
 
         if (tableName==null){
             updateFields();
-            tableName = f.getTable();
+            tableName = f.getTableName();
             schemaName = f.getSchema();
         }
         else{
@@ -636,21 +636,21 @@ public class Recordset implements AutoCloseable {
           //quite a bit but we need it for the "where" clause.
             if (keys.isEmpty()){
                 try{
-                    java.sql.Connection conn = connection.getConnection();
-                    java.sql.DatabaseMetaData dbmd = conn.getMetaData();
-                    java.sql.ResultSet r2 = dbmd.getTables(null,null,f.getTable(),new String[]{"TABLE"});
-                    if (r2.next()) {
-                        Table table = new Table(r2, dbmd);
-                        Key[] arr = table.getPrimaryKeys();
-                        if (arr!=null){
-                            for (int i=0; i<arr.length; i++){
-                                Key key = arr[i];
-                                Field field = getField(key.getColumn());
-                                if (field!=null) keys.add(field);
-                            }
+
+                    Table table = f.getT();
+                    if (table==null){
+                        updateFields();
+                        table = f.getT();
+                    }
+
+                    Key[] arr = table.getPrimaryKeys();
+                    if (arr!=null){
+                        for (int i=0; i<arr.length; i++){
+                            Key key = arr[i];
+                            Field field = getField(key.getColumn());
+                            if (field!=null) keys.add(field);
                         }
                     }
-                    r2.close();
                 }
                 catch(Exception e){
                 }
@@ -823,7 +823,7 @@ public class Recordset implements AutoCloseable {
         for (int i=0; i<fields.size(); i++) {
 
             Field field = fields.get(i);
-            String FieldType = field.Class.toLowerCase();
+            String FieldType = field.getClassName().toLowerCase();
             if (FieldType.contains(".")) FieldType = FieldType.substring(FieldType.lastIndexOf(".")+1);
             Value FieldValue = field.getValue();
 
@@ -961,15 +961,15 @@ public class Recordset implements AutoCloseable {
         String packageName = _package==null ? "" : _package.getName();
         if (packageName.startsWith("javaxt.geospatial.geometry")){
             String STGeomFromText = getSTGeomFromText(field, connection);
-            field.Value = new Value(value.toString());
-            field.Class = "java.lang.String";
+            field.setValue(new Value(value.toString()));
+            field.setClassName("java.lang.String");
             return STGeomFromText + "(?,4326)";
         }
         else if (packageName.startsWith("com.vividsolutions.jts.geom") ||
             packageName.startsWith("org.locationtech.jts.geom")){
             String STGeomFromText = getSTGeomFromText(field, connection);
-            field.Value = new Value(value.toString());
-            field.Class = "java.lang.String";
+            field.setValue(new Value(value.toString()));
+            field.setClassName("java.lang.String");
             int srid = 4326; //getSRID();
             try{
                 java.lang.reflect.Method method = value.getClass().getMethod("getSRID");
@@ -1000,13 +1000,13 @@ public class Recordset implements AutoCloseable {
     protected static String getSTGeomFromText(Field field, Connection conn){
         javaxt.sql.Driver driver = conn.getDatabase().getDriver();
         if (driver.equals("SQLServer")){
-            String geo = field.Class.toLowerCase();
+            String geo = field.getClassName().toLowerCase();
             if (!geo.equals("geometry") && !geo.equals("geography")){
                 geo = null;
                 try{
                     Recordset rs = new Recordset();
                     rs.open("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
-                            "WHERE TABLE_NAME='" + field.getTable() + "' AND COLUMN_NAME='" + field.getName() + "'",
+                            "WHERE TABLE_NAME='" + field.getTableName() + "' AND COLUMN_NAME='" + field.getName() + "'",
                     conn);
                     geo = rs.getValue(0).toString();
                     rs.close();
@@ -1460,7 +1460,7 @@ public class Recordset implements AutoCloseable {
             String fieldName = field.getName();
             if (fieldName==null) continue;
 
-            if (field.getTable()==null){
+            if (field.getTableName()==null){
                 updateFields = true;
                 break;
             }
@@ -1508,7 +1508,7 @@ public class Recordset implements AutoCloseable {
             String schemaName = props.get("schemaName");
             if (tableName!=null && schemaName!=null){
                 for (Field field : record.fields){
-                    if (field.getTable()==null){
+                    if (field.getTableName()==null){
                         field.setTableName(tableName);
                     }
                     if (field.getSchema()==null){
@@ -1566,7 +1566,7 @@ public class Recordset implements AutoCloseable {
         for (Field field : record.fields){
 
             ArrayList<Column> columns = null;
-            if (field.getTable()==null){
+            if (field.getTableName()==null){
 
               //Update Table and Schema
                 columns = getColumns(field, tables);
@@ -1575,6 +1575,7 @@ public class Recordset implements AutoCloseable {
                         Column column = columns.get(0);
                         field.setTableName(column.getTable().getName());
                         field.setSchemaName(column.getTable().getSchema());
+                        field.setTable(column.getTable());
                     }
                 }
             }
@@ -1584,7 +1585,7 @@ public class Recordset implements AutoCloseable {
               //Update Schema
                 ArrayList<Table> matches = new ArrayList<>();
                 for (Table table : tables){
-                    if (table.getName().equalsIgnoreCase(field.getTable())){
+                    if (table.getName().equalsIgnoreCase(field.getTableName())){
                         matches.add(table);
                     }
                 }
@@ -1592,6 +1593,7 @@ public class Recordset implements AutoCloseable {
                 if (matches.size()==1){
                     Table table = matches.get(0);
                     field.setSchemaName(table.getSchema());
+                    field.setTable(table);
                 }
                 else{
                     if (columns==null) columns = getColumns(field, tables);
@@ -1599,6 +1601,7 @@ public class Recordset implements AutoCloseable {
                         if (columns.size()==1){
                             Column column = columns.get(0);
                             field.setSchemaName(column.getTable().getSchema());
+                            field.setTable(column.getTable());
                         }
                     }
                 }
@@ -1631,7 +1634,7 @@ public class Recordset implements AutoCloseable {
 
             ArrayList<Column> columns = new ArrayList<>();
             for (Column column : matches){
-                if (column.getType().equalsIgnoreCase(field.Type)){
+                if (column.getType().equalsIgnoreCase(field.getType())){
                     columns.add(column);
                 }
             }

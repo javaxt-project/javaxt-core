@@ -374,7 +374,7 @@ public abstract class Model {
                 for (Field field : dbFields){
                     if (field.getName().equalsIgnoreCase(columnName)){
                         field = field.clone();
-                        field.Value = new Value(val);
+                        field.setValue(new Value(val));
                         updates.add(field);
                         foundField = true;
                         break;

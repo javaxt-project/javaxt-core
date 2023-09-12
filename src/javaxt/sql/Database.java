@@ -330,12 +330,10 @@ public class Database implements Cloneable {
    */
     public String getConnectionString(){
 
-      //Set User Info
         String path = getURL(false);
         if (username!=null) path += ";user=" + username;
         if (password!=null) path += ";password=" + password;
         return path;
-
     }
 
 
@@ -1108,8 +1106,10 @@ public class Database implements Cloneable {
     };
 
 
-  /** PostgreSQL reserved keywords. Source:
-   *
+  /** PostgreSQL reserved keywords generated via the following query using PG15:
+   <pre>
+    select string_agg('"' || UPPER(word) || '"', ',') from pg_get_keywords() where catcode='R';
+   </pre>
    */
     private static String[] pgKeywords = new String[]{
         "ALL","ANALYSE","ANALYZE","AND","ANY","ARRAY","AS","ASC","ASYMMETRIC",

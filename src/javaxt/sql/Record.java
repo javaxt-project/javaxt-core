@@ -34,8 +34,8 @@ public class Record { //extends javaxt.utils.Record
         try{
             for (int i=1; i<=fields.length; i++) {
                 Field Field = fields[i-1];
-                Field.Value = rs==null ? null : new Value(rs.getObject(i));
-                Field.RequiresUpdate = false;
+                Field.setValue(rs==null ? null : new Value(rs.getObject(i)));
+                Field.requiresUpdate(false);
             }
         }
         catch(Exception e){}
@@ -51,7 +51,7 @@ public class Record { //extends javaxt.utils.Record
         Field[] arr = new Field[fields.length];
         for (int i=0; i<arr.length; i++){
             arr[i] = fields[i].clone();
-            arr[i].Value = fields[i].Value;
+            arr[i].setValue(fields[i].getValue());
         }
         return arr;
     }
@@ -63,14 +63,14 @@ public class Record { //extends javaxt.utils.Record
   /** Returns a specific field in the array of fields. Returns null if the
    *  field name is not found.
    */
-    public Field getField(String FieldName){
+    public Field getField(String name){
         if (fields.length==0) return null;
 
-        if (FieldName==null) return null;
-        FieldName = FieldName.trim();
-        if (FieldName.length()==0) return null;
+        if (name==null) return null;
+        name = name.trim();
+        if (name.length()==0) return null;
 
-        String[] arr = FieldName.split("\\.");
+        String[] arr = name.split("\\.");
 
         for (Field field : fields) {
 
@@ -81,13 +81,13 @@ public class Record { //extends javaxt.utils.Record
             String schemaName = field.getSchema()==null? "" : field.getSchema();
 
             if (arr.length==3){
-                 if (fieldName.equalsIgnoreCase(arr[2]) && tableName.equalsIgnoreCase(arr[1]) && schemaName.equalsIgnoreCase(arr[0])){
-                     return field;
-                 }
+                if (fieldName.equalsIgnoreCase(arr[2]) && tableName.equalsIgnoreCase(arr[1]) && schemaName.equalsIgnoreCase(arr[0])){
+                    return field;
+                }
             }
             else if (arr.length==2){
                 if (fieldName.equalsIgnoreCase(arr[1]) && tableName.equalsIgnoreCase(arr[0])){
-                     return field;
+                    return field;
                 }
             }
             else if (arr.length==1){
@@ -150,18 +150,18 @@ public class Record { //extends javaxt.utils.Record
   //**************************************************************************
   //** setValue
   //**************************************************************************
-    public void set(String FieldName, Value FieldValue){
+    public void set(String fieldName, Value fieldValue){
 
         for (Field field : fields){
             String name = field.getName();
             if (name!=null){
-                if (name.equalsIgnoreCase(FieldName)){
-                    if (FieldValue==null) FieldValue = new Value(null);
+                if (name.equalsIgnoreCase(fieldName)){
+                    if (fieldValue==null) fieldValue = new Value(null);
 
                   //Update the Field Value as needed.
-                    if (!field.getValue().equals(FieldValue)){
-                        field.Value = FieldValue;
-                        field.RequiresUpdate = true;
+                    if (!field.getValue().equals(fieldValue)){
+                        field.setValue(fieldValue);
+                        field.requiresUpdate(true);
                     }
                     break;
                 }

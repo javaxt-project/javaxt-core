@@ -425,7 +425,7 @@ public class Connection implements AutoCloseable {
                     Field[] clones = new Field[fields.length];
                     for (int i=0; i<fields.length; i++){
                         clones[i] = fields[i].clone();
-                        clones[i].Value = fields[i].Value;
+                        clones[i].setValue(fields[i].getValue());
                     }
                     javaxt.sql.Record record = new javaxt.sql.Record(clones);
                     rs.moveNext();
