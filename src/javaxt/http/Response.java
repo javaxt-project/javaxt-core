@@ -13,7 +13,7 @@ import java.io.*;
  ******************************************************************************/
 
 public class Response {
-    
+
     private URLConnection conn;
     private Request request;
 
@@ -102,10 +102,10 @@ public class Response {
   //** getCharacterEncoding
   //**************************************************************************
   /** Returns the name of the character encoding used in the body of this
-   *  response as specified in the "Content-Type" header. For example, the 
-   *  following "Content-Type" header specifies "UTF-8" character encoding: 
+   *  response as specified in the "Content-Type" header. For example, the
+   *  following "Content-Type" header specifies "UTF-8" character encoding:
    *  <pre>Content-Type: text/html; charset=utf-8</pre>
-   *  This method returns a null if the response does not specify a character 
+   *  This method returns a null if the response does not specify a character
    *  encoding.
    */
     public String getCharacterEncoding(){
@@ -152,7 +152,7 @@ public class Response {
         }
     }
 
-    
+
   //**************************************************************************
   //** getText
   //**************************************************************************
@@ -176,7 +176,7 @@ public class Response {
    *
    *   @param charsetName Name of the character encoding used to read the file.
    *   Examples include UTF-8 and ISO-8859-1
-   */    
+   */
     public String getText(String charsetName){
         try{
             return getBytes(true).toString(charsetName);
@@ -189,10 +189,40 @@ public class Response {
 
 
   //**************************************************************************
+  //** getJSONObject
+  //**************************************************************************
+  /** Used read through the entire response stream and returns a JSON object
+   */
+    public javaxt.json.JSONObject getJSONObject(){
+        try {
+            return new javaxt.json.JSONObject(getText());
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getJSONArray
+  //**************************************************************************
+  /** Used read through the entire response stream and returns a JSON array
+   */
+    public javaxt.json.JSONArray getJSONArray(){
+        try {
+            return new javaxt.json.JSONArray(getText());
+        }
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
   //** getXML
   //**************************************************************************
-  /**  Used read through the entire response stream and converts it to an xml
-   *   DOM document.
+  /** Used read through the entire response stream and converts it to an xml
+   *  DOM document.
    */
     public org.w3c.dom.Document getXML(){
         return javaxt.xml.DOM.createDocument(new ByteArrayInputStream(getBytes(true).toByteArray()));
@@ -207,7 +237,7 @@ public class Response {
     public javaxt.io.Image getImage(){
         return new javaxt.io.Image(getBytes(true).toByteArray());
     }
-    
+
 
   //**************************************************************************
   //** getBytes
@@ -218,7 +248,7 @@ public class Response {
    *  the Response.getBytes(true) method to automatically decompress the
    *  response.
    */
-    public ByteArrayOutputStream getBytes(){                
+    public ByteArrayOutputStream getBytes(){
         return getBytes(false);
     }
 
@@ -341,7 +371,7 @@ private boolean done = false;
                 out.append(headers.get(key) + "\r\n");
             }
         }
-        
+
         out.append("\r\n");
         return out.toString();
     }

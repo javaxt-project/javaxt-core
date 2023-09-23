@@ -393,8 +393,8 @@ public class Request {
   //**************************************************************************
   //** write
   //**************************************************************************
-  /**  Used to open an HTTP connection to the URL and POST data to the server.
-   *   @param payload String containing the body of the HTTP request.
+  /** Used to open an HTTP connection and sent data to the server.
+   *  @param payload String containing the body of the HTTP request.
    */
     public void write(String payload) {
         write(payload.getBytes());
@@ -404,8 +404,8 @@ public class Request {
   //**************************************************************************
   //** write
   //**************************************************************************
-  /**  Used to open an HTTP connection to the URL and POST data to the server.
-   *   @param payload Byte array containing the body of the HTTP request.
+  /** Used to open an HTTP connection and sent data to the server.
+   *  @param payload Byte array containing the body of the HTTP request.
    */
     public void write(byte[] payload) {
         setHeader("Content-Length", payload.length + "");
@@ -419,6 +419,26 @@ public class Request {
         }
 
         parseResponse(conn);
+    }
+
+
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /** Used to open an HTTP connection and sent a JSON object to the server.
+   */
+    public void write(javaxt.json.JSONObject json){
+        write(json.toString().getBytes());
+    }
+
+
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /** Used to open an HTTP connection and sent a JSON array to the server.
+   */
+    public void write(javaxt.json.JSONArray arr){
+        write(arr.toString().getBytes());
     }
 
 
@@ -646,10 +666,17 @@ public class Request {
 
 
           //Set request method as needed
-            if (ssl && method!=null){
-                HttpsURLConnection con = (HttpsURLConnection)conn;
-                con.setRequestMethod(method);
+            if (method!=null){
+                if (ssl){
+                    HttpsURLConnection con = (HttpsURLConnection)conn;
+                    con.setRequestMethod(method);
+                }
+                else{
+                    HttpURLConnection con = (HttpURLConnection)conn;
+                    con.setRequestMethod(method);
+                }
             }
+
 
 
           //Set timeouts
