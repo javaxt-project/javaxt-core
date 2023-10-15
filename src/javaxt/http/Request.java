@@ -45,7 +45,7 @@ public class Request {
     private String method;
 
     private java.util.Map<String, List<String>> requestHeaders = null;
-    private HashMap<String, List<String>> RequestProperties = new HashMap<String, List<String>>();
+    private HashMap<String, List<String>> RequestProperties = new HashMap<>();
 
   //Http response properties
     private java.util.Map<String, List<String>> headers = null;
@@ -156,8 +156,9 @@ public class Request {
         this.setHeader("Accept-Encoding", "gzip,deflate");
         this.setHeader("Accept-Charset", "ISO-8859-1,utf-8;q=0.7,*;q=0.7");
       //this.setHeader("User-Agent", "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.2.10)"); //windows xp
-        this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:60.0) Gecko/20100101 Firefox/60.0"); //windows 7
+      //this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:60.0) Gecko/20100101 Firefox/60.0"); //windows 7
       //this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0"); //windows 8
+        this.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0"); //windows 10
     }
 
 
@@ -692,22 +693,21 @@ public class Request {
 
 
 
-          //Disable HTTP redirects
+          //Disable HTTP redirects and SSL certificate validation as needed
             if (ssl){
                 HttpsURLConnection con = (HttpsURLConnection)conn;
                 con.setInstanceFollowRedirects(false);
+
+                if (validateCertificates==false){
+                    con.setHostnameVerifier(DO_NOT_VERIFY);
+                }
+
             }
             else{
                 HttpURLConnection con = (HttpURLConnection)conn;
                 con.setInstanceFollowRedirects(false);
             }
 
-
-          //Disable SSL certificate validation as needed (Part 2)
-            if (ssl && validateCertificates==false){
-            	HttpsURLConnection con = (HttpsURLConnection)conn;
-        	con.setHostnameVerifier(DO_NOT_VERIFY);
-            }
 
 
           //Set request headers

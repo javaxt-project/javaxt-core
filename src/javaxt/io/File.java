@@ -491,6 +491,7 @@ public class File implements Comparable {
         return moveTo(new javaxt.io.File(Destination, getName()), true);
     }
 
+
   //**************************************************************************
   //** Move File
   //**************************************************************************
@@ -697,7 +698,9 @@ public class File implements Comparable {
   //**************************************************************************
   //** getBufferedImage
   //**************************************************************************
-
+  /** Returns the file contents as a BufferedImage. Returns a null if the file
+   *  contents cannot be converted into a BufferedImage.
+   */
     public java.awt.image.BufferedImage getBufferedImage(){
         Image img = getImage();
         if (img!=null) return img.getBufferedImage();
@@ -708,7 +711,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** getImage
   //**************************************************************************
-  /** Used to open the file and read the contents into an image.
+  /** Returns the file contents as an Image (javaxt.io.Image). Returns a null
+   *  if the file contents cannot be converted into an Image.
    */
     public Image getImage(){
         java.io.File File = getFile();
@@ -720,7 +724,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** getText
   //**************************************************************************
-  /**  Used to open the file and read the contents into a string.
+  /** Returns the file contents as a String. Returns an empty String if the
+   *  file is empty or the contents cannot be converted to a String.
    */
     public String getText(){
         try{
@@ -738,9 +743,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** getText
   //**************************************************************************
-  /** Used to extract the contents of the file as a String. Returns an empty
-   *  String if the file is empty or the contents cannot be converted to a
-   *  String.
+  /** Returns the file contents as a String. Returns an empty String if the
+   *  file is empty or the contents cannot be converted to a String.
    *  @param charsetName Name of the character encoding used to read the file.
    *  Examples include UTF-8 and ISO-8859-1
    */
@@ -756,34 +760,59 @@ public class File implements Comparable {
   //**************************************************************************
   //** getXML
   //**************************************************************************
-  /** Returns an XML DOM Document (org.w3c.dom.Document) represented by this
-   *  file. Returns a null if the file contents cannot be converted into a
-   *  DOM Document.
+  /** Returns the file contents as a XML DOM Document(org.w3c.dom.Document).
+   *  Returns a null if the file contents cannot be converted into a DOM
+   *  Document.
    */
     public org.w3c.dom.Document getXML(){
-        FileInputStream is = null;
-        try{
-            is = getInputStream();
-            org.w3c.dom.Document xml = javaxt.xml.DOM.createDocument(is);
-            is.close();
-            return xml;
+        try (FileInputStream is = getInputStream()) {
+            return javaxt.xml.DOM.createDocument(is);
         }
         catch(Exception e){
+            return null;
         }
-        finally{
-            if (is!=null){
-                try{ is.close(); }catch(Exception e){}
-            }
+    }
+
+
+  //**************************************************************************
+  //** getJSONObject
+  //**************************************************************************
+  /** Returns the file contents as a JSON object (javaxt.json.JSONObject).
+   *  Returns a null if the file contents cannot be converted into a JSON
+   *  object.
+   */
+    public javaxt.json.JSONObject getJSONObject(){
+        try {
+            return new javaxt.json.JSONObject(getText());
         }
-        return null;
+        catch(Exception e){
+            return null;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getJSONArray
+  //**************************************************************************
+  /** Returns the file contents as a JSON array (javaxt.json.JSONArray).
+   *  Returns a null if the file contents cannot be converted into a JSON
+   *  array.
+   */
+    public javaxt.json.JSONArray getJSONArray(){
+        try {
+            return new javaxt.json.JSONArray(getText());
+        }
+        catch(Exception e){
+            return null;
+        }
     }
 
 
   //**************************************************************************
   //** getBytes
   //**************************************************************************
-  /** Returns a ByteArrayOutputStream for the file. Returns a null if a
-   *  ByteArrayOutputStream cannot be created (e.g. file does not exist).
+  /** Returns the file contents as a ByteArrayOutputStream. Returns a null if
+   *  the file contents cannot be converted to a ByteArrayOutputStream.
    */
     public ByteArrayOutputStream getBytes(){
         return getBytes(getFile(), bufferSize);
@@ -791,25 +820,17 @@ public class File implements Comparable {
 
     private static ByteArrayOutputStream getBytes(java.io.File File, int bufferSize){
         if (File.exists()){
-            FileInputStream is = null;
-            try{
-                is = new FileInputStream(File);
+            try (FileInputStream is = new FileInputStream(File)) {
                 ByteArrayOutputStream bas = new ByteArrayOutputStream();
                 byte[] b = new byte[bufferSize];
-                int x=0;
+                int x;
                 while((x=is.read(b,0,bufferSize))>-1) {
                     bas.write(b,0,x);
                 }
                 bas.close();
-                is.close();
                 return bas;
             }
             catch(Exception e){
-            }
-            finally{
-                if (is!=null){
-                    try{ is.close(); }catch(Exception e){}
-                }
             }
         }
         return null;
@@ -860,15 +881,13 @@ public class File implements Comparable {
   //**************************************************************************
     private String getHash(String algorithm){
         if (!exists()) return null;
-        try {
+        try (InputStream input = getInputStream()) {
             java.security.MessageDigest md = java.security.MessageDigest.getInstance(algorithm);
-            InputStream input = getInputStream();
             byte[] buf = new byte[bufferSize];
-            int i = 0;
+            int i;
             while((i=input.read(buf))!=-1) {
                 md.update(buf, 0, i);
             }
-            input.close();
             //return new javax.xml.bind.annotation.adapters.HexBinaryAdapter().marshal(md.digest()).toLowerCase();
             return printHexBinary(md.digest()).toLowerCase();
         }
@@ -1062,8 +1081,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Write Image
   //**************************************************************************
-  /** Used to write an image to a file. */
-
+  /** Used to write an image to a file.
+   */
     public void write(java.awt.image.BufferedImage Image){
         java.io.File File = getFile();
         attr = null;
@@ -1150,21 +1169,21 @@ public class File implements Comparable {
     }
 
 
-
   //**************************************************************************
   //** getInputStream
   //**************************************************************************
-  /**  Returns a new FileInputStream Object */
-
+  /** Returns a new FileInputStream
+   */
     public FileInputStream getInputStream() throws IOException{
         return new FileInputStream(getFile());
     }
 
+
   //**************************************************************************
   //** getInputStream
   //**************************************************************************
-  /**  Returns a new FileOutputStream Object */
-
+  /**  Returns a new FileOutputStream
+   */
     public FileOutputStream getOutputStream() throws IOException{
         attr = null;
         return new FileOutputStream(getFile());
@@ -1174,8 +1193,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** toString
   //**************************************************************************
-  /**  Returns the full file path (including the file name) */
-
+  /** Returns the full file path (including the file name)
+   */
     public String toString(){
         return path + name;
     }
@@ -1198,7 +1217,6 @@ public class File implements Comparable {
   //**************************************************************************
   //** equals
   //**************************************************************************
-
     public boolean equals(Object obj){
         if (obj instanceof javaxt.io.File || obj instanceof java.io.File){
             return obj.hashCode()==this.hashCode();
@@ -1210,8 +1228,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** clone
   //**************************************************************************
-  /** Creates a copy of this object. */
-
+  /** Creates a copy of this object.
+   */
     public File clone(){
         return new File(this.toString());
     }
@@ -1220,8 +1238,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** IsValidPath -- NOT USED!
   //**************************************************************************
-  /**  Checks whether PathToFile is a valid */
-
+  /**  Checks whether PathToFile is a valid
+   */
     private boolean isValidPath(String PathToFile){
 
         if (PathToFile==null) return false;

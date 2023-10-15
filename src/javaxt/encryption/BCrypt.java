@@ -79,6 +79,14 @@ public class BCrypt {
   //**************************************************************************
   //** hashpw
   //**************************************************************************
+    public static String hashpw(String password){
+        return hashpw(password, gensalt());
+    }
+
+
+  //**************************************************************************
+  //** hashpw
+  //**************************************************************************
   /** Returns a BCrypt hashed password
    *  @param password the password to hash
    *  @param salt the salt to hash with (perhaps generated using BCrypt.gensalt)
@@ -93,6 +101,7 @@ public class BCrypt {
   //** hashpw
   //**************************************************************************
     public static String hashpw(String password, Salt salt) {
+        if (hasSalt(password)) return password;
 
         char minor = salt.minor;
         byte saltb[] = salt.saltb;
