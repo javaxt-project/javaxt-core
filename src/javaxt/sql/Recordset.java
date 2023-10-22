@@ -584,13 +584,13 @@ public class Recordset implements AutoCloseable {
         String schemaName = f.getSchema();
 
         if (tableName==null){
-            updateFields();
+            updateFields(false);
             tableName = f.getTableName();
             schemaName = f.getSchema();
         }
         else{
             if (schemaName==null){
-                updateFields();
+                updateFields(false);
                 schemaName = f.getSchema();
             }
         }
@@ -639,7 +639,7 @@ public class Recordset implements AutoCloseable {
 
                     Table table = f.getT();
                     if (table==null){
-                        updateFields();
+                        updateFields(true);
                         table = f.getT();
                     }
 
@@ -653,6 +653,7 @@ public class Recordset implements AutoCloseable {
                     }
                 }
                 catch(Exception e){
+                    //e.printStackTrace();
                 }
             }
 
@@ -1441,8 +1442,10 @@ public class Recordset implements AutoCloseable {
   //**************************************************************************
   /** Used to populate the Table and Schema attributes for each Field in the
    *  Fields Array.
+   *  @param tableIsRequired If true, will try to populate the fields with a
+   *  javaxt.sql.Table property
    */
-    private void updateFields() throws SQLException {
+    private void updateFields(boolean tableIsRequired) throws SQLException {
 
         if (record==null) return;
 
@@ -1466,6 +1469,11 @@ public class Recordset implements AutoCloseable {
             }
 
             if (field.getSchema()==null){
+                updateFields = true;
+                break;
+            }
+
+            if (field.getT()==null && tableIsRequired){
                 updateFields = true;
                 break;
             }
@@ -1515,7 +1523,7 @@ public class Recordset implements AutoCloseable {
                         field.setSchemaName(schemaName);
                     }
                 }
-                return;
+                if (!tableIsRequired) return;
             }
         }
 
@@ -1566,7 +1574,7 @@ public class Recordset implements AutoCloseable {
         for (Field field : record.fields){
 
             ArrayList<Column> columns = null;
-            if (field.getTableName()==null){
+            if (field.getTableName()==null || (field.getT()==null && tableIsRequired)){
 
               //Update Table and Schema
                 columns = getColumns(field, tables);
@@ -1580,7 +1588,7 @@ public class Recordset implements AutoCloseable {
                 }
             }
 
-            if (field.getSchema()==null) {
+            if (field.getSchema()==null || (field.getT()==null && tableIsRequired)) {
 
               //Update Schema
                 ArrayList<Table> matches = new ArrayList<>();
