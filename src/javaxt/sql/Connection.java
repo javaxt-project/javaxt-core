@@ -417,7 +417,13 @@ public class Connection implements AutoCloseable {
             return new java.util.Iterator<javaxt.sql.Record>(){
                 @Override
                 public boolean hasNext(){
-                    return rs.hasNext();
+                    boolean hasNext = rs.hasNext();
+
+                  //The close method never get called even though we implement
+                  //the AutoCloseable interface so we will close manually
+                    if (!hasNext) close();
+
+                    return hasNext;
                 }
                 @Override
                 public javaxt.sql.Record next(){
