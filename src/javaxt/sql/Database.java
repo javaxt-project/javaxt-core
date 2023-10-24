@@ -128,6 +128,10 @@ public class Database implements Cloneable {
         host = url.getHost();
         port = url.getPort();
         driver = Driver.findDriver(url.getProtocol());
+        if (driver==null){
+            driver = new Driver(null, null, url.getProtocol());
+        }
+
         if (name==null){
             name = url.getPath();
             if (this.name!=null && this.name.startsWith("/")){

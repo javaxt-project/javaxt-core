@@ -30,6 +30,7 @@ public class Driver {
         new Driver("Derby","org.apache.derby.jdbc.EmbeddedDriver","jdbc:derby"),
         new Driver("SQLite","org.sqlite.JDBC","jdbc:sqlite"),
         new Driver("H2", "org.h2.Driver", "jdbc:h2"),
+        new Driver("OpenSearch", "org.opensearch.jdbc.Driver", "jdbc:opensearch"),
         new Driver("Firebird", "org.firebirdsql.jdbc.FBDriver", "jdbc:firebirdsql"),
         new Driver("Microsoft Access","sun.jdbc.odbc.JdbcOdbcDriver","jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)}"),
 
@@ -106,10 +107,9 @@ public class Driver {
     new Driver("Derby","org.apache.derby.jdbc.EmbeddedDriver","jdbc:derby");
    </pre>
    *  @param vendor Name the database/vendor. This keyword used extensively in
-   *  the javaxt.sql.Recordset class to accomodate inconsistant JDBC implementations
-   *  between database vendors. As such, please use the names provided in the
-   *  examples above when connecting to SQL Server, DB2, Sybase, and PostgreSQL.
-   *  Other databases have not been tested and do not require reserved keywords.
+   *  the javaxt.sql.Recordset class to accommodate inconsistent JDBC
+   *  implementations between database vendors. As such, please use the names
+   *  provided in the driver list above (e.g. "PostgreSQL", "SQLServer", etc).
    *  @param driver Class name used to create a java.sql.Driver.
    *  @param protocol Protocol used in the jdbc connection string.
    */
@@ -180,7 +180,7 @@ public class Driver {
    *  the driver class specified in the constructor.
    */
     public java.sql.Driver load() throws java.sql.SQLException{
-        if (driver==null){
+        if (driver==null && driverClass!=null){
             //System.out.print("Loading Driver...");
             try{
                 driver = (java.sql.Driver) Class.forName(driverClass).newInstance();

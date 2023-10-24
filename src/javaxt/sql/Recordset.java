@@ -211,7 +211,12 @@ public class Recordset implements AutoCloseable {
 
               //Set AutoCommit to false when fetchSize is specified.
               //Otherwise it will fetch back all the records at once
-                if (fetchSize!=null) Conn.setAutoCommit(false);
+                if (fetchSize!=null){
+                    try{
+                        Conn.setAutoCommit(false);
+                    }
+                    catch(Exception e){}
+                }
 
 
               //DB2 and SQLite only support forward cursors
