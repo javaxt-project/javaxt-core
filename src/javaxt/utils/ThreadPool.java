@@ -50,10 +50,12 @@ public class ThreadPool {
 
     private int numThreads;
     private Integer maxPoolSize;
-    private ArrayList<Thread> threads;
-    private List pool;
+    private final ArrayList<Thread> threads;
+    private final ArrayList<Thread> activeThreads;
+    private final List pool;
     private class Return{}
     private ConcurrentHashMap<Long, HashMap<String, Object>> params;
+
 
   //**************************************************************************
   //** Constructor
@@ -61,6 +63,7 @@ public class ThreadPool {
     public ThreadPool(int numThreads, Integer maxPoolSize){
         this.numThreads = numThreads;
         threads = new ArrayList<>();
+        activeThreads = new ArrayList<>();
         pool = new LinkedList();
         if (maxPoolSize!=null){
             if (maxPoolSize<1) maxPoolSize = null;
@@ -69,6 +72,10 @@ public class ThreadPool {
         params = new ConcurrentHashMap<>();
     }
 
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
     public ThreadPool(int numThreads){
         this(numThreads, null);
     }
@@ -80,12 +87,15 @@ public class ThreadPool {
   /** Used to initialize threads in the pool
    */
     public ThreadPool start(){
+
+        threads.clear();
+
         for (int i=0; i<numThreads; i++){
             Thread t = new Thread(){
                 public void run(){
                     while (true) {
 
-                        Object obj = null;
+                        Object obj;
                         synchronized (pool) {
                             while (pool.isEmpty()) {
                                 try {
@@ -100,16 +110,64 @@ public class ThreadPool {
                         }
 
                         if ((obj instanceof Return)){
-                            add(obj);
+
+
+                          //Remove thread from the activeThreads array
+                            synchronized(activeThreads){
+                                for (int i=0; i<activeThreads.size(); i++){
+                                    if (activeThreads.get(i).getId()==this.getId()){
+                                        activeThreads.remove(i);
+                                        break;
+                                    }
+                                }
+
+
+                              //Add the object back to the pool for other threads to process
+                                if (!activeThreads.isEmpty()) add(obj);
+                                activeThreads.notify();
+                            }
+
+
+                          //Call the exit() callback and return
                             exit();
                             return;
+
                         }
                         else{
-                            process(obj);
+
+                            try{
+
+                              //Call the process() callback
+                                process(obj);
+
+                            }
+                            catch(Exception e){
+
+                              //Remove thread from the activeThreads array
+                                synchronized(activeThreads){
+                                    for (int i=0; i<activeThreads.size(); i++){
+                                        if (activeThreads.get(i).getId()==this.getId()){
+                                            activeThreads.remove(i);
+                                            break;
+                                        }
+                                    }
+                                    activeThreads.notify();
+                                }
+
+                              //Throw exception
+                                throw e;
+                            }
+
                         }
                     }
                 }
             };
+
+            synchronized(activeThreads){
+                activeThreads.add(t);
+                activeThreads.notify();
+            }
+
             t.start();
             threads.add(t);
         }
@@ -268,6 +326,20 @@ public class ThreadPool {
 
 
   //**************************************************************************
+  //** getActiveThreadCount
+  //**************************************************************************
+  /** Returns the number of active threads in the pool
+   */
+    public int getActiveThreadCount(){
+        int count;
+        synchronized(activeThreads){
+            count = activeThreads.size();
+        }
+        return count;
+    }
+
+
+  //**************************************************************************
   //** getQueue
   //**************************************************************************
   /** Returns a handle to the job queue. Use with care. Be sure to add a
@@ -295,13 +367,9 @@ public class ThreadPool {
   //**************************************************************************
   /** Used to wait for threads to complete
    */
-    public void join() throws InterruptedException{
-        while (true) {
-            for (Thread thread : threads){
-                //System.out.println(thread.getId() + " " + thread.isAlive());
-                thread.join();
-            }
-            break;
+    public void join() throws InterruptedException {
+        for (Thread thread : threads){
+            thread.join();
         }
     }
 }
