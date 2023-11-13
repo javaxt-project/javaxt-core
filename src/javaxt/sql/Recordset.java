@@ -2,6 +2,7 @@ package javaxt.sql;
 import java.sql.SQLException;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,6 +73,12 @@ public class Recordset implements AutoCloseable {
     private static final Thread shutdownHook = getShutdownHook();
     private static final ConcurrentHashMap<String, Recordset> queries =
     new ConcurrentHashMap<>();
+
+
+//    private static final AtomicLong openStatements = new AtomicLong(0);
+//    private static final AtomicLong openRecordsets = new AtomicLong(0);
+//    private static final AtomicLong openCalls = new AtomicLong(0);
+//    private static final AtomicLong closeCalls = new AtomicLong(0);
 
 
   //**************************************************************************
@@ -178,6 +185,7 @@ public class Recordset implements AutoCloseable {
         if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
         if (connection==null) throw new SQLException("Connection is null.");
         if (connection.isClosed()) throw new SQLException("Connection is closed.");
+        //openCalls.incrementAndGet();
 
         rs = null;
         stmt = null;
@@ -245,9 +253,11 @@ public class Recordset implements AutoCloseable {
                         stmt = Conn.createStatement();
                     }
                 }
+                //openStatements.incrementAndGet();
 
                 if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                 rs = stmt.executeQuery(sqlString);
+                //openRecordsets.incrementAndGet();
                 State = 1;
             }
             catch(SQLException e){
@@ -261,6 +271,14 @@ public class Recordset implements AutoCloseable {
 
       //Read-Write Connection
         else{
+
+            /* Note that we don't actually use the rs and stmt objects when
+               inserting or updating records anymore. We can probably remove
+               all this code and simply use the ReadOnly code block above.
+               In read/write mode, it seems we only use the rs and stmt
+               objects to get field metadata via the init() method.
+            */
+
             try{
 
               //SYBASE Connection
@@ -325,6 +343,9 @@ public class Recordset implements AutoCloseable {
                 }
 
 
+                //if (stmt!=null) openStatements.incrementAndGet();
+                //if (rs!=null) openRecordsets.incrementAndGet();
+
             }
             catch(SQLException e){
                 //System.out.println("ERROR Open RecordSet (RW): " + e.toString());
@@ -354,6 +375,7 @@ public class Recordset implements AutoCloseable {
    */
     public void open(java.sql.ResultSet resultSet){
         if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
+        //openCalls.incrementAndGet();
         startTime = System.currentTimeMillis();
         queryResponseTime = ellapsedTime = metadataQueryTime = endTime = 0;
         EOF = true;
@@ -421,13 +443,16 @@ public class Recordset implements AutoCloseable {
   /** Closes the Recordset freeing up database and jdbc resources.
    */
     public void close(){
-
+        //closeCalls.incrementAndGet();
 
       //Close recordset
         try{
             if (State==1) executeBatch();
             if (!isReadOnly) commit();
-            if (rs!=null) rs.close();
+            if (rs!=null){
+                rs.close();
+                //openRecordsets.decrementAndGet();
+            }
             if (stmt!=null){
 
               //Some databases (e.g. PostgreSQL) will continue executing a long
@@ -441,8 +466,13 @@ public class Recordset implements AutoCloseable {
                     catch(Exception e){}
                 }
 
-                try{ stmt.close(); }
-                catch(Exception e){}
+                try{
+                    stmt.close();
+                    //openStatements.decrementAndGet();
+                }
+                catch(Exception e){
+                    //e.printStackTrace();
+                }
             }
         }
         catch(SQLException e){
@@ -478,6 +508,9 @@ public class Recordset implements AutoCloseable {
 
         endTime = System.currentTimeMillis();
         ellapsedTime = endTime-startTime;
+
+        //javaxt.utils.Console.console.log(openRecordsets + " openRecordsets, " + openStatements + " openStatements, " + (openCalls.get()-closeCalls.get()));
+
     }
 
 
@@ -694,20 +727,21 @@ public class Recordset implements AutoCloseable {
 
               //Find how many records will be affected by this update
                 int numRecords;
-                java.sql.ResultSet r2 = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName + (where==null? "" : " WHERE " + where));
-                try{
-                    numRecords = r2.getInt(1);
-                }
-                catch(Exception e){
+                try (java.sql.ResultSet r2 = stmt.executeQuery(
+                    "SELECT COUNT(*) FROM " + tableName + (where==null? "" : " WHERE " + where))){
                     try{
-                        r2.first(); //SQLServer needs this!
                         numRecords = r2.getInt(1);
                     }
-                    catch(Exception ex){
-                        numRecords = Integer.MAX_VALUE;
+                    catch(Exception e){
+                        try{
+                            r2.first(); //SQLServer needs this!
+                            numRecords = r2.getInt(1);
+                        }
+                        catch(Exception ex){
+                            numRecords = Integer.MAX_VALUE;
+                        }
                     }
                 }
-                r2.close();
 
 
               //Warn user that there might be a problem with the update
@@ -766,8 +800,10 @@ public class Recordset implements AutoCloseable {
         if (batchSize==1){
             try{
                 stmt.executeUpdate();
+                stmt.close();
             }
             catch(SQLException e){
+                try{stmt.close();}catch(Exception ex){}
 
                 StringBuilder err = new StringBuilder();
                 err.append("Error executing update:\n");
@@ -797,6 +833,9 @@ public class Recordset implements AutoCloseable {
                 }
                 catch(Exception e){
                     //not all databases support auto generated keys
+                }
+                finally{
+                    stmt.close();
                 }
                 InsertOnUpdate = false;
             }
@@ -1009,17 +1048,18 @@ public class Recordset implements AutoCloseable {
             String geo = field.getClassName().toLowerCase();
             if (!geo.equals("geometry") && !geo.equals("geography")){
                 geo = null;
-                try{
-                    Recordset rs = new Recordset();
+
+                try (Recordset rs = new Recordset()) {
                     rs.open("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
                             "WHERE TABLE_NAME='" + field.getTableName() + "' AND COLUMN_NAME='" + field.getName() + "'",
                     conn);
                     geo = rs.getValue(0).toString();
-                    rs.close();
                 }
                 catch(SQLException e){
                     //e.printStackTrace();
                 }
+
+
                 if (geo==null) geo = "geometry";
                 else geo = geo.toLowerCase();
             }
@@ -1113,20 +1153,38 @@ public class Recordset implements AutoCloseable {
     private int executeBatch() throws SQLException {
         if (batchedStatements==null) return 0;
         int ttl = 0;
-        java.util.Iterator<String> it = batchedStatements.keySet().iterator();
-        while (it.hasNext()){
-            java.sql.PreparedStatement stmt = batchedStatements.get(it.next());
 
-            int[] rowsUpdated = stmt.executeBatch();
-            if (rowsUpdated.length>0) ttl+=rowsUpdated.length;
+        try{
+            java.util.Iterator<String> it = batchedStatements.keySet().iterator();
+            while (it.hasNext()){
+                try (java.sql.PreparedStatement stmt = batchedStatements.get(it.next())){
 
-            java.sql.Connection Conn = connection.getConnection();
-            if (Conn.getAutoCommit()==false){
-                Conn.commit();
+                    int[] rowsUpdated = stmt.executeBatch();
+                    if (rowsUpdated.length>0) ttl+=rowsUpdated.length;
+
+                    java.sql.Connection Conn = connection.getConnection();
+                    if (Conn.getAutoCommit()==false){
+                        Conn.commit();
+                    }
+
+                }
             }
+
         }
-        batchedStatements.clear();
-        numBatches = 0;
+        catch(Exception e){
+            throw e;
+        }
+        finally {
+            java.util.Iterator<String> it = batchedStatements.keySet().iterator();
+            while (it.hasNext()){
+                try{ batchedStatements.get(it.next()).close();}
+                catch(Exception e){}
+            }
+            batchedStatements.clear();
+            numBatches = 0;
+        }
+
+
         return ttl;
     }
 
@@ -1677,14 +1735,12 @@ public class Recordset implements AutoCloseable {
             Long numRecords = null;
 
             String sql = new Parser(sqlString).setSelect("count(*)");
-            Recordset rs = new Recordset();
-            try{
+
+            try (Recordset rs = new Recordset()) {
                 rs.open(sql, connection);
                 numRecords = rs.getValue(0).toLong();
-                rs.close();
             }
             catch(SQLException ex){
-                rs.close();
             }
 
             if (numRecords!=null) return numRecords;

@@ -205,7 +205,7 @@ public class Connection implements AutoCloseable {
    </pre>
    */
     public void close(){
-        //System.out.println("Closing connection...");
+        System.out.println("Closing connection...");
         try{Conn.close();}
         catch(Exception e){
             //e.printStackTrace();
@@ -326,17 +326,16 @@ public class Connection implements AutoCloseable {
     try (javaxt.sql.Connection conn = db.getConnection()){
 
       //Open recordset
-        javaxt.sql.Recordset rs = conn.getRecordset("select * from contacts", true);
+        try (javaxt.sql.Recordset rs = conn.getRecordset("select * from contacts")){
 
-      //Iterate through the records
-        while (rs.next()){
+          //Iterate through the records
+            while (rs.next()){
 
-          //Do something with the record. Example:
-            System.out.println(rs.getValue(0));
+              //Do something with the record. Example:
+                System.out.println(rs.getValue(0));
+            }
+
         }
-
-      //Close the recordset
-        rs.close();
     }
     catch(Exception e){
         e.printStackTrace();
@@ -419,8 +418,10 @@ public class Connection implements AutoCloseable {
                 public boolean hasNext(){
                     boolean hasNext = rs.hasNext();
 
-                  //The close method never get called even though we implement
-                  //the AutoCloseable interface so we will close manually
+                  //Since the getRecords() returns an Iterable (vs this class),
+                  //the close method never gets called even though we implement
+                  //the AutoCloseable interface. Therefore, we will call the
+                  //close() method manually if there are no other records.
                     if (!hasNext) close();
 
                     return hasNext;
