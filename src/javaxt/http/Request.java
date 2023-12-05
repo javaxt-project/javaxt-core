@@ -427,9 +427,15 @@ public class Request {
   //** write
   //**************************************************************************
   /** Used to open an HTTP connection and sent a JSON object to the server.
+   *  Note that the JSON object is encoded using UTF-8. In some applications,
+   *  the encoding may need to be explicitly defined in the "Content-Type"
+   *  request header. Example:
+   <pre>
+    request.setHeader("Content-Type", "application/json;charset=UTF-8");
+   </pre>
    */
     public void write(javaxt.json.JSONObject json){
-        write(json.toString().getBytes());
+        write(json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
 
@@ -437,9 +443,15 @@ public class Request {
   //** write
   //**************************************************************************
   /** Used to open an HTTP connection and sent a JSON array to the server.
+   *  Note that the JSON array is encoded using UTF-8. In some applications,
+   *  the encoding may need to be explicitly defined in the "Content-Type"
+   *  request header. Example:
+   <pre>
+    request.setHeader("Content-Type", "application/json;charset=UTF-8");
+   </pre>
    */
     public void write(javaxt.json.JSONArray arr){
-        write(arr.toString().getBytes());
+        write(arr.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
 

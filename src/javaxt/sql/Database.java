@@ -763,9 +763,10 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getTables
   //**************************************************************************
-  /** Used to retrieve an array of tables found in this database.
+  /** Used to retrieve an array of tables and columns found in this database.
    */
     public Table[] getTables() throws SQLException {
+        if (tables!=null) return tables;
         try (Connection conn = getConnection()){
             return getTables(conn);
         }
@@ -775,7 +776,7 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getTables
   //**************************************************************************
-  /** Used to retrieve an array of tables found in a database.
+  /** Used to retrieve an array of tables and columns found in a database.
    */
     public static Table[] getTables(Connection conn){
         Database database = conn.getDatabase();
@@ -798,6 +799,56 @@ public class Database implements Cloneable {
         if (database!=null){
             if (database.cacheMetadata) database.tables = arr;
         }
+        return arr;
+    }
+
+
+  //**************************************************************************
+  //** getTableNames
+  //**************************************************************************
+  /** Used to retrieve an array of table names found in the database. If a
+   *  table is part of a schema, the schema name is prepended to the table
+   *  name. This method is significantly faster than the getTables() method
+   *  which returns the full metadata for each table.
+   */
+    public String[] getTableNames() throws SQLException {
+        java.util.ArrayList<javaxt.utils.Record> tableNames = new java.util.ArrayList<>();
+
+
+        if (tables!=null){
+            for (Table table : tables){
+                javaxt.utils.Record record = new javaxt.utils.Record();
+                record.set("schema", table.getSchema());
+                record.set("table", table.getName());
+                tableNames.add(record);
+            }
+        }
+        else{
+            try (Connection conn = getConnection()){
+
+                DatabaseMetaData dbmd = conn.getConnection().getMetaData();
+                try (ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"})){
+                    while (rs.next()) {
+                        javaxt.utils.Record record = new javaxt.utils.Record();
+                        record.set("schema", rs.getString("TABLE_SCHEM"));
+                        record.set("table", rs.getString("TABLE_NAME"));
+                        tableNames.add(record);
+                    }
+                }
+            }
+        }
+
+        String[] arr = new String[tableNames.size()];
+        for (int i=0; i<arr.length; i++){
+            javaxt.utils.Record record = tableNames.get(i);
+            String tableName = record.get("table").toString();
+            String schemaName = record.get("schema").toString();
+            if (schemaName!=null && !schemaName.isEmpty()){
+                tableName = schemaName + "." + tableName;
+            }
+            arr[i] = tableName;
+        }
+        java.util.Arrays.sort(arr);
         return arr;
     }
 

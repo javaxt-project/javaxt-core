@@ -205,7 +205,7 @@ public class Connection implements AutoCloseable {
    </pre>
    */
     public void close(){
-        System.out.println("Closing connection...");
+        //System.out.println("Closing connection...");
         try{Conn.close();}
         catch(Exception e){
             //e.printStackTrace();
