@@ -176,21 +176,15 @@ public abstract class Model {
 
               //Execute prepared statement
                 stmt.setLong(1, id);
-                java.sql.ResultSet rs = stmt.executeQuery();
-                if (!rs.next()){
-                    rs.close();
-                    throw new IllegalArgumentException();
+                try (java.sql.ResultSet rs = stmt.executeQuery()){
+                    if (rs.next()){
+                        update(rs);
+                        this.id = id;
+                    }
+                    else{
+                        throw new IllegalArgumentException();
+                    }
                 }
-
-
-              //Update model attributes
-                update(rs);
-                this.id = id;
-
-
-              //Close recordset
-                rs.close();
-
             }
         }
         catch(IllegalArgumentException e){
@@ -449,7 +443,7 @@ public abstract class Model {
 
 
 
-                    stmt = conn.getConnection().prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                    stmt = conn.getConnection().prepareStatement(sql.toString(), new String[]{"id"});
                     insertStatements.put(className, stmt);
                     insertStatements.notify();
                 }
@@ -491,35 +485,35 @@ public abstract class Model {
                 javaxt.sql.Driver driver = conn.getDatabase().getDriver();
                 if (driver==null) driver = new Driver("","","");
 
-                Recordset rs = conn.getRecordset(
-                "select * from " + tableName + " where id=" + id, false);
-                if (rs.EOF){
-                    rs.addNew();
-                    rs.setValue("id", id);
-                }
-                it = fields.keySet().iterator();
-                while (it.hasNext()){
-                    java.lang.reflect.Field f = it.next();
-                    String columnName = fieldMap.get(f.getName());
-                    Object val = fields.get(f);
-                    if (val instanceof JSONObject || val instanceof JSONArray){
-                        if (driver.equals("PostgreSQL")){
-                            rs.setValue(columnName, new javaxt.sql.Function(
-                                "?::jsonb", new Object[]{
-                                    val.toString()
-                                }
-                            ));
+                try(Recordset rs = conn.getRecordset(
+                    "select * from " + tableName + " where id=" + id, false)){
+                    if (rs.EOF){
+                        rs.addNew();
+                        rs.setValue("id", id);
+                    }
+                    it = fields.keySet().iterator();
+                    while (it.hasNext()){
+                        java.lang.reflect.Field f = it.next();
+                        String columnName = fieldMap.get(f.getName());
+                        Object val = fields.get(f);
+                        if (val instanceof JSONObject || val instanceof JSONArray){
+                            if (driver.equals("PostgreSQL")){
+                                rs.setValue(columnName, new javaxt.sql.Function(
+                                    "?::jsonb", new Object[]{
+                                        val.toString()
+                                    }
+                                ));
+                            }
+                            else{
+                                rs.setValue(columnName, val.toString());
+                            }
                         }
                         else{
-                            rs.setValue(columnName, val.toString());
+                            rs.setValue(columnName, val);
                         }
                     }
-                    else{
-                        rs.setValue(columnName, val);
-                    }
+                    rs.update();
                 }
-                rs.update();
-                rs.close();
 
             }
             catch(SQLException e){
