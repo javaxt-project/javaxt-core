@@ -784,7 +784,16 @@ public class Recordset implements AutoCloseable {
         }
         else{
             try{
-                stmt = conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                if (keys==null || keys.isEmpty()){
+                    stmt = conn.prepareStatement(sql.toString(), java.sql.Statement.RETURN_GENERATED_KEYS);
+                }
+                else{
+                    String[] columnNames = new String[keys.size()];
+                    for (int i=0; i<columnNames.length; i++){
+                        columnNames[i] = keys.get(i).toString();
+                    }
+                    stmt = conn.prepareStatement(sql.toString(), columnNames);
+                }
             }
             catch(Exception e){ //not all databases support auto generated keys
                 stmt = conn.prepareStatement(sql.toString());
@@ -800,6 +809,18 @@ public class Recordset implements AutoCloseable {
         if (batchSize==1){
             try{
                 stmt.executeUpdate();
+
+                if (InsertOnUpdate){
+                    try (java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                        if (generatedKeys.next()) {
+                            this.GeneratedKey = new Value(generatedKeys.getString(1));
+                        }
+                    }
+                    catch(Exception e){
+                        //not all databases support auto generated keys
+                    }
+                }
+
                 stmt.close();
             }
             catch(SQLException e){
@@ -824,21 +845,7 @@ public class Recordset implements AutoCloseable {
             }
 
 
-            if (InsertOnUpdate){
-                try{
-                    java.sql.ResultSet generatedKeys = stmt.getGeneratedKeys();
-                    if (generatedKeys.next()) {
-                        this.GeneratedKey = new Value(generatedKeys.getString(1));
-                    }
-                }
-                catch(Exception e){
-                    //not all databases support auto generated keys
-                }
-                finally{
-                    stmt.close();
-                }
-                InsertOnUpdate = false;
-            }
+            if (InsertOnUpdate) InsertOnUpdate = false;
 
         }
         else{
