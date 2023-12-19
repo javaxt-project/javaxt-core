@@ -902,7 +902,19 @@ public class Database implements Cloneable {
   //**************************************************************************
   //** getReservedKeywords
   //**************************************************************************
-  /**  Used to retrieve a list of reserved keywords for a given database.
+  /** Returns a list of reserved keywords for the current database.
+   */
+    public String[] getReservedKeywords() throws Exception {
+        try(Connection conn = this.getConnection()){
+            return getReservedKeywords(conn);
+        }
+    }
+
+
+  //**************************************************************************
+  //** getReservedKeywords
+  //**************************************************************************
+  /** Returns a list of reserved keywords for a given database.
    */
     public static String[] getReservedKeywords(Connection conn){
         Database database = conn.getDatabase();
@@ -1152,12 +1164,12 @@ public class Database implements Cloneable {
         "CROSS","CURRENT_DATE","CURRENT_TIME","CURRENT_TIMESTAMP","CURRENT_USER",
         "DISTINCT","EXCEPT","EXISTS","FALSE","FETCH","FILTER","FOR","FOREIGN",
         "FROM","FULL","GROUP","GROUPS","HAVING","IF","ILIKE","IN","INNER",
-        "INTERSECT","INTERSECTS","INTERVAL","IS","JOIN","LEADING","LEFT","LIKE",
+        "INTERSECT","INTERSECTS","INTERVAL","IS","JOIN","KEY","LEADING","LEFT","LIKE",
         "LIMIT","LOCALTIME","LOCALTIMESTAMP","MINUS","NATURAL","NOT","NULL","OFFSET",
         "ON","OR","ORDER","OVER","PARTITION","PRIMARY","QUALIFY","RANGE","REGEXP",
         "RIGHT","ROW","_ROWID_","ROWNUM","ROWS","SELECT","SYSDATE","SYSTIME",
         "SYSTIMESTAMP","TABLE","TODAY","TOP","TRAILING","TRUE","UNION","UNIQUE",
-        "VALUES","WHERE","WINDOW","WITH"
+        "VALUE","VALUES","WHERE","WINDOW","WITH","YEAR"
     };
 
 
