@@ -1682,8 +1682,8 @@ public class Image {
   //**************************************************************************
   //** equals
   //**************************************************************************
-  /**  Used to compare this image to another. If the ARGB values match, this
-   *   method will return true.
+  /** Used to compare this image to another. Returns true if the all the
+   *  pixels (ARGB values) match. See isSimilarTo() to compare similar images.
    */
     public boolean equals(Object obj){
         if (obj!=null){
@@ -1713,7 +1713,108 @@ public class Image {
     }
 
 
+  //**************************************************************************
+  //** isSimilarTo
+  //**************************************************************************
+  /** Returns true if a given image is similar to (or equal to) this image.
+   *  Unlike the equals() method which performs an exact match, this method
+   *  performs a fuzzy match using PHash values for the images.
+   */
+    public boolean isSimilarTo(Image image){
+        if (image==null) return false;
+        return this.getPHash().equals(image.getPHash());
+    }
 
+
+  //**************************************************************************
+  //** getPHash
+  //**************************************************************************
+  /** Returns a perceptual hash value for the image. Unlike traditional
+   *  cryptographic hashes like SHA1, PHash is not sensitive to tiny
+   *  variations in an image. This makes it ideal to find similar images.
+   *  @return A String representing a 64-bit long value (PHash). Example:
+   *  "1101001010111111010011111110111000011001001011110011110111001101"
+   */
+    public String getPHash(){
+
+      //Clone the image
+        BufferedImage bi = new BufferedImage(
+        bufferedImage.getWidth(), bufferedImage.getHeight(), getImageType());
+        Graphics2D g = bi.createGraphics();
+        g.drawImage(bufferedImage, 0, 0, bi.getWidth(), bi.getHeight(), null);
+        g.dispose();
+        Image image = new Image(bi);
+
+
+      //Resize and desaturate
+        int size = 32;
+        image.resize(size, size, false);
+        image.desaturate();
+        bi = image.getBufferedImage();
+
+
+      //Perform DCT-II by row
+        double N = size;
+        double[][] f = new double[size][size];
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+
+                double k = x;
+                double sum = 0.0;
+                for (double n=0; n<N; n++){
+                    double v = (bi.getRGB((int)n, y)) & 0xff;
+                    sum += (2.0*v)*Math.cos(Math.PI * k * ((2.0*n+1)/(2.0*N)));
+                }
+
+                f[x][y] = sum;
+            }
+        }
+
+
+
+      //Perform DCT-II by column
+        double[][] F = new double[size][size];
+        for (int x = 0; x < image.getWidth(); x++) {
+            for (int y = 0; y < image.getHeight(); y++) {
+
+                double k = y;
+                double sum = 0.0;
+                for (double n=0; n<N; n++){
+                    double v = f[x][(int)n];
+                    sum += (2.0*v)*Math.cos(Math.PI * k * ((2.0*n+1)/(2.0*N)));
+                }
+
+                F[x][y] = sum;
+            }
+        }
+
+
+
+      //Compute the mean DCT value using an 8x8 sample from the top-left corner
+      //of the DCT, excluding the first term since the it can be significantly
+      //different from the other values.
+        double total = 0;
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                 total += F[x][y];
+            }
+        }
+        total -= F[0][0];
+        double avg = total / (double) ((8 * 8) - 1);
+
+
+
+      //Set the 64 hash bits to 0 or 1 depending on whether a DCT value is
+      //above or below the average
+        long hashBits = 0;
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                hashBits = (F[x][y] > avg ? (hashBits << 1) | 0x01 : (hashBits << 1) & 0xFFFFFFFFFFFFFFFEl);
+            }
+        }
+
+        return Long.toBinaryString(hashBits);
+    }
 
 
   //**************************************************************************
