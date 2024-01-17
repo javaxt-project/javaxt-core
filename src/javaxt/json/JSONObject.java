@@ -286,7 +286,8 @@ public class JSONObject extends javaxt.utils.Record {
   //** writeValue
   //**************************************************************************
     protected static final Writer writeValue(Writer writer, Object value,
-            int indentFactor, int indent) throws JSONException, IOException {
+        int indentFactor, int indent) throws JSONException, IOException {
+
         if (value == null || value.equals(null)) {
             writer.write("null");
         }
@@ -316,6 +317,9 @@ public class JSONObject extends javaxt.utils.Record {
         }
         else if (value instanceof java.util.Calendar) {
             writer.write(quote(new javaxt.utils.Date(((java.util.Calendar) value)).toISOString()));
+        }
+        else if (value instanceof byte[]){
+            writer.write(quote(javaxt.utils.Base64.encode((byte[]) value)));
         }
         else if (value instanceof java.sql.Clob){
           //Special case: Use javaxt.sql.Value to stringify Clobs

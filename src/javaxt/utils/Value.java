@@ -201,22 +201,38 @@ public class Value {
   //**************************************************************************
   //** toByteArray
   //**************************************************************************
-  /** Returns the value as a byte array.
+  /** Returns the value as a byte array. Returns a null if the value is null
+   *  or if there was a problem converting the value to a byte array. Note
+   *  that if the underlying object is a String, and if the String appears to
+   *  represent a Base64 encoded byte array, then an attempt is made to decode
+   *  the Base64 String. Otherwise, this method will simply write the value to
+   *  a ByteArrayOutputStream and return the raw bytes.
    */
     public byte[] toByteArray(){
         if (value==null) return null;
         if (value instanceof byte[]) return (byte[]) value;
 
+
+      //Check if string is Base64 encoded
+        if (value instanceof String){
+            String data = (String) value;
+            if (data.startsWith("data:") && data.contains(";base64,")){
+                String type = data.substring(data.indexOf(":")+1, data.indexOf(";"));
+                data = data.substring(("data:" + type + ";base64,").length());
+                byte[] b = Base64.decode(data);
+                if (b!=null) return b;
+            }
+        }
+
+
         java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-        try {
-            java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(bos);
+        try (java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(bos)){
             out.writeObject(value);
             out.flush();
-            out.close();
             bos.close();
             return bos.toByteArray();
         }
-        catch (java.io.IOException ex) {
+        catch (Exception ex) {
             return null;
         }
     }
@@ -225,28 +241,31 @@ public class Value {
   //**************************************************************************
   //** toBoolean
   //**************************************************************************
-  /**  Returns a boolean value for the field. */
-
+  /** Returns the value as a Boolean. Returns null if the value is null or
+   *  cannot be converted to a Boolean.
+   */
     public Boolean toBoolean(){
-        if (value!=null){
-            String value = this.value.toString().toLowerCase().trim();
+        if (value==null) return null;
+        if (value instanceof Boolean) return (Boolean) value;
 
-            if (value.equals("true")) return true;
-            if (value.equals("false")) return false;
 
-            if (value.equals("yes")) return true;
-            if (value.equals("no")) return false;
+        String value = this.value.toString().toLowerCase().trim();
 
-            if (value.equals("y")) return true;
-            if (value.equals("n")) return false;
+        if (value.equals("true")) return true;
+        if (value.equals("false")) return false;
 
-            if (value.equals("t")) return true;
-            if (value.equals("f")) return false;
+        if (value.equals("yes")) return true;
+        if (value.equals("no")) return false;
 
-            if (value.equals("1")) return true;
-            if (value.equals("0")) return false;
+        if (value.equals("y")) return true;
+        if (value.equals("n")) return false;
 
-        }
+        if (value.equals("t")) return true;
+        if (value.equals("f")) return false;
+
+        if (value.equals("1")) return true;
+        if (value.equals("0")) return false;
+
         return null;
     }
 
@@ -254,8 +273,8 @@ public class Value {
   //**************************************************************************
   //** isNumeric
   //**************************************************************************
-  /**  Used to determine if the value is numeric. */
-
+  /** Returns true if the value is numeric.
+   */
     public boolean isNumeric(){
         return (toDouble()!=null);
     }
@@ -264,8 +283,8 @@ public class Value {
   //**************************************************************************
   //** isArray
   //**************************************************************************
-  /**  Used to determine whether the value is an array. */
-
+  /** Returns true is the value is an array.
+   */
     public boolean isArray(){
         return value!=null && value.getClass().isArray();
     }
@@ -274,8 +293,8 @@ public class Value {
   //**************************************************************************
   //** isNull
   //**************************************************************************
-  /**  Used to determine whether the value is null. */
-
+  /** Returns true if the value is null.
+   */
     public boolean isNull(){
         return value==null;
     }
@@ -296,8 +315,8 @@ public class Value {
   //**************************************************************************
   //** equals
   //**************************************************************************
-  /**  Used to compare values. Accepts any object. */
-
+  /**  Used to compare values. Accepts any object.
+   */
     public boolean equals(Object obj){
         if (obj instanceof Value) obj = ((Value) obj).toObject();
         if (obj==null) {

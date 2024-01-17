@@ -75,10 +75,11 @@ public class Recordset implements AutoCloseable {
     new ConcurrentHashMap<>();
 
 
-//    private static final AtomicLong openStatements = new AtomicLong(0);
-//    private static final AtomicLong openRecordsets = new AtomicLong(0);
-//    private static final AtomicLong openCalls = new AtomicLong(0);
-//    private static final AtomicLong closeCalls = new AtomicLong(0);
+    private static final AtomicLong openStatements = new AtomicLong(0);
+    private static final AtomicLong openRecordsets = new AtomicLong(0);
+    private static final AtomicLong openCalls = new AtomicLong(0);
+    private static final AtomicLong closeCalls = new AtomicLong(0);
+    private static boolean debugClose = false;
 
 
   //**************************************************************************
@@ -185,7 +186,7 @@ public class Recordset implements AutoCloseable {
         if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
         if (connection==null) throw new SQLException("Connection is null.");
         if (connection.isClosed()) throw new SQLException("Connection is closed.");
-        //openCalls.incrementAndGet();
+        if (debugClose) openCalls.incrementAndGet();
 
         rs = null;
         stmt = null;
@@ -253,11 +254,11 @@ public class Recordset implements AutoCloseable {
                         stmt = Conn.createStatement();
                     }
                 }
-                //openStatements.incrementAndGet();
+                if (debugClose) openStatements.incrementAndGet();
 
                 if (fetchSize!=null) stmt.setFetchSize(fetchSize);
                 rs = stmt.executeQuery(sqlString);
-                //openRecordsets.incrementAndGet();
+                if (debugClose) openRecordsets.incrementAndGet();
                 State = 1;
             }
             catch(SQLException e){
@@ -343,8 +344,8 @@ public class Recordset implements AutoCloseable {
                 }
 
 
-                //if (stmt!=null) openStatements.incrementAndGet();
-                //if (rs!=null) openRecordsets.incrementAndGet();
+                if (stmt!=null && debugClose) openStatements.incrementAndGet();
+                if (rs!=null && debugClose) openRecordsets.incrementAndGet();
 
             }
             catch(SQLException e){
@@ -375,7 +376,7 @@ public class Recordset implements AutoCloseable {
    */
     public void open(java.sql.ResultSet resultSet){
         if (shuttingDown.get()) throw new IllegalStateException("JVM shutting down");
-        //openCalls.incrementAndGet();
+        if (debugClose) openCalls.incrementAndGet();
         startTime = System.currentTimeMillis();
         queryResponseTime = ellapsedTime = metadataQueryTime = endTime = 0;
         EOF = true;
@@ -443,7 +444,7 @@ public class Recordset implements AutoCloseable {
   /** Closes the Recordset freeing up database and jdbc resources.
    */
     public void close(){
-        //closeCalls.incrementAndGet();
+        if (debugClose) closeCalls.incrementAndGet();
 
       //Close recordset
         try{
@@ -451,7 +452,7 @@ public class Recordset implements AutoCloseable {
             if (!isReadOnly) commit();
             if (rs!=null){
                 rs.close();
-                //openRecordsets.decrementAndGet();
+                if (debugClose) openRecordsets.decrementAndGet();
             }
             if (stmt!=null){
 
@@ -468,7 +469,7 @@ public class Recordset implements AutoCloseable {
 
                 try{
                     stmt.close();
-                    //openStatements.decrementAndGet();
+                    if (debugClose) openStatements.decrementAndGet();
                 }
                 catch(Exception e){
                     //e.printStackTrace();
@@ -509,8 +510,10 @@ public class Recordset implements AutoCloseable {
         endTime = System.currentTimeMillis();
         ellapsedTime = endTime-startTime;
 
-        //javaxt.utils.Console.console.log(openRecordsets + " openRecordsets, " + openStatements + " openStatements, " + (openCalls.get()-closeCalls.get()));
-
+        if (debugClose) javaxt.utils.Console.console.log(
+        openRecordsets + " openRecordsets, " +
+        openStatements + " openStatements, " +
+        (openCalls.get()-closeCalls.get()));
     }
 
 
@@ -941,8 +944,11 @@ public class Recordset implements AutoCloseable {
             else if (FieldType.indexOf("timestamp")>=0)
             stmt.setTimestamp(id, FieldValue.toTimeStamp());
 
-            else if (FieldType.indexOf("date")>=0)
-            stmt.setDate(id, new java.sql.Date(FieldValue.toDate().getTime()));
+            else if (FieldType.indexOf("date")>=0){
+                javaxt.utils.Date d = FieldValue.toDate();
+                if (d==null) stmt.setNull(id, java.sql.Types.DATE);
+                else stmt.setDate(id, new java.sql.Date(d.getTime()));
+            }
 
             else if (FieldType.indexOf("object")>=0)
             stmt.setObject(id, FieldValue.toObject());
