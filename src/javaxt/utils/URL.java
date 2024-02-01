@@ -1,6 +1,5 @@
 package javaxt.utils;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 //******************************************************************************
 //**  URL Class
@@ -15,8 +14,8 @@ import java.util.List;
 
 public class URL {
 
-    private HashMap<String, List<String>> parameters;
-    private HashMap<String, List<String>> extendedParameters;
+    private LinkedHashMap<String, List<String>> parameters;
+    private LinkedHashMap<String, List<String>> extendedParameters;
     private String protocol;
     private String host;
     private Integer port;
@@ -41,8 +40,8 @@ public class URL {
     public URL(String url){
 
         url = url.trim();
-        parameters = new HashMap<String, List<String>>();
-        extendedParameters = new HashMap<String, List<String>>();
+        parameters = new LinkedHashMap<>();
+        extendedParameters = new LinkedHashMap<>();
 
 
         if (url.contains("://")){
@@ -116,11 +115,11 @@ public class URL {
   //**************************************************************************
   /** Used to parse a url query string and create a list of name/value pairs.
    */
-    public static HashMap<String, List<String>> parseQueryString(String query){
+    public static LinkedHashMap<String, List<String>> parseQueryString(String query){
 
 
       //Create an empty hashmap
-        HashMap<String, List<String>> parameters = new HashMap<String, List<String>>();
+        LinkedHashMap<String, List<String>> parameters = new LinkedHashMap<>();
         if (query==null) return parameters;
 
         query = query.trim();
@@ -148,7 +147,7 @@ public class URL {
                         String value = decode(word.substring(x+1));
 
                         List<String> values = getParameter(key, parameters);
-                        if (values==null) values = new java.util.LinkedList<String>();
+                        if (values==null) values = new LinkedList<>();
                         values.add(value);
                         setParameter(key, values, parameters);
                     }
@@ -174,15 +173,15 @@ public class URL {
   /** Used to parse a JDBC parameter strings and return a list of name/value
    *  pairs.
    */
-    public static HashMap<String, List<String>> parseJDBCParams(String params){
-        HashMap<String, List<String>> parameters = new HashMap<String, List<String>>();
+    public static LinkedHashMap<String, List<String>> parseJDBCParams(String params){
+        LinkedHashMap<String, List<String>> parameters = new LinkedHashMap<>();
         final String[] pairs = params.split(";");
         for (String pair : pairs) {
             int idx = pair.indexOf("=");
             String key = idx > 0 ? decode(pair.substring(0, idx)) : pair;
             String value = idx > 0 && pair.length() > idx + 1 ? decode(pair.substring(idx + 1)) : null;
 
-            if (!parameters.containsKey(key)) parameters.put(key, new java.util.LinkedList<String>());
+            if (!parameters.containsKey(key)) parameters.put(key, new LinkedList<>());
             parameters.get(key).add(value);
         }
         return parameters;
@@ -264,7 +263,7 @@ public class URL {
         key = key.toLowerCase();
         if (append){
             List<String> values = getParameter(key, parameters);
-            java.util.Iterator<String> it = values.iterator();
+            Iterator<String> it = values.iterator();
             while(it.hasNext()){
                 if (it.next().equalsIgnoreCase(value)){
                     append = false;
@@ -279,7 +278,7 @@ public class URL {
         }
         else{
             if (value!=null){
-                List<String> values = new java.util.LinkedList<String>();
+                List<String> values = new LinkedList<>();
                 values.add(value);
                 setParameter(key, values, parameters);
             }
@@ -361,7 +360,7 @@ public class URL {
   //**************************************************************************
   /** Returns a list of parameters found in query string.
    */
-    public HashMap<String, List<String>> getParameters(){
+    public LinkedHashMap<String, List<String>> getParameters(){
         return parameters;
     }
 
@@ -372,7 +371,7 @@ public class URL {
   /** Returns a list of extended parameters (e.g. jdbc params) that are not
    *  part of a standard url
    */
-    public HashMap<String, List<String>> getExtendedParameters(){
+    public LinkedHashMap<String, List<String>> getExtendedParameters(){
         return extendedParameters;
     }
 
@@ -401,7 +400,7 @@ public class URL {
     public static List<String> getParameter(String key, HashMap<String, List<String>> parameters){
         List<String> values = parameters.get(key);
         if (values==null){
-            java.util.Iterator<String> it = parameters.keySet().iterator();
+            Iterator<String> it = parameters.keySet().iterator();
             while (it.hasNext()){
                 String s = it.next();
                 if (s.equalsIgnoreCase(key)) return parameters.get(s);
@@ -411,7 +410,7 @@ public class URL {
     };
 
     public static void setParameter(String key, List<String> values, HashMap<String, List<String>> parameters){
-        java.util.Iterator<String> it = parameters.keySet().iterator();
+        Iterator<String> it = parameters.keySet().iterator();
         while (it.hasNext()){
             String s = it.next();
             if (s.equalsIgnoreCase(key)){
@@ -425,7 +424,7 @@ public class URL {
     public static List<String> removeParameter(String key, HashMap<String, List<String>> parameters){
         List<String> values = parameters.remove(key);
         if (values==null){
-            java.util.Iterator<String> it = parameters.keySet().iterator();
+            Iterator<String> it = parameters.keySet().iterator();
             while (it.hasNext()){
                 String s = it.next();
                 if (s.equalsIgnoreCase(key)) return parameters.remove(s);
@@ -507,8 +506,8 @@ public class URL {
     public String getQueryString(){
 
         StringBuilder str = new StringBuilder();
-        java.util.HashSet<String> keys = getKeys();
-        java.util.Iterator<String> it = keys.iterator();
+        HashSet<String> keys = getKeys();
+        Iterator<String> it = keys.iterator();
         while (it.hasNext()){
             String key = it.next();
             List<String> values = getParameter(key, parameters);
@@ -547,7 +546,7 @@ public class URL {
    */
     public void setQueryString(String query){
         if (query==null){
-            parameters = new HashMap<String, List<String>>();
+            parameters = new LinkedHashMap<>();
         }
         else{
             query = query.trim();
@@ -564,9 +563,9 @@ public class URL {
   //**************************************************************************
   /** Returns a list of parameter names found in the query string.
    */
-    public java.util.HashSet<String> getKeys(){
-        java.util.HashSet<String> keys = new java.util.HashSet<String>();
-        java.util.Iterator<String> it = parameters.keySet().iterator();
+    public HashSet<String> getKeys(){
+        HashSet<String> keys = new HashSet<>();
+        Iterator<String> it = parameters.keySet().iterator();
         while(it.hasNext()){
             keys.add(it.next());
         }
