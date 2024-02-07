@@ -294,6 +294,25 @@ public class Parser {
 
 
   //**************************************************************************
+  //** setFrom
+  //**************************************************************************
+  /** Used to update the from clause in the SQL String. The entire from
+   *  clause will be replaced with the given string. Returns an updated SQL
+   *  statement.
+   */
+    public String setFrom(String fromClause){
+        if (fromClause!=null){
+            fromClause = fromClause.trim();
+            if (fromClause.length()==0) fromClause = null;
+        }
+        sql.put("FROM", fromClause);
+        this.fromStatement = null;
+        getFromStatement();
+        return this.toString();
+    }
+
+
+  //**************************************************************************
   //** setWhere
   //**************************************************************************
   /** Used to update the where clause in the SQL String. The entire where

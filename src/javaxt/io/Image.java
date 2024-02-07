@@ -1718,11 +1718,45 @@ public class Image {
   //**************************************************************************
   /** Returns true if a given image is similar to (or equal to) this image.
    *  Unlike the equals() method which performs an exact match, this method
-   *  performs a fuzzy match using PHash values for the images.
+   *  performs a fuzzy match using perceptual hash values for the images.
+   *  Returns true if the Hamming Distance between the two images is 0.
    */
     public boolean isSimilarTo(Image image){
+        return isSimilarTo(image, 0);
+    }
+
+
+  //**************************************************************************
+  //** isSimilarTo
+  //**************************************************************************
+  /** Returns true if a given image is similar to this image. Performs a fuzzy
+   *  match using perceptual hash values for the images.
+   *  @param image An image to compare to
+   *  @param threshold The minimum hamming distance between the two images
+   */
+    public boolean isSimilarTo(Image image, int threshold){
         if (image==null) return false;
-        return this.getPHash().equals(image.getPHash());
+        int d = getHammingDistance(image);
+        return (d<=threshold);
+    }
+
+
+  //**************************************************************************
+  //** getHammingDistance
+  //**************************************************************************
+  /** Returns the Hamming Distance between this image and a given image using
+   *  perceptual hash values for the images.
+   */
+    public int getHammingDistance(Image image){
+        String hash = Long.toBinaryString(getPHash());
+        String target = Long.toBinaryString(image.getPHash());
+        int d = 0;
+        for (int i=0; i<hash.length(); i++) {
+            if (hash.charAt(i) != target.charAt(i)) {
+                d++;
+            }
+        }
+        return d;
     }
 
 
@@ -1732,10 +1766,11 @@ public class Image {
   /** Returns a perceptual hash value for the image. Unlike traditional
    *  cryptographic hashes like SHA1, PHash is not sensitive to tiny
    *  variations in an image. This makes it ideal to find similar images.
-   *  @return A String representing a 64-bit long value (PHash). Example:
+   *  @return A 64-bit long value (PHash). A string representation of the
+   *  hash (e.g. Long.toBinaryString) would look something like this:
    *  "1101001010111111010011111110111000011001001011110011110111001101"
    */
-    public String getPHash(){
+    public long getPHash(){
 
       //Clone the image
         BufferedImage bi = new BufferedImage(
@@ -1813,7 +1848,7 @@ public class Image {
             }
         }
 
-        return Long.toBinaryString(hashBits);
+        return hashBits;
     }
 
 
