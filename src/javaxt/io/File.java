@@ -1041,10 +1041,32 @@ public class File implements Comparable {
   //**************************************************************************
   //** Write XML
   //**************************************************************************
-  /**  Used to write an XML DOM Document to a file.
+  /** Used to write an XML DOM Document to a file.
    */
     public void write(org.w3c.dom.Document xml){
         write(javaxt.xml.DOM.getText(xml), xml.getXmlEncoding());
+    }
+
+
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /** Used to write a JSON object to a file. Note that the JSON object is
+   *  encoded using UTF-8.
+   */
+    public void write(javaxt.json.JSONObject json){
+        write(json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+
+  //**************************************************************************
+  //** write
+  //**************************************************************************
+  /** Used to write a JSON array to a file. Note that the JSON array is
+   *  encoded using UTF-8.
+   */
+    public void write(javaxt.json.JSONArray arr){
+        write(arr.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
 
