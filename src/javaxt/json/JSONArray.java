@@ -234,7 +234,11 @@ public class JSONArray implements Iterable<JSONValue> {
   /** Returns an array of Objects backing the JSONArray
    */
     public Object[] toArray(){
-        return arr.toArray();
+        Object[] out = new Object[arr.size()];
+        for (int i=0; i<out.length; i++){
+            out[i] = arr.get(i).toObject();
+        }
+        return out;
     }
 
 
