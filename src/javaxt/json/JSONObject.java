@@ -3,6 +3,7 @@ import javaxt.utils.Value;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Map.Entry;
+import java.lang.reflect.Array;
 
 //******************************************************************************
 //**  JSONObject
@@ -225,6 +226,19 @@ public class JSONObject extends javaxt.utils.Record {
 
 
         if (value!=null) {
+
+
+            if (value.getClass().isArray()){
+                JSONArray arr = new JSONArray();
+                for (int i=0; i<Array.getLength(value); i++) {
+                    Object o = Array.get(value, i);
+                    arr.add(o);
+                }
+                value = arr;
+            }
+
+
+
             testValidity(value);
             super.set(key, value);
         }
@@ -347,7 +361,26 @@ public class JSONObject extends javaxt.utils.Record {
 //            new JSONArray(value).write(writer, indentFactor, indent);
         }
         else {
-            quote(value.toString(), writer);
+
+            if (value.getClass().isArray()){
+
+                JSONArray arr = new JSONArray();
+                for (int i=0; i<Array.getLength(value); i++) {
+                    Object o = Array.get(value, i);
+                    arr.add(o);
+                }
+
+                java.io.StringWriter w = new java.io.StringWriter();
+                synchronized (w.getBuffer()) {
+                    writeValue(w, arr, 0, 0);
+                    writer.write(w.toString());
+                }
+
+            }
+            else{
+
+                quote(value.toString(), writer);
+            }
         }
         return writer;
     }
@@ -357,7 +390,8 @@ public class JSONObject extends javaxt.utils.Record {
   //** write
   //**************************************************************************
     private Writer write(Writer writer, int indentFactor, int indent)
-            throws JSONException {
+        throws JSONException {
+
         try {
             boolean commanate = false;
             final int length = this.length();

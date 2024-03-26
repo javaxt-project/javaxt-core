@@ -1,11 +1,9 @@
 package javaxt.http;
 import java.io.*;
 import java.net.*;
+import java.util.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.List;
-import java.util.HashMap;
-import java.util.ArrayList;
 import javax.net.ssl.*;
 
 //******************************************************************************
@@ -44,11 +42,11 @@ public class Request {
     private String password;
     private String method;
 
-    private java.util.Map<String, List<String>> requestHeaders = null;
+    private Map<String, List<String>> requestHeaders = null;
     private HashMap<String, List<String>> RequestProperties = new HashMap<>();
 
   //Http response properties
-    private java.util.Map<String, List<String>> headers = null;
+    private Map<String, List<String>> headers = null;
     private String protocol;
     private String version;
     private int responseCode;
@@ -466,14 +464,14 @@ public class Request {
 
       //Generate boundary
         String boundary = "---------------------------";
-        for (int i=0; i<14; i++) boundary += new java.util.Random().nextInt(10);
+        for (int i=0; i<14; i++) boundary += new Random().nextInt(10);
         int boundarySize = boundary.length();
 
         try{
 
           //Compute payload size and generate content metadata for each input
             long size = 0;
-            java.util.ArrayList<byte[]> metadata = new java.util.ArrayList<byte[]>();
+            ArrayList<byte[]> metadata = new ArrayList<>();
             for (int i=0; i<inputs.length; i++){
 
                 javaxt.html.Input input = inputs[i];
@@ -555,7 +553,7 @@ public class Request {
 
 
     public List<String> getHeader(String key){
-        java.util.Iterator<String> it = RequestProperties.keySet().iterator();
+        Iterator<String> it = RequestProperties.keySet().iterator();
         while (it.hasNext()){
             String currKey = it.next();
             if (key.equalsIgnoreCase(currKey)){
@@ -573,12 +571,12 @@ public class Request {
     public void setHeader(String key, String value){
 
         boolean foundProperty = false;
-        java.util.Iterator<String> it = RequestProperties.keySet().iterator();
+        Iterator<String> it = RequestProperties.keySet().iterator();
         while (it.hasNext()){
             String currKey = it.next();
             if (key.equalsIgnoreCase(currKey)){
                 foundProperty = true;
-                List<String> values = new ArrayList<String>();
+                List<String> values = new ArrayList<>();
                 values.add(value);
                 RequestProperties.put(currKey, values);
                 break;
@@ -586,7 +584,7 @@ public class Request {
         }
 
         if (!foundProperty){
-            List<String> values = new ArrayList<String>();
+            List<String> values = new ArrayList<>();
             values.add(value);
             RequestProperties.put(key, values);
         }
@@ -604,13 +602,13 @@ public class Request {
         }
 
         boolean foundProperty = false;
-        java.util.Iterator<String> it = RequestProperties.keySet().iterator();
+        Iterator<String> it = RequestProperties.keySet().iterator();
         while (it.hasNext()){
             String currKey = it.next();
             if (key.equalsIgnoreCase(currKey)){
                 foundProperty = true;
                 List<String> values = RequestProperties.get(currKey);
-                if (values==null) values = new ArrayList<String>();
+                if (values==null) values = new ArrayList<>();
                 values.add(value);
                 RequestProperties.put(currKey, values);
                 break;
@@ -680,14 +678,14 @@ public class Request {
 
           //Set request method as needed
             if (method!=null){
+                HttpURLConnection con;
                 if (ssl){
-                    HttpsURLConnection con = (HttpsURLConnection)conn;
-                    con.setRequestMethod(method);
+                    con = (HttpsURLConnection)conn;
                 }
                 else{
-                    HttpURLConnection con = (HttpURLConnection)conn;
-                    con.setRequestMethod(method);
+                    con = (HttpURLConnection)conn;
                 }
+                con.setRequestMethod(method);
             }
 
 
@@ -729,7 +727,7 @@ public class Request {
             String credentials = getCredentials();
             if (credentials!=null) conn.setRequestProperty ("Authorization", "Basic " + credentials);
 
-            java.util.Iterator<String> it = RequestProperties.keySet().iterator();
+            Iterator<String> it = RequestProperties.keySet().iterator();
             while (it.hasNext()){
                 String key = it.next();
                 List<String> values = RequestProperties.get(key);
@@ -738,7 +736,7 @@ public class Request {
                         conn.setRequestProperty(key, values.iterator().next());
                     }
                     else{
-                        java.util.Iterator<String> value = values.iterator();
+                        Iterator<String> value = values.iterator();
                         while (value.hasNext()){
                             conn.addRequestProperty(key, value.next());
                         }
@@ -858,7 +856,7 @@ public class Request {
             List status = (List)headers.get(null);
             if (status!=null){
 
-                java.util.StringTokenizer st = new java.util.StringTokenizer( (String)(status).get(0) );
+                StringTokenizer st = new StringTokenizer( (String)(status).get(0) );
                 if (st.hasMoreTokens()) protocol = st.nextToken().trim().toUpperCase();
                 if (protocol.contains("/")) {
                     String temp = protocol;
@@ -898,7 +896,7 @@ public class Request {
 
         String cacheControl = connection.getHeaderField("Cache-Control");
         if (cacheControl != null) {
-            java.util.StringTokenizer tok = new java.util.StringTokenizer(cacheControl, ",");
+            StringTokenizer tok = new StringTokenizer(cacheControl, ",");
             while(tok.hasMoreTokens()) {
                 String token = tok.nextToken().trim().toLowerCase();
                 if ("must-revalidate".equals(token)) {
@@ -966,11 +964,11 @@ public class Request {
     }
 
 
-    protected java.util.Map<String, List<String>> getResponseHeaders(){
+    protected Map<String, List<String>> getResponseHeaders(){
         return headers;
     }
 
-    public java.util.Map<String, List<String>> getRequestHeaders(){
+    public Map<String, List<String>> getRequestHeaders(){
         if (requestHeaders!=null) return requestHeaders;
         else{
             return RequestProperties;
@@ -983,15 +981,15 @@ public class Request {
         if (headers==null) return new String[0];
 
       //Iterate through the headers and find the matching header
-        java.util.ArrayList<String> values = new java.util.ArrayList<String>();
-        java.util.Iterator<String> it = headers.keySet().iterator();
+        ArrayList<String> values = new ArrayList<>();
+        Iterator<String> it = headers.keySet().iterator();
         while(it.hasNext()){
             String key = it.next();
             if (key!=null){
                 if (key.equalsIgnoreCase(headerName)){
 
-                    java.util.List<String> list = headers.get(key);
-                    java.util.Iterator<String> val = list.iterator();
+                    List<String> list = headers.get(key);
+                    Iterator<String> val = list.iterator();
                     while (val.hasNext()){
                         values.add(val.next());
                     }
@@ -1119,13 +1117,13 @@ public class Request {
         //System.out.println("Request Header");
         //System.out.println("------------------------------------------------");
 out.append(url + "\r\n");
-        java.util.Map<String,List<String>> requestHeaders = getRequestHeaders();
+        Map<String,List<String>> requestHeaders = getRequestHeaders();
         if (requestHeaders!=null){
-            java.util.Iterator it = requestHeaders.keySet().iterator();
+            Iterator it = requestHeaders.keySet().iterator();
             while(it.hasNext()){
                 String key = (String) it.next();
                 if (key!=null){
-                    java.util.List list = (java.util.List) requestHeaders.get(key);
+                    List list = (List) requestHeaders.get(key);
                     for (int i=0; i<list.size(); i++){
                         String value = list.get(i).toString();
                         out.append(key + ": " + value + "\r\n");
