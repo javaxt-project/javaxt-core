@@ -229,6 +229,16 @@ public class JSONArray implements Iterable<JSONValue> {
 
 
   //**************************************************************************
+  //** toArray
+  //**************************************************************************
+  /** Returns an array of Objects backing the JSONArray
+   */
+    public Object[] toArray(){
+        return arr.toArray();
+    }
+
+
+  //**************************************************************************
   //** toString
   //**************************************************************************
   /** Returns a printable, displayable, transmittable representation of the
