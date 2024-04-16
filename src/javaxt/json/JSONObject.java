@@ -229,12 +229,14 @@ public class JSONObject extends javaxt.utils.Record {
 
 
             if (value.getClass().isArray()){
-                JSONArray arr = new JSONArray();
-                for (int i=0; i<Array.getLength(value); i++) {
-                    Object o = Array.get(value, i);
-                    arr.add(o);
+                if (!(value instanceof byte[])){
+                    JSONArray arr = new JSONArray();
+                    for (int i=0; i<Array.getLength(value); i++) {
+                        Object o = Array.get(value, i);
+                        arr.add(o);
+                    }
+                    value = arr;
                 }
-                value = arr;
             }
 
 
