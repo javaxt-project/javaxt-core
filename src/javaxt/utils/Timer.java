@@ -1,4 +1,5 @@
 package javaxt.utils;
+import java.util.TimerTask;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +58,7 @@ public class Timer {
   //**************************************************************************
   //** scheduleAtFixedRate
   //**************************************************************************
-  /** Schedules the specified task for repeated fixed-rate execution, 
+  /** Schedules the specified task for repeated fixed-rate execution,
    *  beginning at the specified time. Subsequent executions take place at
    *  regular intervals, separated by the specified period.
    *
@@ -89,13 +90,87 @@ public class Timer {
     }
 
 
+  //**************************************************************************
+  //** cancel
+  //**************************************************************************
+  /** Used to shutdown the current timer task
+   */
     public void cancel(){
         scheduler.shutdown();
     }
 
+
+  //**************************************************************************
+  //** initialized
+  //**************************************************************************
+  /** Returns true if the time task has been initialized
+   */
     public boolean initialized(){
         return scheduler.task!=null;
     }
+
+
+  //**************************************************************************
+  //** setInterval
+  //**************************************************************************
+  /** Used to repeatedly call a given function/callback, with a fixed time
+   *  delay between each call. Example:
+   <pre>
+    setInterval(()->{
+        System.out.println(new java.util.Date());
+    }, 1000);
+   </pre>
+   *  @param interval Time in milliseconds between successive calls to the
+   *  callback.
+   */
+    public static Timer setInterval(Callback callback, long interval){
+        Timer timer = new Timer();
+        new Thread(() -> {
+            timer.scheduleAtFixedRate(new TimerTask(){
+                public void run(){
+                    callback.call();
+                }
+            }, 0, interval);
+        }).start();
+        return timer;
+    }
+
+
+  //**************************************************************************
+  //** setTimeout
+  //**************************************************************************
+  /** Used to call a given function/callback after a delay. Example:
+   <pre>
+    long startTime = System.currentTimeMillis();
+    setTimeout(()->{
+        System.out.println(System.currentTimeMillis()-startTime);
+    }, 1000);
+   </pre>
+   *  @param delay Delay in milliseconds before the callback is called.
+   */
+    public static Timer setTimeout(Callback callback, long delay){
+        Timer timer = new Timer();
+        new Thread(() -> {
+            timer.scheduleAtFixedRate(new TimerTask(){
+                public void run(){
+                    callback.call();
+                }
+            }, delay, 0);
+        }).start();
+        return timer;
+    }
+
+
+  //**************************************************************************
+  //** Callback Interface
+  //**************************************************************************
+  /** Implementations of this class are used by the static setInterval() and
+   *  setTimeout() methods.
+   */
+    public static interface Callback {
+        public void call();
+    }
+
 
   //**************************************************************************
   //** Scheduler Class
@@ -139,7 +214,7 @@ public class Timer {
             return init();
         }
 
-        
+
         @Override
         public ScheduledFuture scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) {
 
@@ -151,7 +226,7 @@ public class Timer {
 
             return init();
         }
-        
+
 
         private ScheduledFuture init(){
             if (task.equals("schedule")){

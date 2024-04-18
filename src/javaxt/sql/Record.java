@@ -2,6 +2,7 @@ package javaxt.sql;
 import javaxt.json.JSONObject;
 import java.util.HashMap;
 import java.util.ArrayList;
+import javaxt.json.JSONArray;
 
 //******************************************************************************
 //**  Record Class
@@ -216,7 +217,8 @@ public class Record { //extends javaxt.utils.Record
     public JSONObject toJson(){
         JSONObject json = new JSONObject();
         for (Field field : fields){
-            json.set(field.getName(), field.getValue());
+            JSONObject f = field.toJson();
+            json.set(field.getName(), f.get("value"));
         }
         return json;
     }

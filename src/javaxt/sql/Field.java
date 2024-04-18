@@ -1,4 +1,6 @@
 package javaxt.sql;
+import javaxt.json.JSONArray;
+import javaxt.json.JSONObject;
 
 //******************************************************************************
 //**  Field Class
@@ -32,7 +34,7 @@ public class Field {
 
 
        //Special case. Discovered that the column name was returning a
-       //table prefix when performing a union quiries with SQLite
+       //table prefix when performing a union queries with SQLite
         if (name!=null && name.contains(".")){
             String[] arr = name.split("\\.");
             if (arr.length==3){
@@ -60,6 +62,9 @@ public class Field {
   //**************************************************************************
   //** clone
   //**************************************************************************
+  /** Used to create a shallow copy of the current field. Does not include the
+   *  field value.
+   */
     public Field clone(){
         Field field = new Field();
         field.name = name;
@@ -188,11 +193,82 @@ public class Field {
         requiresUpdate = b;
     }
 
+
   //**************************************************************************
   //** toString
   //**************************************************************************
+  /** Returns the field name.
+   */
     public String toString(){
         return name;
+    }
+
+
+  //**************************************************************************
+  //** toJson
+  //**************************************************************************
+  /** Returns a JSON representation of the field.
+   */
+    public JSONObject toJson(){
+        JSONObject json = new JSONObject();
+
+
+        Value val = getValue();
+        if (!val.isNull()){
+            Object obj = val.toObject();
+            Class cls = obj.getClass();
+            String className = cls.getSimpleName();
+            Package pkg = cls.getPackage();
+            String packageName = pkg==null ? "" : pkg.getName();
+
+
+          //Special case for json objects
+            if ((packageName.equals("java.lang") && className.equals("String")) ||
+                !packageName.startsWith("java"))
+            {
+                String s = obj.toString().trim();
+                if (s.startsWith("{") && s.endsWith("}")){
+                    try{
+                        val = new Value(new JSONObject(s));
+                    }
+                    catch(Exception e){}
+                }
+                else if (s.startsWith("[") && s.endsWith("]")){
+                    try{
+                        val = new Value(new JSONArray(s));
+                    }
+                    catch(Exception e){}
+                }
+            }
+
+
+          //Special case for arrays
+            if (obj instanceof java.sql.Array){
+                try{
+                    JSONArray arr = new JSONArray();
+                    for (Object o : (Object[]) ((java.sql.Array) obj).getArray()){
+                        arr.add(o);
+                    }
+                    val = new Value(arr);
+                }
+                catch(Exception e){}
+            }
+
+
+          //Special case for H2's TimestampWithTimeZone
+            if (packageName.equals("org.h2.api")){
+                if (className.equals("TimestampWithTimeZone")){
+                    val = new Value(val.toDate());
+                }
+            }
+        }
+
+        json.set("name", name);
+        json.set("value", val);
+        json.set("type", type);
+        json.set("table", tableName);
+        json.set("schema", schema);
+        return json;
     }
 
 

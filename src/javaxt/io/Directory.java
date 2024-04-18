@@ -1733,7 +1733,9 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** equals
   //**************************************************************************
-
+  /** Returns true if the given Object is a Directory (or java.io.File) that
+   *  refers to the current directory.
+   */
     public boolean equals(Object obj){
         if (obj instanceof Directory){
             return getFile().equals(((Directory) obj).toFile());
@@ -1764,42 +1766,55 @@ public class Directory implements Comparable {
   //** getEvents
   //**************************************************************************
   /** Used to start monitoring changes made to the directory. Changes include
-   *  creating, modifying or deleting files/folders found in this directory.
-   *  Returns a list of Directory.Event(s). Clients can wait for new events
-   *  using the wait() method. Recommend removing events from the list whenever
-   *  !events.isEmpty().
-   *
-   *  Example:<pre>
+   *  creating, modifying, or deleting files/folders found in this directory.
+   *  Returns a list of Directory.Event(s). Caller can wait for new events
+   *  using the wait() method like this:
+   <pre>
     java.util.List events = directory.getEvents();
     while (true){
-
-        Object obj;
+        Directory.Event event;
         synchronized (events) {
-            while (events.isEmpty()) {
-              try {
-                  events.wait();
-              }
-              catch (InterruptedException e) {
-              }
+            synchronized (events) {
+                while (events.isEmpty()) {
+                    try {
+                        events.wait();
+                    }
+                    catch (InterruptedException e) {}
+                }
+                event = (Directory.Event) events.remove(0);
             }
-
-            obj = events.remove(0);
         }
-        if (obj!=null){
 
-            javaxt.io.Directory.Event event = (javaxt.io.Directory.Event) obj;
+        if (event!=null){
             System.out.println(event.toString());
-
-          //Compare files before/after the event
             if (event.getEventID()==event.RENAME){
                 System.out.println(
-                    event.getOriginalFile().getName() + " vs " +
-                    event.getFile().getName()
+                    event.getOriginalFile() + " vs " +
+                    event.getFile()
                 );
             }
         }
+    }
+    </pre>
+   *  Note that in this example, we are removing events from the list in the
+   *  order that they occur. It is critical to remove events from the list to
+   *  as quickly as possible to avoid potential memory issues. Use the stop()
+   *  method to stop monitoring events. Obviously you will need to start the
+   *  monitor in a separate thread in order to call the stop() method. Example:
+   <pre>
 
-    }</pre>
+  //Start directory monitor
+    new Thread(() -> {
+        java.util.List events = directory.getEvents();
+        while (true){
+            ...
+        }
+    }).start();
+
+
+  //Stop directory monitor
+    directory.stop();
+   </pre>
    */
     public List getEvents() throws Exception {
 
@@ -1842,8 +1857,9 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** Event Class
   //**************************************************************************
-  /**  Used to encapsulate a single event on the file system.
-  */
+  /** Used to encapsulate an event on the file system (e.g. create, update,
+   *  rename, or delete).
+   */
     public static class Event {
 
         private String file;
@@ -1931,7 +1947,8 @@ public class Directory implements Comparable {
       //************************************************************************
       //** getFile
       //************************************************************************
-      /**  Returns the file or directory that was created, modified, or deleted.
+      /** Returns the path of the file or directory that was created, modified,
+       *  or deleted.
        */
         public String getFile(){
             return file;
@@ -1941,6 +1958,9 @@ public class Directory implements Comparable {
       //************************************************************************
       //** getOriginalFile
       //************************************************************************
+      /** If a file or directory was moved or renamed, returns the path to the
+       *  original file or directory.
+       */
         public String getOriginalFile(){
             return orgFile;
         }
@@ -1964,8 +1984,8 @@ public class Directory implements Comparable {
       //************************************************************************
       //** getDate
       //************************************************************************
-      /**  Returns the date/time stamp when the event occured. */
-
+      /** Returns the date/time stamp when the event occurred.
+       */
         public java.util.Date getDate(){
             return date;
         }
@@ -1973,8 +1993,8 @@ public class Directory implements Comparable {
       //************************************************************************
       //** toString
       //************************************************************************
-      /**  Returns a string representation of this event. */
-
+      /** Returns a string representation of this event.
+       */
         public String toString(){
           if (action.equalsIgnoreCase("rename"))
             return "[" + date.toString() + "] " + action + " " + orgFile + " To " + file;
