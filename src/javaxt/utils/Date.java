@@ -1,9 +1,9 @@
 package javaxt.utils;
+import java.util.*;
+import java.time.*;
+import java.time.temporal.*;
 import java.text.ParseException;
-import java.util.Calendar;
 import java.text.SimpleDateFormat;
-import java.util.Locale;
-import java.util.HashMap;
 
 //******************************************************************************
 //**  Date Utils
@@ -29,7 +29,7 @@ public class Date implements Comparable {
     public static final String INTERVAL_MONTHS = "m";
     public static final String INTERVAL_YEARS = "y";
 
-    private static final HashMap<String, String> timezones = new HashMap<String, String>();
+    private static final HashMap<String, String> timezones = new HashMap<>();
 
     private static final String[] SupportedFormats = new String[] {
 
@@ -104,17 +104,18 @@ public class Date implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of date using current time stamp */
-
+  /** Creates a new instance of date using current time stamp
+   */
     public Date(){
         currDate = new java.util.Date();
     }
 
+
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of date using supplied java.util.Date */
-
+  /** Creates a new instance of date using supplied java.util.Date
+   */
     public Date(java.util.Date date){
         if (date==null) throw new IllegalArgumentException("Date is null.");
         currDate = date;
@@ -124,8 +125,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of date using supplied java.util.Calendar */
-
+  /** Creates a new instance of date using supplied java.util.Calendar
+   */
     public Date(Calendar calendar){
         if (calendar==null) throw new IllegalArgumentException("Calendar is null.");
         currDate = calendar.getTime();
@@ -222,7 +223,6 @@ public class Date implements Comparable {
   /** Creates a new instance of date using a date string. The format string is
    *  used to create a SimpleDateFormat to parse the input date string.
    */
-
     public Date(String date, String format) throws ParseException {
         currDate = parseDate(date, format);
     }
@@ -459,15 +459,40 @@ public class Date implements Comparable {
         return currFormatter.format(currDate);
     }
 
+  //**************************************************************************
+  //** toString
+  //**************************************************************************
+  /** Used to format the current date into a string in a given timezone.
+   *  @param timeZone Name of the time zone (e.g. "UTC", "EST", etc.). Note
+   *  that this parameter does not alter the current date in any way. This
+   *  parameter is simply used for the output string. Use the setTimeZone()
+   *  method to change the timezone for the current date.
+   */
     public String toString(String format, String timeZone){
         return this.toString(format, getTimeZone(timeZone));
     }
 
+
+  //**************************************************************************
+  //** format
+  //**************************************************************************
+  /** Used to format the current date into a string.
+   */
     public String toString(String format, java.util.TimeZone timeZone){
         SimpleDateFormat currFormatter =
             new SimpleDateFormat(format, currentLocale);
         if (timeZone!=null) currFormatter.setTimeZone(timeZone);
         return currFormatter.format(currDate);
+    }
+
+
+  //**************************************************************************
+  //** format
+  //**************************************************************************
+  /** Used to format the current date into a string. Same as toString(format).
+   */
+    public String format(String format){
+        return toString(format);
     }
 
 
@@ -605,31 +630,42 @@ public class Date implements Comparable {
   //**************************************************************************
   //** DateDiff
   //**************************************************************************
-  /**  Implements compareTo public members */
-
+  /** Implements compareTo public members
+   */
     private long DateDiff(java.util.Date date1, java.util.Date date2, String interval){
+
+        LocalDate s = new Date(date2).getLocalDate();
+        LocalDate e = new Date(date1).getLocalDate();
+
 
         double div = 1;
         if (interval.equals("S") || interval.toLowerCase().startsWith("sec")){
             div = 1000L;
+            //return ChronoUnit.SECONDS.between(s, e);
         }
         if (interval.equals("m") || interval.toLowerCase().startsWith("min")){
             div = 60L * 1000L;
+            //return ChronoUnit.MINUTES.between(s, e);
         }
         if (interval.equals("H") || interval.toLowerCase().startsWith("h")){
             div = 60L * 60L * 1000L;
+            //return ChronoUnit.HOURS.between(s, e);
         }
         if (interval.equals("d") || interval.toLowerCase().startsWith("d")){
             div = 24L * 60L * 60L * 1000L;
+            //return ChronoUnit.DAYS.between(s, e);
         }
         if (interval.equals("w") || interval.toLowerCase().startsWith("w")){
             div = 7L * 24L * 60L * 60L * 1000L;
+            //return ChronoUnit.WEEKS.between(s, e);
         }
         if (interval.equals("M") || interval.toLowerCase().startsWith("mon")){
-            div = 30L * 24L * 60L * 60L * 1000L;
+            //div = 30L * 24L * 60L * 60L * 1000L;
+            return ChronoUnit.MONTHS.between(s, e);
         }
         if (interval.equals("y") || interval.toLowerCase().startsWith("y")){
-            div = 365L * 24L * 60L * 60L * 1000L;
+            //div = 365L * 24L * 60L * 60L * 1000L;
+            return ChronoUnit.YEARS.between(s, e);
         }
 
         long d1 = date1.getTime();
@@ -645,29 +681,114 @@ public class Date implements Comparable {
     }
 
 
+  //**************************************************************************
+  //** getMonthsBetween
+  //**************************************************************************
+  /** Returns fractional month difference between two dates. Unlike the
+   *  compareTo() method, this function does not round down the difference
+   *  between two months.
+   */
+    public static double getMonthsBetween(javaxt.utils.Date start, javaxt.utils.Date end) {
+
+        LocalDate startLocal = start.getLocalDate();
+        LocalDate endLocal = end.getLocalDate();
+
+
+      //When the 2 dates fall on the same day in the month, don't return fractions
+        int startDay = start.getDay();
+        int endDay = end.getDay();
+        if (startDay==endDay){
+            return ChronoUnit.MONTHS.between(startLocal, endLocal);
+        }
+
+
+      //When the 2 dates fall on the the last day of the month, don't return fractions
+        Calendar startCalendar = start.getCalendar();
+        Calendar endCalendar = end.getCalendar();
+        if (startCalendar.get(Calendar.DATE) == startCalendar.getActualMaximum(Calendar.DATE) &&
+            endCalendar.get(Calendar.DATE) == endCalendar.getActualMaximum(Calendar.DATE)){
+            return ChronoUnit.MONTHS.between(startLocal, endLocal);
+        }
+
+
+      //If we're still here, return fractional month difference between two dates
+        return getMonthsBetween(startLocal, endLocal);
+    }
+
+
+    private static double getMonthsBetween(LocalDate start, LocalDate end) {
+
+        boolean negate = false;
+        if (start.isAfter(end)){
+            negate = true;
+            LocalDate t = start;
+            start = end;
+            end = t;
+        }
+
+
+      //Compute frantional diff. Read more here: https://stackoverflow.com/a/73947644
+        LocalDate lastDayOfStartMonth = start.with(TemporalAdjusters.lastDayOfMonth());
+        LocalDate firstDayOfEndMonth = end.with(TemporalAdjusters.firstDayOfMonth());
+        double startMonthLength = (double)start.lengthOfMonth();
+        double endMonthLength = (double)end.lengthOfMonth();
+        if (lastDayOfStartMonth.isAfter(firstDayOfEndMonth)) { // same month
+            return ChronoUnit.DAYS.between(start, end) / startMonthLength;
+        }
+        long months = ChronoUnit.MONTHS.between(lastDayOfStartMonth, firstDayOfEndMonth);
+        double startFraction = ChronoUnit.DAYS.between(start, lastDayOfStartMonth.plusDays(1)) / startMonthLength;
+        double endFraction = ChronoUnit.DAYS.between(firstDayOfEndMonth, end) / endMonthLength;
+        double diff = months + startFraction + endFraction;
+
+
+        return negate ? -diff : diff;
+    }
+
+
+  //**************************************************************************
+  //** isBefore
+  //**************************************************************************
+  /** Returns true if a given date is before the current date
+   */
     public boolean isBefore(String date) throws ParseException {
         return isBefore(new javaxt.utils.Date(date));
     }
 
+
+  //**************************************************************************
+  //** isBefore
+  //**************************************************************************
+  /** Returns true if a given date is before the current date
+   */
     public boolean isBefore(javaxt.utils.Date Date){
         if (Date==null) return false;
         return currDate.before(Date.getDate());
     }
 
+
+  //**************************************************************************
+  //** isAfter
+  //**************************************************************************
+  /** Returns true if a given date is after the current date
+   */
     public boolean isAfter(String date) throws ParseException {
         return isAfter(new javaxt.utils.Date(date));
     }
 
+
+  //**************************************************************************
+  //** isAfter
+  //**************************************************************************
+  /** Returns true if a given date is after the current date
+   */
     public boolean isAfter(javaxt.utils.Date Date){
         if (Date==null) return false;
         return currDate.after(Date.getDate());
     }
 
 
-
-
   //**************************************************************************
-  //** Add
+  //** add
   //**************************************************************************
   /** Used to update the current date by adding to (or subtracting from) the
    *  current date. Example:
@@ -688,7 +809,7 @@ public class Date implements Comparable {
         if (units.equals("S") || units.toLowerCase().startsWith("ms") || units.toLowerCase().startsWith("mil")){
             div = cal.MILLISECOND;
         }
-        if (units.equals("s") || units.toLowerCase().startsWith("sec")){
+        else if (units.equals("s") || units.toLowerCase().startsWith("sec")){
             div = cal.SECOND;
         }
         else if(units.equals("m") || units.toLowerCase().startsWith("min")){
@@ -714,6 +835,19 @@ public class Date implements Comparable {
         return this;
     }
 
+
+  //**************************************************************************
+  //** subtract
+  //**************************************************************************
+  /** Used to update the current date by subtracting from the current date.
+   *  @param units Unit of measure (e.g. hours, minutes, seconds, days, weeks,
+   *  months, years, etc.)
+   */
+    public javaxt.utils.Date subtract(int amount, String units){
+        return add(-amount, units);
+    }
+
+
   //**************************************************************************
   //** setDate
   //**************************************************************************
@@ -731,6 +865,7 @@ public class Date implements Comparable {
         currDate = cal.getTime();
         return this;
     }
+
 
   //**************************************************************************
   //** setTime
@@ -754,7 +889,7 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getDate
   //**************************************************************************
-  /** Returns the java.utils.Date representation of this object
+  /** Returns the java.utils.Date representation of the current date.
    */
     public java.util.Date getDate(){
         return currDate;
@@ -775,8 +910,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getCalendar
   //**************************************************************************
-  /**  Returns the java.utils.Calender representation of this object */
-
+  /**  Returns the java.utils.Calender representation of the current date.
+   */
     public Calendar getCalendar(){
         Calendar cal = Calendar.getInstance();
         cal.setTime(currDate);
@@ -786,10 +921,20 @@ public class Date implements Comparable {
 
 
   //**************************************************************************
+  //** getLocalDate
+  //**************************************************************************
+  /** Returns a java.time.LocalDate representation of the current date.
+   */
+    public LocalDate getLocalDate(){
+        return LocalDate.of(getYear(), getMonth(), getDay());
+    }
+
+
+  //**************************************************************************
   //** getWeekdayName
   //**************************************************************************
-  /**  Returns the name of the day of the week. Example: "Monday" */
-
+  /**  Returns the name of the day of the week. Example: "Monday"
+   */
     public String getWeekdayName(){
         return FormatDate(currDate, "EEEEEE");
     }
@@ -798,8 +943,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getWeekdayName
   //**************************************************************************
-  /**  Returns the name of the month. Example: "January" */
-
+  /**  Returns the name of the month. Example: "January"
+   */
     public String getMonthName(){
         return FormatDate(currDate, "MMMMMM");
     }
@@ -820,19 +965,18 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getWeekInMonth
   //**************************************************************************
-  /**  Returns the week number in a given month. Example: 11/14/2006 = 3 */
-
+  /**  Returns the week number in a given month. Example: 11/14/2006 = 3
+   */
     public int getWeekInMonth(){
         return Integer.valueOf(FormatDate(currDate, "W")).intValue();
     }
 
 
-
   //**************************************************************************
   //** getDayInYear
   //**************************************************************************
-  /**  Returns the day of the year. Example: 11/14/2006 = 318 */
-
+  /**  Returns the day of the year. Example: 11/14/2006 = 318
+   */
     public int getDayInYear(){
         return Integer.valueOf(FormatDate(currDate, "D")).intValue();
     }
@@ -841,8 +985,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getWeekInYear
   //**************************************************************************
-  /**  Returns the week number within a given year. Example: 11/14/2006 = 46 */
-
+  /** Returns the week number within a given year. Example: 11/14/2006 = 46
+   */
     public int getWeekInYear(){
         return Integer.valueOf(FormatDate(currDate, "w")).intValue();
     }
@@ -851,8 +995,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getYear
   //**************************************************************************
-  /**  Returns the current year. Example: 11/14/2006 = 2006 */
-
+  /** Returns the current year. Example: 11/14/2006 = 2006
+   */
     public int getYear(){
         return Integer.valueOf(FormatDate(currDate, "yyyy")).intValue();
     }
@@ -861,17 +1005,18 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getMonth
   //**************************************************************************
-  /**  Returns the current month. Example: 11/14/2006 = 11 */
-
+  /** Returns the current month. Example: 11/14/2006 = 11
+   */
     public int getMonth(){
         return Integer.valueOf(FormatDate(currDate, "MM")).intValue();
     }
 
+
   //**************************************************************************
   //** getDay
   //**************************************************************************
-  /**  Returns the current day of the month. Example: 11/14/2006 = 14 */
-
+  /** Returns the current day of the month. Example: 11/14/2006 = 14
+   */
     public int getDay(){
         return Integer.valueOf(FormatDate(currDate, "dd")).intValue();
     }
@@ -890,8 +1035,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getMinute
   //**************************************************************************
-  /**  Returns the current minute of the hour. Example: 12:01 = 1  */
-
+  /** Returns the current minute of the hour. Example: 12:01 = 1
+   */
     public int getMinute(){
         return Integer.valueOf(FormatDate(currDate, "m")).intValue();
     }
@@ -900,8 +1045,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getSecond
   //**************************************************************************
-  /**  Returns the current second of the minute. Example: 12:00:01 = 1  */
-
+  /** Returns the current second of the minute. Example: 12:00:01 = 1
+   */
     public int getSecond(){
         return Integer.valueOf(FormatDate(currDate, "s")).intValue();
     }
@@ -910,8 +1055,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getMilliSecond
   //**************************************************************************
-  /**  Returns the current millisecond of the second. Example: 12:00:00:01 = 1*/
-
+  /** Returns the current millisecond of the second. Example: 12:00:00:01 = 1
+   */
     public int getMilliSecond(){
         return Integer.valueOf(FormatDate(currDate, "S")).intValue();
     }
@@ -920,7 +1065,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** hasTimeStamp
   //**************************************************************************
-  /** Used to determine whether the date has a timestamp.
+  /** Returns true if the date has an hour, minute, second, or millisecond
+   *  greater than zero.
    */
     public boolean hasTimeStamp(){
         int hour = this.getHour();
