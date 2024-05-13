@@ -104,7 +104,7 @@ public class Date implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of date using current time stamp
+  /** Creates a new instance of this class using the current time
    */
     public Date(){
         currDate = new java.util.Date();
@@ -114,7 +114,7 @@ public class Date implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of date using supplied java.util.Date
+  /** Creates a new instance of this class using a java.util.Date
    */
     public Date(java.util.Date date){
         if (date==null) throw new IllegalArgumentException("Date is null.");
@@ -125,7 +125,7 @@ public class Date implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of date using supplied java.util.Calendar
+  /** Creates a new instance of this class using a java.util.Calendar
    */
     public Date(Calendar calendar){
         if (calendar==null) throw new IllegalArgumentException("Calendar is null.");
@@ -137,7 +137,26 @@ public class Date implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Creates a new instance of date using a timestamp (in milliseconds)
+  /** Creates a new instance of this class using a java.time.LocalDate
+   */
+    public Date(java.time.LocalDate date){
+        if (date==null) throw new IllegalArgumentException("Date is null.");
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.YEAR, date.getYear());
+        cal.set(Calendar.MONTH, date.getMonthValue()-1);
+        cal.set(Calendar.DAY_OF_MONTH, date.getDayOfMonth());
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        currDate = cal.getTime();
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Creates a new instance of this class using a timestamp (in milliseconds)
    *  since 1/1/1970.
    */
     public Date(long milliseconds){
@@ -150,7 +169,8 @@ public class Date implements Comparable {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**  Creates a new instance of date using a String representation of a date.
+  /** Creates a new instance of this class using a String representation of a
+   *  date. Supports multiple common date formats.
    */
     public Date(String date) throws ParseException {
 
@@ -611,7 +631,7 @@ public class Date implements Comparable {
    *  months, years, etc.)
    */
     public long compareTo(javaxt.utils.Date date, String units){
-        return DateDiff(currDate, date.getDate(), units);
+        return diff(currDate, date.getDate(), units);
     }
 
 
@@ -623,16 +643,20 @@ public class Date implements Comparable {
    *  months, years, etc.)
    */
     public long compareTo(java.util.Date date, String units){
-        return DateDiff(currDate, date, units);
+        return diff(currDate, date, units);
     }
 
 
   //**************************************************************************
-  //** DateDiff
+  //** diff
   //**************************************************************************
-  /** Implements compareTo public members
+  /** Used to compare dates. Returns a long value representing the difference
+   *  between the dates for the given unit of measure. Note that this method
+   *  will "round down" differences between dates.
+   *  @param interval Unit of measure. Supports seconds, minutes, hours, days,
+   *  weeks, months, and years.
    */
-    private long DateDiff(java.util.Date date1, java.util.Date date2, String interval){
+    private long diff(java.util.Date date1, java.util.Date date2, String interval){
 
         LocalDate s = new Date(date2).getLocalDate();
         LocalDate e = new Date(date1).getLocalDate();
@@ -689,35 +713,14 @@ public class Date implements Comparable {
    *  between two months.
    */
     public static double getMonthsBetween(javaxt.utils.Date start, javaxt.utils.Date end) {
-
-        LocalDate startLocal = start.getLocalDate();
-        LocalDate endLocal = end.getLocalDate();
-
-
-      //When the 2 dates fall on the same day in the month, don't return fractions
-        int startDay = start.getDay();
-        int endDay = end.getDay();
-        if (startDay==endDay){
-            return ChronoUnit.MONTHS.between(startLocal, endLocal);
-        }
-
-
-      //When the 2 dates fall on the the last day of the month, don't return fractions
-        Calendar startCalendar = start.getCalendar();
-        Calendar endCalendar = end.getCalendar();
-        if (startCalendar.get(Calendar.DATE) == startCalendar.getActualMaximum(Calendar.DATE) &&
-            endCalendar.get(Calendar.DATE) == endCalendar.getActualMaximum(Calendar.DATE)){
-            return ChronoUnit.MONTHS.between(startLocal, endLocal);
-        }
-
-
-      //If we're still here, return fractional month difference between two dates
-        return getMonthsBetween(startLocal, endLocal);
+        return getMonthsBetween(start.getLocalDate(), end.getLocalDate());
     }
 
 
     private static double getMonthsBetween(LocalDate start, LocalDate end) {
 
+
+      //Check if the start date is after the end date. Swap dates as needed
         boolean negate = false;
         if (start.isAfter(end)){
             negate = true;
@@ -727,21 +730,160 @@ public class Date implements Comparable {
         }
 
 
-      //Compute frantional diff. Read more here: https://stackoverflow.com/a/73947644
-        LocalDate lastDayOfStartMonth = start.with(TemporalAdjusters.lastDayOfMonth());
-        LocalDate firstDayOfEndMonth = end.with(TemporalAdjusters.firstDayOfMonth());
-        double startMonthLength = (double)start.lengthOfMonth();
-        double endMonthLength = (double)end.lengthOfMonth();
-        if (lastDayOfStartMonth.isAfter(firstDayOfEndMonth)) { // same month
-            return ChronoUnit.DAYS.between(start, end) / startMonthLength;
+      //Check if start/end dates fall on the last of the month
+        boolean startIsLastDayInMonth = start.getDayOfMonth() == start.lengthOfMonth();
+        boolean endIsLastDayInMonth = end.getDayOfMonth() == end.lengthOfMonth();
+
+
+      //Calulate months between the 2 dates using Java's built-in ChronoUnit
+      //Note that the ChronoUnit "rounds down" the interval between the dates.
+        long m = ChronoUnit.MONTHS.between(start, end);
+
+
+      //When the 2 dates fall on the same day in the month, and the dates aren't
+      //on the last day of the month, simply return the value returned by the
+      //ChronoUnit class
+        int startDay = start.getDayOfMonth();
+        int endDay = end.getDayOfMonth();
+        if (startDay==endDay){
+
+            if (startIsLastDayInMonth && !endIsLastDayInMonth ||
+                !startIsLastDayInMonth && endIsLastDayInMonth){
+                //Example: 2024-11-28 2025-02-28
+            }
+            else{
+                return m;
+            }
         }
-        long months = ChronoUnit.MONTHS.between(lastDayOfStartMonth, firstDayOfEndMonth);
-        double startFraction = ChronoUnit.DAYS.between(start, lastDayOfStartMonth.plusDays(1)) / startMonthLength;
-        double endFraction = ChronoUnit.DAYS.between(firstDayOfEndMonth, end) / endMonthLength;
-        double diff = months + startFraction + endFraction;
 
 
+      //If we're still here, compute fractions
+        double fraction = 0.0;
+        if (m==0){
+
+          //Simply add up the days between the dates
+            double numDays = 0.0;
+            LocalDate d = LocalDate.of(start.getYear(), start.getMonthValue(), start.getDayOfMonth());
+            while (!d.equals(end)){
+
+                if (d.getDayOfMonth() == d.lengthOfMonth()){
+                    fraction += numDays/(double)d.lengthOfMonth();
+                    numDays = 0.0;
+                }
+
+                d = d.plusDays(1);
+                numDays++;
+            }
+            fraction += numDays/(double)d.lengthOfMonth();
+
+        }
+        else{
+
+            if (start.getDayOfMonth()>end.lengthOfMonth() || endIsLastDayInMonth){
+
+
+                LocalDate d = LocalDate.of(start.getYear(), start.getMonthValue(), start.getDayOfMonth());
+
+
+              //Wind back start date (d) a month or two before the end date
+                m--;
+                d = addOrSubtractMonths(m, d);
+                while (d.isAfter(end)){
+                    d = addOrSubtractMonths(-1, d);
+                    m--;
+                }
+
+
+              //Compute fractions
+                double numDays = 0.0;
+                while (!d.equals(end)){
+
+                    if (d.getDayOfMonth() == d.lengthOfMonth()){
+                        fraction += numDays/(double)d.lengthOfMonth();
+                        numDays = 0.0;
+                    }
+
+                    d = d.plusDays(1);
+                    numDays++;
+                }
+                fraction += numDays/(double)d.lengthOfMonth();
+
+            }
+            else{
+
+
+              //Create new end date using the original end date. Adjust the day
+              //of the month to match the start date. The new date will be
+              //either before or after the original end date.
+                LocalDate e2;
+                try{
+                    e2 = LocalDate.of(end.getYear(), end.getMonthValue(), start.getDayOfMonth());
+                }
+                catch(Exception e){ //leap year exception
+                    e2 = LocalDate.of(end.getYear(), end.getMonthValue(), start.getDayOfMonth()-1);
+                    e.printStackTrace();
+                }
+
+
+              //Calulate months between the start date and the new end date
+                m = ChronoUnit.MONTHS.between(start, e2);
+
+
+                if (e2.isAfter(end)){
+
+                  //subtract from e2
+                    double f = (e2.getDayOfMonth()-end.getDayOfMonth())/(double)end.lengthOfMonth();
+                    fraction -= f;
+
+                }
+                else{
+
+                  //add from e2
+                    double f = (end.getDayOfMonth()-e2.getDayOfMonth())/(double)end.lengthOfMonth();
+                    fraction += f;
+                }
+            }
+
+        }
+
+
+      //Add months and fractions
+        double diff = fraction+(double)m;
+
+
+      //When the 2 dates fall on the the last day of the month, round up
+        if (startIsLastDayInMonth && endIsLastDayInMonth){
+            diff = Math.round(diff);
+        }
+
+
+      //Return diff
         return negate ? -diff : diff;
+    }
+
+
+    private static LocalDate addOrSubtractMonths(long amount, LocalDate d){
+        if (amount==0) return d;
+
+        if (d.getDayOfMonth() == d.lengthOfMonth()){
+            d = d.withDayOfMonth(1);
+            if (amount>0){
+                d = d.plusMonths(amount);
+            }
+            else{
+                d = d.minusMonths(-amount);
+            }
+            d = d.withDayOfMonth(d.lengthOfMonth());
+        }
+        else{
+            if (amount>0){
+                d = d.plusMonths(amount);
+            }
+            else{
+                d = d.minusMonths(-amount);
+            }
+        }
+        return d;
     }
 
 
