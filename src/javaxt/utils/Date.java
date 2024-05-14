@@ -759,91 +759,67 @@ public class Date implements Comparable {
 
       //If we're still here, compute fractions
         double fraction = 0.0;
-        if (m==0){
+        if (m==0 && start.getMonthValue()==end.getMonthValue()){
 
-          //Simply add up the days between the dates
-            double numDays = 0.0;
-            LocalDate d = LocalDate.of(start.getYear(), start.getMonthValue(), start.getDayOfMonth());
-            while (!d.equals(end)){
-
-                if (d.getDayOfMonth() == d.lengthOfMonth()){
-                    fraction += numDays/(double)d.lengthOfMonth();
-                    numDays = 0.0;
-                }
-
-                d = d.plusDays(1);
-                numDays++;
-            }
-            fraction += numDays/(double)d.lengthOfMonth();
+          //Simply compare the days of the month
+            fraction = (end.getDayOfMonth()-start.getDayOfMonth())/(double)end.lengthOfMonth();
 
         }
         else{
 
-            if (start.getDayOfMonth()>end.lengthOfMonth() || endIsLastDayInMonth){
+          //Create new end date using the original end date. Adjust the day
+          //of the month to match the start date. The new date will be either
+          //before or after the original end date.
+            int maxDays = LocalDate.of(end.getYear(), end.getMonthValue(), 1).lengthOfMonth();
+            LocalDate e2 = LocalDate.of(end.getYear(), end.getMonthValue(), Math.min(start.getDayOfMonth(), maxDays));
 
+            if (start.getDayOfMonth()>maxDays){
 
-                LocalDate d = LocalDate.of(start.getYear(), start.getMonthValue(), start.getDayOfMonth());
+              //Create new date a few days after the end of the month
+                LocalDate d = e2.plusDays(start.getDayOfMonth()-maxDays);
 
+              //Calulate months between the start date and the new date
+                m = ChronoUnit.MONTHS.between(start, d);
 
-              //Wind back start date (d) a month or two before the end date
-                m--;
-                d = addOrSubtractMonths(m, d);
-                while (d.isAfter(end)){
-                    d = addOrSubtractMonths(-1, d);
-                    m--;
-                }
+              //Calculate fraction
+                if (startIsLastDayInMonth && endIsLastDayInMonth){}
+                else{
 
-
-              //Compute fractions
-                double numDays = 0.0;
-                while (!d.equals(end)){
-
-                    if (d.getDayOfMonth() == d.lengthOfMonth()){
-                        fraction += numDays/(double)d.lengthOfMonth();
-                        numDays = 0.0;
+                    if (!startIsLastDayInMonth){
+                        fraction = -((start.lengthOfMonth()-start.getDayOfMonth())/(double)start.lengthOfMonth());
                     }
-
-                    d = d.plusDays(1);
-                    numDays++;
+                    else{
+                        fraction = -(1-((end.getDayOfMonth())/(double)maxDays));
+                    }
                 }
-                fraction += numDays/(double)d.lengthOfMonth();
-
             }
             else{
-
-
-              //Create new end date using the original end date. Adjust the day
-              //of the month to match the start date. The new date will be
-              //either before or after the original end date.
-                LocalDate e2;
-                try{
-                    e2 = LocalDate.of(end.getYear(), end.getMonthValue(), start.getDayOfMonth());
-                }
-                catch(Exception e){ //leap year exception
-                    e2 = LocalDate.of(end.getYear(), end.getMonthValue(), start.getDayOfMonth()-1);
-                    e.printStackTrace();
-                }
-
 
               //Calulate months between the start date and the new end date
                 m = ChronoUnit.MONTHS.between(start, e2);
 
-
+              //Calculate fraction
                 if (e2.isAfter(end)){
 
                   //subtract from e2
-                    double f = (e2.getDayOfMonth()-end.getDayOfMonth())/(double)end.lengthOfMonth();
-                    fraction -= f;
+                    int n = e2.getDayOfMonth()-end.getDayOfMonth();
+                    double f = (double)n/(double)end.lengthOfMonth();
+
+                    if (m==0){
+                        fraction = 1-f;
+                    }
+                    else{
+                        fraction = -f;
+                    }
 
                 }
-                else{
+                else if (e2.isBefore(end)){
 
                   //add from e2
-                    double f = (end.getDayOfMonth()-e2.getDayOfMonth())/(double)end.lengthOfMonth();
-                    fraction += f;
+                    fraction = (end.getDayOfMonth()-start.getDayOfMonth())/(double)end.lengthOfMonth();
+
                 }
             }
-
         }
 
 
