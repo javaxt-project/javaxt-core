@@ -193,6 +193,15 @@ public class URL {
   //**************************************************************************
     private static String decode(String str){
         try{
+
+          //Replace unencoded "%" characters with "%25". The regex finds a "%"
+          //but only those that are NOT followed by 2 hex characters (0-F),
+          //then replaces with the ENCODED version of the % character "%25".
+          //Credit: https://stackoverflow.com/a/18368345
+            str = str.replaceAll("%(?![0-9a-fA-F]{2})", "%25");
+
+
+          //Decode the string with the URLDecoder
             if (str.contains("+")){
                 StringBuilder out = new StringBuilder();
                 while (str.contains("+")){
