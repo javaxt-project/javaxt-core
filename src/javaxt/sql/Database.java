@@ -787,7 +787,7 @@ public class Database implements Cloneable {
         java.util.ArrayList<Table> tables = new java.util.ArrayList<>();
         try{
             DatabaseMetaData dbmd = conn.getConnection().getMetaData();
-            try(ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"})){
+            try(ResultSet rs = dbmd.getTables(null,null,null,getTableFilter(database))){
                 while (rs.next()) {
                     tables.add(new Table(rs, dbmd));
                 }
@@ -827,7 +827,7 @@ public class Database implements Cloneable {
             try (Connection conn = getConnection()){
 
                 DatabaseMetaData dbmd = conn.getConnection().getMetaData();
-                try (ResultSet rs = dbmd.getTables(null,null,null,new String[]{"TABLE"})){
+                try (ResultSet rs = dbmd.getTables(null,null,null,getTableFilter(this))){
                     while (rs.next()) {
                         javaxt.utils.Record record = new javaxt.utils.Record();
                         record.set("schema", rs.getString("TABLE_SCHEM"));
@@ -850,6 +850,22 @@ public class Database implements Cloneable {
         }
         java.util.Arrays.sort(arr);
         return arr;
+    }
+
+
+  //**************************************************************************
+  //** getTableFilter
+  //**************************************************************************
+  /** Returns a filter used to generate a list of tables via DatabaseMetaData
+   */
+    private static String[] getTableFilter(Database database){
+        if (database!=null){
+            Driver driver = database.getDriver();
+            if (driver!=null && driver.equals("PostgreSQL")){
+                return new String[]{"TABLE", "FOREIGN TABLE"};
+            }
+        }
+        return new String[]{"TABLE"};
     }
 
 
