@@ -191,7 +191,9 @@ public class URL {
   //**************************************************************************
   //** decode
   //**************************************************************************
-    private static String decode(String str){
+  /** Used to decode a URL encoded string
+   */
+    public static String decode(String str){
         try{
 
           //Replace unencoded "%" characters with "%25". The regex finds a "%"
@@ -231,6 +233,8 @@ public class URL {
   //**************************************************************************
   //** encode
   //**************************************************************************
+  /** Used to URL encode a string
+   */
     private static String encode(String str){
         try{
             if (str.contains(" ")){
