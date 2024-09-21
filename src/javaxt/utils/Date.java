@@ -708,9 +708,44 @@ public class Date implements Comparable {
   //**************************************************************************
   //** getMonthsBetween
   //**************************************************************************
-  /** Returns fractional month difference between two dates. Unlike the
-   *  compareTo() method, this function does not round down the difference
-   *  between two months.
+  /** Returns fractional month difference between two dates. This method will
+   *  return whole numbers (1, 2, 3, etc) if the two dates fall on the same
+   *  day of the month (e.g. "2023-03-01" v "2023-04-01" or "2023-03-14" v
+   *  "2023-04-14"). Returns a decimal value less than or equal to 1 (&lt;=1)
+   *  if the dates fall within the same month (e.g. "2024-01-01" v "2024-01-31"
+   *  yields 1.0 and "2024-01-01" v "2024-01-30" yields 0.968). Otherwise,
+   *  returns the number of full months between the two dates plus a
+   *  fractional value (e.g. "2023-01-27" v "2023-02-28" yields 1.0357). The
+   *  decimal value (numbers after the decimal point) represent fractions of a
+   *  month. Roughly speaking, a day is 0.03 of a month.
+   *
+   *  <p/>
+   *
+   *  There are some interesting results when comparing dates around the end
+   *  of two different months. Specifically when comparing a longer month to
+   *  shorter month. For example:
+   *  <ul>
+   *  <li>"2024-01-31" v "2024-02-29" = 1 month</li>
+   *  <li>"2023-01-31" v "2023-02-28" = 1 month</li>
+   *  <li>"2023-12-31" v "2024-02-29" = 2 months</li>
+   *  <li>"2022-12-31" v "2023-02-29" = 2 months</li>
+   *  </ul>
+   *  In these examples we are following semantic rules and are rounding down
+   *  the differences. However, when we compare dates around the end of two
+   *  different months if the start month is shorter, we don't round. Example:
+   *  <ul>
+   *  <li>"2024-04-30" v "2024-05-31" = 1 month, 1 day</li>
+   *  <li>"2023-02-28" v "2024-02-29" = 12 months, 1 day</li>
+   *  </ul>
+   *
+   *  In these examples you can see that we are following semantic rules
+   *  rather than straight math.
+   *
+   *  <p/>
+   *
+   *  Note that you can use the compareTo() method to compare months using the
+   *  Java standard which rounds down the difference between two months and
+   *  does not return fractions.
    */
     public static double getMonthsBetween(javaxt.utils.Date start, javaxt.utils.Date end) {
         return getMonthsBetween(start.getLocalDate(), end.getLocalDate());
@@ -762,7 +797,7 @@ public class Date implements Comparable {
         if (m==0 && start.getMonthValue()==end.getMonthValue()){
 
           //Simply compare the days of the month
-            fraction = (end.getDayOfMonth()-start.getDayOfMonth())/(double)end.lengthOfMonth();
+            fraction = (end.getDayOfMonth()-(start.getDayOfMonth()-1))/(double)end.lengthOfMonth();
 
         }
         else{
@@ -778,7 +813,7 @@ public class Date implements Comparable {
               //Create new date a few days after the end of the month
                 LocalDate d = e2.plusDays(start.getDayOfMonth()-maxDays);
 
-              //Calulate months between the start date and the new date
+              //Calculate months between the start date and the new date
                 m = ChronoUnit.MONTHS.between(start, d);
 
               //Calculate fraction
@@ -795,7 +830,7 @@ public class Date implements Comparable {
             }
             else{
 
-              //Calulate months between the start date and the new end date
+              //Calculate months between the start date and the new end date
                 m = ChronoUnit.MONTHS.between(start, e2);
 
               //Calculate fraction
@@ -816,7 +851,9 @@ public class Date implements Comparable {
                 else if (e2.isBefore(end)){
 
                   //add from e2
-                    fraction = (end.getDayOfMonth()-start.getDayOfMonth())/(double)end.lengthOfMonth();
+                    int x = start.getDayOfMonth()==1 ? 1 : 0;
+
+                    fraction = (end.getDayOfMonth()-(start.getDayOfMonth()-x))/(double)end.lengthOfMonth();
 
                 }
             }
@@ -828,7 +865,7 @@ public class Date implements Comparable {
 
 
       //When the 2 dates fall on the the last day of the month, round up
-        if (startIsLastDayInMonth && endIsLastDayInMonth){
+        if ((startIsLastDayInMonth && endIsLastDayInMonth) && (start.getMonthValue()>end.getMonthValue())){
             diff = Math.round(diff);
         }
 
