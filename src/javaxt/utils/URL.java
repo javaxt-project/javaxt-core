@@ -235,7 +235,7 @@ public class URL {
   //**************************************************************************
   /** Used to URL encode a string
    */
-    private static String encode(String str){
+    public static String encode(String str){
         try{
             if (str.contains(" ")){
                 StringBuilder out = new StringBuilder();
