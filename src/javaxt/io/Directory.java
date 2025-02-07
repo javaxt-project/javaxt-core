@@ -286,8 +286,9 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** Create Directory
   //**************************************************************************
-  /**  Used to create the directory. */
-
+  /** Used to create the directory. Returns true if the directory was
+   *  successfully created.
+   */
     public boolean create(){
         return getFile().mkdirs();
     }
@@ -296,9 +297,70 @@ public class Directory implements Comparable {
   //**************************************************************************
   //** Delete Directory
   //**************************************************************************
-  /**  Used to delete the directory. */
-
+  /** Used to delete the directory. Returns true if the directory was
+   *  successfully deleted.
+   */
     public boolean delete(){
+
+
+      //Delete files and generate an ordered list of subfolders
+        TreeMap<Integer, HashSet<java.io.File>> paths = new TreeMap<>();
+        List files = getChildren(true, null, false);
+        Object obj;
+        while (true){
+            synchronized (files) {
+                while (files.isEmpty()) {
+                    try {
+                        files.wait();
+                    }
+                    catch (InterruptedException e) {
+                        break;
+                    }
+                }
+                obj = files.remove(0);
+                files.notifyAll();
+            }
+
+
+            if (obj==null){ //file search is complete
+                break;
+            }
+            else{
+                if (obj instanceof javaxt.io.File){
+                    javaxt.io.File f = (javaxt.io.File) obj;
+                    f.delete();
+                }
+                else{
+                    javaxt.io.Directory dir = (javaxt.io.Directory) obj;
+
+                    int numFolders = 0;
+                    javaxt.io.Directory d = dir.clone();
+                    while (!d.equals(this)){
+                        d = d.getParentDirectory();
+                        numFolders++;
+                    }
+
+
+                    HashSet<java.io.File> set = paths.get(numFolders);
+                    if (set==null){
+                        set = new HashSet<>();
+                        paths.put(numFolders, set);
+                    }
+                    set.add(dir.toFile());
+                }
+            }
+        }
+
+
+      //Delete subfolders
+        for (Integer numFolders : paths.descendingKeySet()){
+            for (java.io.File d : paths.get(numFolders)){
+                d.delete();
+            }
+        }
+
+
+
         if (getFile().delete()){
             attr = null;
             return true;

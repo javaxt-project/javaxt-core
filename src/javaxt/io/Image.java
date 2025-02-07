@@ -2086,7 +2086,7 @@ public class Image {
                     if (marker==MarkerTag) markers.add((IIOMetadataNode) unknownNode);
                 }
                 catch(Exception e){
-                    e.printStackTrace();
+                    //e.printStackTrace();
                 }
             }
         }
