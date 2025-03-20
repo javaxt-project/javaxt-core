@@ -32,6 +32,8 @@ public class Directory implements Comparable {
     public static final String PathSeparator = System.getProperty("file.separator");
     protected static final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
 
+    private boolean directorySearchInitialized = false;
+
 
   //**************************************************************************
   //** Constructor
@@ -1195,6 +1197,7 @@ public class Directory implements Comparable {
               //Spawn threads used to crawl through the file system
                 long directoryID = Long.valueOf(java.util.Calendar.getInstance().getTimeInMillis() + "" + new Random().nextInt(100000)).longValue();
                 int numThreads = 20; //<-- this should be set dynamically and self tuning
+                directorySearchInitialized = true;
                 DirectorySearch.deleteCache();
                 DirectorySearch search = new DirectorySearch(fileFilter, items, directoryID, numThreads);
                 for (int i=0; i<numThreads; i++) {
@@ -1887,6 +1890,7 @@ public class Directory implements Comparable {
         return FileSystemWatcher.getEvents();
     }
 
+
   //**************************************************************************
   //** Stop
   //**************************************************************************
@@ -1898,9 +1902,9 @@ public class Directory implements Comparable {
 
         try{
             //for (int i=0; i<20; i++)
-            DirectorySearch.stop();
+            if (directorySearchInitialized) DirectorySearch.stop();
         }
-        catch(Exception e){}
+        catch(Throwable e){}
     }
 
 

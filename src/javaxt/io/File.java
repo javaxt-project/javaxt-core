@@ -29,6 +29,7 @@ public class File implements Comparable {
     private static final boolean isWindows = Directory.isWindows;
     private int bufferSize = 1024*1024; //1MB
 
+    //public static final boolean jni = loadDLL();
 
   //**************************************************************************
   //** Constructor
@@ -1554,7 +1555,7 @@ public class File implements Comparable {
 
             if (dllLoaded==null){ //haven't tried to load the dll yet...
                 String jvmPlatform = System.getProperty("os.arch");
-                String dllName = null;
+                String dllName;
                 if (jvmPlatform.equalsIgnoreCase("x86")){
                     dllName = "javaxt-core.dll";
                 }
@@ -1574,7 +1575,7 @@ public class File implements Comparable {
 
 
               //Construct list of possible file locations for the dll
-                java.util.ArrayList<java.io.File> files = new java.util.ArrayList<java.io.File>();
+                java.util.ArrayList<java.io.File> files = new java.util.ArrayList<>();
                 files.add(new java.io.File(jar.getFile().getParentFile(), dllName));
                 javaxt.io.Directory dir = new javaxt.io.Directory(System.getProperty("user.home"));
                 for (String appDir : new String[]{"AppData\\Local", "Application Data"}){
@@ -1625,8 +1626,14 @@ public class File implements Comparable {
                             dllLoaded = true;
                             break;
                         }
-                        catch(Exception e){
-                            e.printStackTrace();
+                        catch(Throwable t){
+                            String msg = "already loaded in another classloader";
+                            if (t.getMessage().contains(msg)){ //UnsatisfiedLinkError
+                                System.err.println(System.mapLibraryName("javaxt_core") + " " + msg);
+                            }
+                            else{
+                                t.printStackTrace();
+                            }
                         }
                     }
                 }
@@ -1635,10 +1642,10 @@ public class File implements Comparable {
               //Don't update the static variable to give users a chance to fix
               //the load error (e.g. manually extract the dll and copy it into
               //one of the directories).
-              //dllLoaded = false;
+                //dllLoaded = false;
             }
 
-            return dllLoaded;
+            return dllLoaded==null ? false : dllLoaded;
         }
         else{//not windows...
             return false;
