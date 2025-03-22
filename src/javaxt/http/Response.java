@@ -127,16 +127,18 @@ public class Response {
   //**************************************************************************
   /** Returns the body of the http response as an input stream. No distinction
    *  is made between "normal" responses (e.g. status code 200) and error
-   *  responses (e.g. 404). <p/>
+   *  responses (e.g. 404).
+   *  <p>
    *  Sample Usage:
+   *  </p>
    <pre>
-        java.io.InputStream inputStream = response.getInputStream();
+    try(java.io.InputStream inputStream = response.getInputStream()){
         byte[] b = new byte[1024];
-        int x=0;
+        int x;
         while ( (x = inputStream.read(b)) != -1) {
             //Do something! Example: outputStream.write(b,0,x);
         }
-        inputStream.close();
+    }
    </pre>
    */
     public InputStream getInputStream(){

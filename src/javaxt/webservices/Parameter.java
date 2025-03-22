@@ -20,7 +20,7 @@ public class Parameter {
     private int maxOccurs = 1;
     protected boolean IsNillable;
     protected boolean IsAttribute;
-    
+
     private Parameter[] children = null;
     private Option[] options = null;
     private Node parentNode;
@@ -149,12 +149,14 @@ public class Parameter {
    *  between the value and the parameter data type, this method will attempt
    *  to convert the value to the correct datatype. For example, if a byte[]
    *  array is given for a base64Binary parameter, the array is converted to a
-   *  base64 encoded string. <p/>
+   *  base64 encoded string.
+   *  <p>
    *  This method is intended for parameters with simple types. For complex
    *  types, use the getChildren() method and set values for the composite
    *  parameters individually. Alternatively, you can pass a properly formed
    *  xml fragment (string) which will be used, without modification, in the
    *  SOAP/XML request.
+   *  </p>
    *  @param val Accepts either an array or a single instance of byte, string,
    *  boolean, double, float, int, short, long, decimal, java.util.Date,
    *  javaxt.utils.Date, java.io.File, and javaxt.io.File.
@@ -165,7 +167,7 @@ public class Parameter {
             value = null;
             return;
         }
-        
+
         if (isComplex()){
             if (val instanceof String){
                 String str = (String) val;
@@ -271,7 +273,7 @@ public class Parameter {
    *  SOAP request.
    */
     protected String toXML(String attributes, String ns){
-        
+
         if (ns!=null) ns = ns.trim();
         else ns = "";
 
@@ -285,7 +287,7 @@ public class Parameter {
 
             if (value instanceof byte[]){
                 xml.append("<" + name + attributes + ">");
-                xml.append(javaxt.utils.Base64.encode((byte[]) value)); 
+                xml.append(javaxt.utils.Base64.encode((byte[]) value));
                 xml.append("</" + name + ">");
             }
             else if (value instanceof Object[]){

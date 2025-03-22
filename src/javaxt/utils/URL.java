@@ -604,7 +604,7 @@ public class URL {
   /** Used to update the path portion of the URL. If the supplied path starts
    *  with "./" or "../", only part of the path will be replaced. Otherwise,
    *  the entire path will be replaced.
-   *  <p/>
+   *  <p>
    *  When supplying a relative path (path starting with "./" or "../"), the
    *  url parser assumes that directories in the original path are terminated
    *  with a "/". For example:
@@ -616,7 +616,7 @@ public class URL {
    *  <pre>http://www.example.com/path/</pre>
    *  If you provide a relative path like "../index.html", will yield this:
    *  <pre>http://www.example.com/index.html</pre>
-   *  <p/>
+   *  </p>
    *  Note that if the supplied path contains a query string,
    *  the original query string will be replaced with the new one.
    */

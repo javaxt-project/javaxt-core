@@ -3248,12 +3248,13 @@ private class FileSystemWatcher implements Runnable {
  *   Java wrapper of Windows native APIs for file system monitoring. The name of
  *   the methods in this class corresponds to the name of Windows native APIs.
  *   You might want to check Windows Platform SDK for detailed technical
- *   information. <p/>
- *
+ *   information.
+ *   <p>
  *   Also note that if you change the package or method name of this class, you
  *   need to use javah to regenerate a C header file and recompile the dll file.
  *   As far as I know, there is no way around it because of the way JVM binds to
  *   native dll.
+ *   </p>
  *
  ******************************************************************************/
 

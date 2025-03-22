@@ -719,11 +719,11 @@ public class Date implements Comparable {
    *  decimal value (numbers after the decimal point) represent fractions of a
    *  month. Roughly speaking, a day is 0.03 of a month.
    *
-   *  <p/>
-   *
+   *  <p>
    *  There are some interesting results when comparing dates around the end
    *  of two different months. Specifically when comparing a longer month to
    *  shorter month. For example:
+   *  </p>
    *  <ul>
    *  <li>"2024-01-31" v "2024-02-29" = 1 month</li>
    *  <li>"2023-01-31" v "2023-02-28" = 1 month</li>
@@ -741,11 +741,11 @@ public class Date implements Comparable {
    *  In these examples you can see that we are following semantic rules
    *  rather than straight math.
    *
-   *  <p/>
-   *
+   *  <p>
    *  Note that you can use the compareTo() method to compare months using the
    *  Java standard which rounds down the difference between two months and
    *  does not return fractions.
+   *  </p>
    */
     public static double getMonthsBetween(javaxt.utils.Date start, javaxt.utils.Date end) {
         return getMonthsBetween(start.getLocalDate(), end.getLocalDate());
@@ -1443,9 +1443,10 @@ public class Date implements Comparable {
    *  running an updated version of Windows 7 or Windows Server 2008 R2, use
    *  the tzutil /l command. Source:
    *  http://technet.microsoft.com/en-us/library/ff715394%28v=ws.10%29.aspx
-   *  <p/>
+   *  <p>
    *  Time zone mappings were taken from this source:
    *  http://code.google.com/p/java-time-zone-list/source/browse/TimeZones/src/TimeZoneList.java
+   *  </p>
    */
     static {
         String[][] kvp = {
