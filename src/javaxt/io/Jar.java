@@ -459,6 +459,14 @@ public class Jar {
             java.net.URI uri = new java.net.URI(url.toString().replace((CharSequence)" ",(CharSequence)"%20"));
             if (uri.getPath()==null){
                 String path = uri.toString();
+
+
+              //Special case for nexted jar files (e.g. spring boot)
+                if (path.startsWith("jar:nested:")){
+                    path = "jar:file:" + path.substring("jar:nested:".length());
+                }
+
+
                 if (path.startsWith("jar:file:")){
 
                   //Update Path and Define Zipped File
@@ -477,7 +485,6 @@ public class Jar {
                 else if (path.startsWith("jar:http")){
                     path = path.substring(path.indexOf("http"));
                     path = path.substring(0,path.toLowerCase().indexOf(".jar")+4);
-
                 }
             }
             else{
