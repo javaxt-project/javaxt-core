@@ -1,0 +1,17 @@
+# Ignore build artifacts
+/dist/
+/build/
+/target/
+
+
+# Ignore IDE stuff
+/.vscode/
+/.idea/
+/nbproject/
+*build.xml
+manifest.mf
+
+
+# Misc
+*.DS_Store
+**/!README.TXT
