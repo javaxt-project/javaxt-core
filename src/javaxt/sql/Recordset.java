@@ -945,9 +945,14 @@ public class Recordset implements AutoCloseable {
             stmt.setTimestamp(id, FieldValue.toTimeStamp());
 
             else if (FieldType.indexOf("date")>=0){
-                javaxt.utils.Date d = FieldValue.toDate();
-                if (d==null) stmt.setNull(id, java.sql.Types.DATE);
-                else stmt.setDate(id, new java.sql.Date(d.getTime()));
+                if (FieldType.indexOf("datetime")>=0){
+                    stmt.setTimestamp(id, FieldValue.toTimeStamp());
+                }
+                else{
+                    javaxt.utils.Date d = FieldValue.toDate();
+                    if (d==null) stmt.setNull(id, java.sql.Types.DATE);
+                    else stmt.setDate(id, new java.sql.Date(d.getTime()));
+                }
             }
 
             else if (FieldType.indexOf("object")>=0)
