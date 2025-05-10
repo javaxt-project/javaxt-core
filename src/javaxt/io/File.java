@@ -1330,11 +1330,15 @@ public class File implements Comparable {
         if (ext.equals("json")) return "application/json";
 
       //IMAGE
+        if (ext.equals("avif")) return "image/avif";
         if (ext.equals("bmp")) return "image/bmp";
         if (ext.equals("gif")) return "image/gif";
         if (ext.equals("jp2,j2c,j2k,jpx")) return "image/jp2";
         if (ext.equals("jpg,jpe,jpeg,jfif,pjpeg,pjp")) return "image/jpeg";
         if (ext.equals("png")) return "image/png";
+        if (ext.equals("heic")) return "image/heic";
+        if (ext.equals("heif")) return "image/heif";
+        if (ext.equals("webp")) return "image/webp";
         if (ext.equals("psd")) return "image/x-photoshop";
         if (ext.equals("rgb")) return "image/x-rgb";
         if (ext.equals("tif,tiff")) return "image/tiff";
@@ -1378,8 +1382,10 @@ public class File implements Comparable {
         if (ext.equals("wma")) return "audio/x-ms-wma";
         if (ext.equals("wax")) return "audio/x-ms-wax";
         if (ext.equals("wmv")) return "audio/x-ms-wmv";
+        if (ext.equals("weba")) return "audio/webm";
 
       //VIDEO
+        if (ext.equals("aac")) return "video/aac";
         if (ext.equals("asf,asx")) return "video/x-ms-asf";
         if (ext.equals("avi")) return "video/msvideo";
         if (ext.equals("mov")) return "video/quicktime";
@@ -1387,6 +1393,7 @@ public class File implements Comparable {
         if (ext.equals("mpv2")) return "video/mpeg2";
         if (ext.equals("qt,mov,moov")) return "video/quicktime";
         if (ext.equals("mp4")) return "video/mp4";
+        if (ext.equals("webm")) return "video/webm";
 
         if (ext.equals("wvx")) return "video/x-ms-wvx";
         if (ext.equals("wm")) return "video/x-ms-wm";
