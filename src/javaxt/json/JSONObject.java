@@ -2,7 +2,9 @@ package javaxt.json;
 import javaxt.utils.Value;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Collection;
 import java.lang.reflect.Array;
 
 //******************************************************************************
@@ -353,14 +355,21 @@ public class JSONObject extends javaxt.utils.Record {
         }
         else if (value instanceof JSONArray) {
             ((JSONArray) value).write(writer, indentFactor, indent);
-//        } else if (value instanceof Map) {
-//            Map<?, ?> map = (Map<?, ?>) value;
-//            new JSONObject(map).write(writer, indentFactor, indent);
-//        } else if (value instanceof Collection) {
-//            Collection<?> coll = (Collection<?>) value;
-//            new JSONArray(coll).write(writer, indentFactor, indent);
-//        } else if (value.getClass().isArray()) {
-//            new JSONArray(value).write(writer, indentFactor, indent);
+        }
+        else if (value instanceof Collection) { //ArrayList, HashSets, etc
+            Collection<?> coll = (Collection<?>) value;
+            JSONArray arr = new JSONArray();
+            for (Object c : coll) arr.add(c);
+            arr.write(writer, indentFactor, indent);
+        }
+        else if (value instanceof Map) {
+            Map<?, ?> map = (Map<?, ?>) value;
+            JSONObject json = new JSONObject();
+            for (Object key : map.keySet()){
+                if (key==null) continue;
+                json.set(key.toString(), map.get(key));
+            }
+            json.write(writer, indentFactor, indent);
         }
         else {
 
