@@ -68,7 +68,7 @@ public class WSDL {
         public String maxOccurs = "1";
         public boolean IsAttribute = false;
 
-        private java.util.ArrayList<Object> children = new java.util.ArrayList<Object>();
+        private java.util.ArrayList<Object> children = new java.util.ArrayList<>();
 
         public int hashCode(){
             return id;
@@ -170,7 +170,7 @@ public class WSDL {
     }
 
     private class Options{
-        private java.util.ArrayList<String> options = new java.util.ArrayList<String>();
+        private java.util.ArrayList<String> options = new java.util.ArrayList<>();
         public Options(){}
         public void addOption(String option){
             options.add(option);
@@ -178,20 +178,22 @@ public class WSDL {
         public String toString(){
             StringBuffer xml = new StringBuffer();
             if (!options.isEmpty()){
-                xml.append("<options>");
+                xml.append("    <options>");
+                xml.append(vbCrLf);
                 java.util.Iterator<String> it = options.iterator();
                 while (it.hasNext()){
                     String option = it.next();
-                    xml.append("    <option value=\"" + option + "\">" + option + "</option>" + vbCrLf);
+                    xml.append("      <option value=\"" + option + "\">" + option + "</option>" + vbCrLf);
                 }
-                xml.append("</options>");
+                xml.append("    </options>");
+                xml.append(vbCrLf);
             }
             return xml.toString();
         }
     }
 
     private class Choices{
-        private java.util.ArrayList<Element> choices = new java.util.ArrayList<Element>();
+        private java.util.ArrayList<Element> choices = new java.util.ArrayList<>();
         public Choices(){}
         public void addChoice(Element choice){
             choices.add(choice);
@@ -199,14 +201,18 @@ public class WSDL {
         public String toString(){
             StringBuffer xml = new StringBuffer();
             if (!choices.isEmpty()){
-                xml.append("<options>");
+                xml.append("    <options>");
+                xml.append(vbCrLf);
                 java.util.Iterator<Element> it = choices.iterator();
                 while (it.hasNext()){
+                    xml.append("      ");
                     xml.append("<option>");
                     xml.append(it.next().toString());
                     xml.append("</option>");
+                    xml.append(vbCrLf);
                 }
-                xml.append("</options>");
+                xml.append("    </options>");
+                xml.append(vbCrLf);
             }
             return xml.toString();
         }
@@ -587,7 +593,7 @@ public class WSDL {
                 if (BindingName.equals(PortBinding)){
 
 
-                    arrBindings = new java.util.ArrayList<Binding>();
+                    arrBindings = new java.util.ArrayList<>();
 
                     //Get Binding Transport/Style
                     BindingStyle = BindingTransport = "";
@@ -748,7 +754,7 @@ public class WSDL {
         String messageName, name, type, min, max;
 
 
-        java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
+        java.util.ArrayList<Element> elements = new java.util.ArrayList<>();
 
       //Loop through Definitions and Find Messages
         Definitions = getDefinitions();
@@ -1027,7 +1033,7 @@ public class WSDL {
 
                 if (elementType.equalsIgnoreCase("element")) {
 
-                    java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
+                    java.util.ArrayList<Element> elements = new java.util.ArrayList<>();
                     Element element = new Element(elementNode);
                     decomposeComplexType(stripNameSpace(element.Name), element);
 
@@ -1064,7 +1070,7 @@ public class WSDL {
    *  this hashmap whenever you find a new element to prevent StackOverflows
    *  in the recursive decomposeComplexType method.
    */
-    private java.util.HashMap<String, Element> knownTypes = new java.util.HashMap<String, Element>();
+    private java.util.HashMap<String, Element> knownTypes = new java.util.HashMap<>();
 
 
   //**************************************************************************
@@ -1141,9 +1147,8 @@ public class WSDL {
                             if (Element.IsComplex){
                                 decomposeComplexType(stripNameSpace(Element.Type), Element);
                             }
-                            else{
-                                knownTypes.put(ElementName, Element);
-                            }
+
+                            knownTypes.put(ElementName, Element);
                         }
                     }
                 }
@@ -1155,9 +1160,8 @@ public class WSDL {
                     if (Element.IsComplex){
                         decomposeComplexType(stripNameSpace(Element.Type), Element);
                     }
-                    else{
-                        knownTypes.put(ElementName, Element);
-                    }
+
+                    knownTypes.put(ElementName, Element);
 
                 }
                 else if (complexType.equalsIgnoreCase("attributeGroup")) {
@@ -1209,9 +1213,9 @@ public class WSDL {
                             if (Element.IsComplex){
                                 decomposeComplexType(stripNameSpace(Element.Type), Element);
                             }
-                            else{
-                                knownTypes.put(ElementName, Element);
-                            }
+
+                            knownTypes.put(ElementName, Element);
+
                         }
                     }
                     parentElement.addChoices(choices);
@@ -1337,7 +1341,7 @@ public class WSDL {
 
     /** Used to find implementations of a given abstract type. */
     private java.util.ArrayList<Element> findImplementations(String base){
-        java.util.ArrayList<Element> elements = new java.util.ArrayList<Element>();
+        java.util.ArrayList<Element> elements = new java.util.ArrayList<>();
         NodeList Schemas = getSchema();
         for (int i=0; i<Schemas.getLength(); i++ ) {
 
