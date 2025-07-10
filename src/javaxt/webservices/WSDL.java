@@ -67,6 +67,7 @@ public class WSDL {
         public String minOccurs = "0";
         public String maxOccurs = "1";
         public boolean IsAttribute = false;
+        public String tagName = "parameter";
 
         private java.util.ArrayList<Object> children = new java.util.ArrayList<>();
 
@@ -150,7 +151,7 @@ public class WSDL {
 
         public String toString(){
             StringBuffer xml = new StringBuffer();
-            xml.append("   <parameter " +
+            xml.append("   <" + tagName + " " +
                                "name=\"" + Name + "\" " +
                                "type=\"" + Type + "\" " +
                                "minOccurs=\"" + minOccurs + "\" " +
@@ -164,7 +165,7 @@ public class WSDL {
                 xml.append(it.next().toString());
             }
 
-            xml.append("   </parameter>" + vbCrLf);
+            xml.append("   </" + tagName + ">" + vbCrLf);
             return xml.toString();
         }
     }
@@ -501,6 +502,19 @@ public class WSDL {
                          }
                          SSD += "  </parameters>" + vbCrLf;
 
+                         SSD += "  <outputs>" + vbCrLf;
+                         arrElements = getElements(Message.Output);
+                         try{
+                             for (int k=0; k<arrElements.size(); k++ ) {
+                                 Element = arrElements.get(k);
+                                 Element.tagName = "output";
+                                 SSD += Element.toString();
+                             }
+                         }
+                         catch(Exception e){
+                             //System.out.println(e.toString());
+                         }
+                         SSD += "  </outputs>" + vbCrLf;
 
                          SSD +="  </method>" + vbCrLf;
                     }
@@ -513,6 +527,7 @@ public class WSDL {
         }
 
         SSD += vbCrLf + "</ssd>";
+        System.out.println(SSD);
         ssd = DOM.createDocument(SSD);
 
         knownTypes.clear();
@@ -532,18 +547,23 @@ public class WSDL {
         for (int j=0; j<Ports.getLength(); j++ ) {
             if (contains(Ports.item(j).getNodeName(), "port")) {
 
-                //Get Service Binding
+              //Get Service Binding
                 NamedNodeMap attr = Ports.item(j).getAttributes();
                 PortName = DOM.getAttributeValue(attr, "name");
                 PortBinding = stripNameSpace(DOM.getAttributeValue(attr, "binding"));
 
 
-                //Get Service Endpoint (url)
+              //Get Service Endpoint (url)
                 PortAddress = "";
                 NodeList Addresses = Ports.item(j).getChildNodes();
                 for (int k=0; k<Addresses.getLength(); k++ ) {
                     String Address = Addresses.item(k).getNodeName();
-                    if (contains(Address, "address") && !contains(Address,"http:") ) { //soap:address
+                    System.out.println(Address);
+                    if (contains(Address, "address") && //soap:address
+                            !contains(Address,"http:") &&
+                            !contains(Address,"https:") && //untested prefix
+                            !contains(Address,"soap12:") //untested prefix (suggested by user)
+                    ){
                         attr = Addresses.item(k).getAttributes();
                         PortAddress = DOM.getAttributeValue(attr, "location");
                         foundSoapPort = true;

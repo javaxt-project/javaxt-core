@@ -21,6 +21,7 @@ public class Method {
     private String ResultsNode;
 
     private NodeList Parameters = null;
+    private NodeList Outputs = null;
 
 
   //**************************************************************************
@@ -48,6 +49,9 @@ public class Method {
                 if (NodeName.toLowerCase().equals("parameters")){
                     Parameters = ChildNodes.item(j).getChildNodes();
                 }
+                if (NodeName.toLowerCase().equals("outputs")){
+                    Outputs = ChildNodes.item(j).getChildNodes();
+                }
             }
         }
 
@@ -64,30 +68,44 @@ public class Method {
   //**************************************************************************
   //** getParameters
   //**************************************************************************
-  /** Returns a list of parameters associated with this method. */
-
+  /** Returns a list of input parameters associated with this method.
+   */
     public Parameters getParameters(){
 
       //Note that we don't store parameters as a class variable. Instead, we
       //extract parameters from the SSD. This is important. Otherwise, the
       //param values get cached
-        Parameter[] parameters = getParameters(Parameters);
+        Parameter[] parameters = getParameters(Parameters, "parameter");
         if (parameters==null) return null;
         else return new Parameters(parameters);
     }
 
 
   //**************************************************************************
+  //** getOutputs
+  //**************************************************************************
+  /** Returns a list of outputs returned by this method. There should be only
+   *  one result. Use the getResultsNodeName() method to find the correct
+   *  output.
+   */
+    public Outputs getOutputs(){
+        Parameter[] parameters = getParameters(Outputs, "output");
+        if (parameters==null) return null;
+        return new Outputs(parameters, ResultsNode);
+    }
+
+
+  //**************************************************************************
   //** getParameters
   //**************************************************************************
-  /**  Used to retrieve an array of parameters from an SSD NodeList */
+  /**  Used to retrieve an array of parameters from an SSD NodeList
+   */
+    private Parameter[] getParameters(NodeList parameterNodes, String tagName){
 
-    private Parameter[] getParameters(NodeList parameterNodes){
-
-        java.util.ArrayList<Parameter> parameters = new java.util.ArrayList<Parameter>();
+        java.util.ArrayList<Parameter> parameters = new java.util.ArrayList<>();
 
         for (Node parameterNode : DOM.getNodes(parameterNodes)){
-            if (parameterNode.getNodeName().equalsIgnoreCase("parameter")){
+            if (parameterNode.getNodeName().equalsIgnoreCase(tagName)){
                 try{
                     parameters.add(new Parameter(parameterNode));
                 }

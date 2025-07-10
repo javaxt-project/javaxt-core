@@ -33,7 +33,8 @@ public class Parameter {
    */
     protected Parameter(Node ParameterNode) throws InstantiationException {
 
-        if (!ParameterNode.getNodeName().equalsIgnoreCase("parameter")){
+        String nodeName = ParameterNode.getNodeName();
+        if (!nodeName.equalsIgnoreCase("parameter") && !nodeName.equalsIgnoreCase("output")){
             throw new InstantiationException(DOM.getText(ParameterNode));
         }
 
@@ -76,7 +77,7 @@ public class Parameter {
 
 
       //Get children
-        java.util.ArrayList<Parameter> params = new java.util.ArrayList<Parameter>();
+        java.util.ArrayList<Parameter> params = new java.util.ArrayList<>();
         for (Node node : DOM.getNodes(ParameterNode.getChildNodes())){
 
             if (node.getNodeName().equalsIgnoreCase("parameter")){
@@ -96,7 +97,7 @@ public class Parameter {
 
 
       //Get list of possible values (i.e. options)
-        java.util.ArrayList<Option> options = new java.util.ArrayList<Option>();
+        java.util.ArrayList<Option> options = new java.util.ArrayList<>();
         for (Node node : DOM.getNodes(ParameterNode.getChildNodes())){
             if (node.getNodeName().equalsIgnoreCase("options")){
                 for (Node optionNode : DOM.getNodes(node.getChildNodes())){
