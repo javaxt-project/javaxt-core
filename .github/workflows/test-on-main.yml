@@ -1,0 +1,29 @@
+name: Test with javaxt-core-test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout javaxt-core
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+
+      - name: Clone javaxt-core-test
+        run: git clone https://github.com/javaxt-project/javaxt-core-test.git
+
+      - name: Build and test with javaxt-core-test
+        run: |
+          cd javaxt-core-test
+          mvn clean install -Djavaxt.core.local.dir=../src
