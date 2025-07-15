@@ -26,4 +26,4 @@ jobs:
       - name: Build and test with javaxt-core-test
         run: |
           cd javaxt-core-test
-          mvn clean install -Djavaxt.core.local.dir=../src
+          mvn clean install -Djavaxt.core.local.dir=$GITHUB_WORKSPACE/src
