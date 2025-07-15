@@ -527,7 +527,7 @@ public class WSDL {
         }
 
         SSD += vbCrLf + "</ssd>";
-        System.out.println(SSD);
+        //System.out.println(SSD);
         ssd = DOM.createDocument(SSD);
 
         knownTypes.clear();
@@ -558,7 +558,7 @@ public class WSDL {
                 NodeList Addresses = Ports.item(j).getChildNodes();
                 for (int k=0; k<Addresses.getLength(); k++ ) {
                     String Address = Addresses.item(k).getNodeName();
-                    System.out.println(Address);
+                    //System.out.println(Address);
                     if (contains(Address, "address") && //soap:address
                             !contains(Address,"http:") &&
                             !contains(Address,"https:") && //untested prefix
