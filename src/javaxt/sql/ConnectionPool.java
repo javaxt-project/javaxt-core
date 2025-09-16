@@ -25,7 +25,7 @@ public class ConnectionPool {
     private int                            minConnections;
     private long                           timeoutMs;
     private PrintWriter                    logWriter;
-    private Semaphore                      semaphore; //controls total connections
+    private final AtomicInteger            totalConnections = new AtomicInteger(0); // Lock-free connection counting
     private PoolConnectionEventListener    poolConnectionEventListener;
 
     // Health monitoring and validation
@@ -46,6 +46,10 @@ public class ConnectionPool {
     private final ConcurrentHashMap<PooledConnection, PooledConnectionWrapper> connectionWrappers = new ConcurrentHashMap<>();
     private volatile PooledConnection      connectionInTransition;       // a PooledConnection which is currently within a PooledConnection.getConnection() call, or null
     private Database database;
+
+    // Validation caching for performance optimization
+    private final ConcurrentHashMap<PooledConnection, Long> validationCache = new ConcurrentHashMap<>();
+    private static final long VALIDATION_CACHE_TTL = 30000; // 30 seconds
 
 
     /**
@@ -145,8 +149,8 @@ public class ConnectionPool {
         this.validationQuery = validationQuery;
         this.validationTimeout = validationTimeout;
 
-        // Initialize semaphore to control total connections
-        this.semaphore = new Semaphore(maxConnections, true);
+        // Initialize atomic counter for lock-free connection management
+        this.totalConnections.set(0);
 
         try { logWriter = dataSource.getLogWriter(); }
         catch (SQLException e) {}
@@ -287,24 +291,27 @@ public class ConnectionPool {
             }
 
             // No recycled connection available, try to create a new one
-            // Use semaphore to atomically control connection limit
-            try {
-                if (semaphore.tryAcquire(100, TimeUnit.MILLISECONDS)) {
+            // Use atomic counter for lock-free connection limit control
+            int currentTotal = totalConnections.get();
+            if (currentTotal < maxConnections) {
+                if (totalConnections.compareAndSet(currentTotal, currentTotal + 1)) {
                     try {
                         java.sql.Connection conn = createNewConnectionInternal();
                         if (conn != null) {
                             return conn;
                         } else {
-                            // Connection creation failed, release the permit
-                            semaphore.release();
+                            // Connection creation failed, decrement counter
+                            totalConnections.decrementAndGet();
                         }
                     } catch (SQLException e) {
-                        // Connection creation failed, release the permit
-                        semaphore.release();
+                        // Connection creation failed, decrement counter
+                        totalConnections.decrementAndGet();
                         // Continue to next iteration to try again
                     }
                 }
-                // If we couldn't acquire a permit, wait a bit and try again
+            }
+            // If we couldn't create a connection, wait a bit and try again
+            try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -323,10 +330,10 @@ public class ConnectionPool {
 
         PooledConnection pconn = wrapper.connection;
 
-        // Smart validation: skip validation for recently used connections if no validation query is configured
-        boolean needsValidation = (validationQuery != null && !validationQuery.trim().isEmpty()) ||
-                                wrapper.isExpired(connectionMaxAgeMs) ||
-                                wrapper.isIdle(connectionIdleTimeoutMs);
+        // Smart validation: skip validation for recently used connections
+        boolean needsValidation = wrapper.isExpired(connectionMaxAgeMs) ||
+                                wrapper.isIdle(connectionIdleTimeoutMs) ||
+                                !isRecentlyValidated(pconn);
 
         if (needsValidation && !validateConnection(pconn)) {
             // Connection is invalid, dispose it properly
@@ -389,6 +396,7 @@ public class ConnectionPool {
                 connectionInTransition = pconn;
                 conn = pconn.getConnection();
                 activeConnections.incrementAndGet();
+                // totalConnections was already incremented in acquireConnection
                 return conn;
             } catch (SQLException e) {
                 connectionInTransition = null;
@@ -718,10 +726,14 @@ public class ConnectionPool {
                 while (currentRecycled < minConnections && total < maxConnections && !isDisposed.get() && attempts < maxAttempts) {
                     attempts++;
 
-                    // Try to acquire a semaphore permit for the warm-up connection
-                    if (!semaphore.tryAcquire()) {
-                        log("No semaphore permits available for pool warm-up");
+                    // Try to increment totalConnections for the warm-up connection
+                    int currentTotal = totalConnections.get();
+                    if (currentTotal >= maxConnections) {
+                        log("Maximum connections reached for pool warm-up");
                         break;
+                    }
+                    if (!totalConnections.compareAndSet(currentTotal, currentTotal + 1)) {
+                        continue; // Try again if CAS failed
                     }
 
                     PooledConnection pconn = null;
@@ -737,16 +749,16 @@ public class ConnectionPool {
                             total = currentActive + currentRecycled;
                             log("Pool warm-up: added connection " + currentRecycled + "/" + minConnections);
                         } else {
-                            // If validation fails, dispose the connection and release the permit
+                            // If validation fails, dispose the connection and decrement counter
                             disposeConnection(pconn);
                             pconn = null; // Ensure pconn is null so finally block doesn't try to close it again
                         }
                     } catch (SQLException e) {
                         log("Failed to create or validate connection during warm-up: " + e.getMessage());
                         if (pconn != null) {
-                            disposeConnection(pconn); // Dispose and release permit
+                            disposeConnection(pconn); // Dispose and decrement counter
                         } else {
-                            semaphore.release(); // Release permit if connection creation failed before pconn was assigned
+                            totalConnections.decrementAndGet(); // Decrement counter if connection creation failed before pconn was assigned
                         }
                     }
                 }
@@ -764,9 +776,31 @@ public class ConnectionPool {
      * Validates a connection using the configured validation query.
      * This method is completely isolated from the pool lifecycle to prevent race conditions.
      */
+    private boolean isRecentlyValidated(PooledConnection pooledConnection) {
+        if (validationQuery == null || validationQuery.trim().isEmpty()) {
+            return true; // No validation query configured, consider it valid
+        }
+
+        Long lastValidated = validationCache.get(pooledConnection);
+        if (lastValidated == null) {
+            return false; // Never validated
+        }
+
+        long now = System.currentTimeMillis();
+        return (now - lastValidated) < VALIDATION_CACHE_TTL;
+    }
+
     private boolean validateConnection(PooledConnection pooledConnection) {
         if (validationQuery == null || validationQuery.trim().isEmpty()) {
             return true;
+        }
+
+        // Check validation cache first
+        Long lastValidated = validationCache.get(pooledConnection);
+        long now = System.currentTimeMillis();
+
+        if (lastValidated != null && (now - lastValidated) < VALIDATION_CACHE_TTL) {
+            return true; // Recently validated, skip actual validation
         }
 
         try {
@@ -785,7 +819,12 @@ public class ConnectionPool {
                 try (java.sql.PreparedStatement stmt = tempConn.prepareStatement(validationQuery)) {
                     stmt.setQueryTimeout(validationTimeout);
                     try (java.sql.ResultSet rs = stmt.executeQuery()) {
-                        return rs.next();
+                        boolean isValid = rs.next();
+                        if (isValid) {
+                            // Cache successful validation
+                            validationCache.put(pooledConnection, now);
+                        }
+                        return isValid;
                     }
                 }
                 // Note: We don't close tempConn here because it belongs to the PooledConnection
@@ -858,8 +897,9 @@ public class ConnectionPool {
     private void disposeConnection (PooledConnection pconn) {
        pconn.removeConnectionEventListener(poolConnectionEventListener);
 
-       // Remove from wrapper map
+       // Remove from wrapper map and validation cache
        connectionWrappers.remove(pconn);
+       validationCache.remove(pconn);
 
        // Try to remove from recycled connections
        boolean foundInRecycled = false;
@@ -884,10 +924,10 @@ public class ConnectionPool {
           // This can happen with validation connections or connections that failed during creation
        }
 
-       // Only release a semaphore permit when disposing a connection (not recycling)
+       // Only decrement totalConnections when disposing a connection (not recycling)
        // This ensures that the total connection count is properly managed
        if (!foundInRecycled) {
-           semaphore.release();
+           totalConnections.decrementAndGet();
        }
 
        closeConnectionAndIgnoreException(pconn);
@@ -906,7 +946,7 @@ public class ConnectionPool {
         String s = "ConnectionPool: "+msg;
         try {
             if (logWriter == null) {
-                //System.err.println(s);
+                System.err.println(s);
             }
             else {
                 logWriter.println(s);
@@ -918,7 +958,7 @@ public class ConnectionPool {
     private void assertInnerState() {
         int active = activeConnections.get();
         int recycled = recycledConnections.size();
-        int total = active + recycled;
+        int total = totalConnections.get();
 
         if (active < 0) {
             throw new AssertionError("Active connections count is negative: " + active);
@@ -984,8 +1024,8 @@ public class ConnectionPool {
     public PoolStatistics getPoolStatistics() {
         int active = activeConnections.get();
         int recycled = recycledConnections.size();
-        int total = active + recycled;
-        int available = semaphore.availablePermits();
+        int total = totalConnections.get();
+        int available = maxConnections - total;
 
         return new PoolStatistics(
             active,
