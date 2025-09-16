@@ -1,15 +1,14 @@
 package javaxt.sql;
 
 import java.io.PrintWriter;
-//import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.LinkedList;
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.PooledConnection;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 //******************************************************************************
 //**  ConnectionPool
@@ -21,34 +20,31 @@ import javax.sql.PooledConnection;
 
 public class ConnectionPool {
 
-// This class is a modified version of the MiniConnectionPoolManager (version 2012-01-24)
-// Copyright 2007-2012 Christian d'Heureuse, Inventec Informatik AG, Zurich, Switzerland
-// www.source-code.biz, www.inventec.ch/chdh
-//
-// MiniConnectionPoolManager Changes for javaxt:
-// - Renamed MiniConnectionPoolManager class to ConnectionPool
-// - Updated package name
-// - Removed java.sql.Connection import and replaced "Connection" with "java.sql.Connection"
-// - Added 2 new constructors that take a javaxt.sql.Database
-// - Added getMaxConnections method
-// - Renamed dispose method to close
-// - Minor code formatting
-
-
     private ConnectionPoolDataSource       dataSource;
     private int                            maxConnections;
+    private int                            minConnections;
     private long                           timeoutMs;
     private PrintWriter                    logWriter;
-    private Semaphore                      semaphore;
+    private Semaphore                      semaphore; //controls total connections
     private PoolConnectionEventListener    poolConnectionEventListener;
 
-    // The following variables must only be accessed within synchronized blocks.
-    // @GuardedBy("this") could by used in the future.
-    private LinkedList<PooledConnection>   recycledConnections;          // list of inactive PooledConnections
-    private int                            activeConnections;            // number of active (open) connections of this pool
-    private boolean                        isDisposed;                   // true if this connection pool has been disposed
-    private boolean                        doPurgeConnection;            // flag to purge the connection currently beeing closed instead of recycling it
-    private PooledConnection               connectionInTransition;       // a PooledConnection which is currently within a PooledConnection.getConnection() call, or null
+    // Health monitoring and validation
+    private long                           connectionIdleTimeoutMs;
+    private long                           connectionMaxAgeMs;
+    private String                         validationQuery;
+    private int                            validationTimeout;
+    private ScheduledExecutorService       healthCheckExecutor;
+    private ScheduledFuture<?>             healthCheckTask;
+
+    // Thread-safe counters and flags
+    private final AtomicInteger            activeConnections = new AtomicInteger(0);
+    private final AtomicBoolean            isDisposed = new AtomicBoolean(false);
+    private final AtomicBoolean            doPurgeConnection = new AtomicBoolean(false);
+
+    // Thread-safe connection storage
+    private final ConcurrentLinkedQueue<PooledConnectionWrapper> recycledConnections = new ConcurrentLinkedQueue<>();
+    private final ConcurrentHashMap<PooledConnection, PooledConnectionWrapper> connectionWrappers = new ConcurrentHashMap<>();
+    private volatile PooledConnection      connectionInTransition;       // a PooledConnection which is currently within a PooledConnection.getConnection() call, or null
     private Database database;
 
 
@@ -69,10 +65,9 @@ public class ConnectionPool {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Constructs a ConnectionPool with a timeout of 20 seconds.
-   */
     public ConnectionPool(Database database, int maxConnections) throws SQLException {
-        this(database.getConnectionPoolDataSource(), maxConnections);
+        this(database == null ? null : database.getConnectionPoolDataSource(), maxConnections);
+        if (database == null) throw new IllegalArgumentException("database is required");
         this.database = database;
     }
 
@@ -80,10 +75,9 @@ public class ConnectionPool {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /**  Constructs a ConnectionPool.
-   */
     public ConnectionPool(Database database, int maxConnections, int timeout) throws SQLException{
-        this(database.getConnectionPoolDataSource(), maxConnections, timeout);
+        this(database == null ? null : database.getConnectionPoolDataSource(), maxConnections, timeout);
+        if (database == null) throw new IllegalArgumentException("database is required");
         this.database = database;
     }
 
@@ -91,10 +85,8 @@ public class ConnectionPool {
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Constructs a ConnectionPool with a timeout of 20 seconds.
-   */
-    public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections) {
-       this(dataSource, maxConnections, null);
+    public ConnectionPool(ConnectionPoolDataSource dataSource, int maxConnections) {
+        this(dataSource, maxConnections, null);
     }
 
 
@@ -107,221 +99,797 @@ public class ConnectionPool {
    *  @param timeout The maximum time in seconds to wait for a free connection.
    *  Defaults to 20 seconds
    */
-    public ConnectionPool (ConnectionPoolDataSource dataSource, int maxConnections, Integer timeout) {
+    public ConnectionPool(ConnectionPoolDataSource dataSource, int maxConnections, Integer timeout) {
+        this(dataSource, maxConnections, timeout, null, null, null, null);
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Constructs a ConnectionPool object with health monitoring configuration.
+   *  @param dataSource JDBC ConnectionPoolDataSource for the connections.
+   *  @param maxConnections The maximum number of connections.
+   *  @param timeout The maximum time to wait for a free connection, in seconds. Default is 20 seconds.
+   *  @param idleTimeout Connection idle timeout in seconds. Default is 300 seconds (5 minutes).
+   *  @param maxAge Maximum connection age in seconds. Default is 1800 seconds (30 minutes).
+   *  @param validationQuery Query to validate connections. Default is "SELECT 1".
+   *  @param validationTimeout
+   */
+    public ConnectionPool(ConnectionPoolDataSource dataSource, int maxConnections,
+        Integer timeout, Integer idleTimeout, Integer maxAge,
+        String validationQuery, Integer validationTimeout) {
+
+
         if (dataSource==null) throw new IllegalArgumentException("dataSource is required");
         if (maxConnections<1) throw new IllegalArgumentException("Invalid maxConnections");
-        if (timeout==null || timeout<0) timeout = 20;
+        if (timeout==null) timeout = 20; //20 seconds default
+        if (timeout<0) throw new IllegalArgumentException("Invalid timeout: " + timeout);
+        if (idleTimeout==null || idleTimeout <= 0) idleTimeout = 300; // 5 minutes default
+        if (maxAge==null || maxAge <= 0) maxAge = 1800; // 30 minutes default
+        if (validationTimeout==null || validationTimeout <= 0) validationTimeout = 5;
+        if (validationQuery == null || validationQuery.trim().isEmpty()) {
+            validationQuery = "SELECT 1";
+        }
+        else{
+            validationQuery = validationQuery.trim();
+        }
+
 
         this.dataSource = dataSource;
         this.maxConnections = maxConnections;
+        this.minConnections = (int) Math.round(Math.max(((long)maxConnections)*0.2, 1.0));
         this.timeoutMs = timeout * 1000L;
+        this.connectionIdleTimeoutMs = idleTimeout * 1000L;
+        this.connectionMaxAgeMs = maxAge * 1000L;
+        this.validationQuery = validationQuery;
+        this.validationTimeout = validationTimeout;
+
+        // Initialize semaphore to control total connections
+        this.semaphore = new Semaphore(maxConnections, true);
+
         try { logWriter = dataSource.getLogWriter(); }
         catch (SQLException e) {}
 
-        semaphore = new Semaphore(maxConnections,true);
-        recycledConnections = new LinkedList<PooledConnection>();
         poolConnectionEventListener = new PoolConnectionEventListener();
+        startHealthMonitoring();
     }
 
 
-    /**
-    * Closes all unused pooled connections.
-    */
-    public synchronized void close() throws SQLException {
-       if (isDisposed) {
-          return; }
-       isDisposed = true;
-       SQLException e = null;
-       while (!recycledConnections.isEmpty()) {
-          PooledConnection pconn = recycledConnections.remove();
-          try {
-             pconn.close(); }
-           catch (SQLException e2) {
-              if (e == null) {
-                 e = e2;
-              }
-           }
-       }
-       if (e != null) {
-          throw e;
-       }
+  //**************************************************************************
+  //** close
+  //**************************************************************************
+  /** Closes all unused pooled connections. After calling this method, clients
+   *  can no longer get new connections via getConnection()
+   */
+    public void close() throws SQLException {
+        if (!isDisposed.compareAndSet(false, true)) {
+           return; // Already disposed
+        }
+
+        stopHealthMonitoring();
+
+        // Use disposeConnection to properly handle the totalConnectionCount decrement
+        PooledConnectionWrapper wrapper;
+        while ((wrapper = recycledConnections.poll()) != null) {
+            disposeConnection(wrapper.connection);
+        }
+
+        connectionWrappers.clear();
     }
 
-    /**
-    * Retrieves a connection from the connection pool.
-    *
-    * <p>If <code>maxConnections</code> connections are already in use, the method
-    * waits until a connection becomes available or <code>timeout</code> seconds elapsed.
-    * When the application is finished using the connection, it must close it
-    * in order to return it to the pool.
-    *
-    * @return
-    *    a new <code>Connection</code> object.
-    * @throws TimeoutException
-    *    when no connection becomes available within <code>timeout</code> seconds.
-    */
+
+  //**************************************************************************
+  //** isClosed
+  //**************************************************************************
+  /** Returns true if the connection pool has been closed.
+   */
+    public boolean isClosed() {
+        return isDisposed.get();
+    }
+
+
+
+  //**************************************************************************
+  //** getConnection
+  //**************************************************************************
+  /** Retrieves a connection from the connection pool.
+   *
+   *  <p>If <code>maxConnections</code> connections are already in use, the
+   *  method waits until a connection becomes available or <code>timeout</code>
+   *  seconds elapsed. When the application is finished using the connection, it
+   *  must close it in order to return it to the pool.</p>
+   *
+   *  <p>This method ensures that the returned connection is valid by calling
+   *  {@link java.sql.Connection#isValid(int)}. If a connection is not valid,
+   *  the method tries to get another connection until one is valid (or a timeout occurs).</p>
+   *
+   *  @return a new <code>Connection</code> object.
+   *  @throws TimeoutException when no valid connection becomes available within
+   *  <code>timeout</code> seconds.
+   */
     public Connection getConnection() throws SQLException {
-        int javaVersion = javaxt.utils.Java.getVersion();
-        if (javaVersion<6){
-            Connection c = new Connection();
-            c.open(getConnection2(timeoutMs), database);
-            return c;
-        }
-        else{
-            return getValidConnection();
-        }
-    }
+        long time = System.currentTimeMillis();
+        long timeoutTime = time + timeoutMs;
+        int triesWithoutDelay = getInactiveConnections() + 1;
 
-    private java.sql.Connection getConnection2 (long timeoutMs) throws SQLException {
-       // This routine is unsynchronized, because semaphore.tryAcquire() may block.
-       synchronized (this) {
-          if (isDisposed) {
-             throw new IllegalStateException("Connection pool has been disposed."); }}
-       try {
-          if (!semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS)) {
-             throw new TimeoutException(); }}
-        catch (InterruptedException e) {
-          throw new RuntimeException("Interrupted while waiting for a database connection.",e); }
-       boolean ok = false;
-       try {
-          java.sql.Connection conn = getConnection3();
-          ok = true;
-          return conn; }
-        finally {
-          if (!ok) {
-             semaphore.release();
-          }
+        while (true) {
+            java.sql.Connection conn = getConnectionInternal(time, timeoutTime);
+            if (conn != null) {
+                Connection c = new Connection();
+                c.open(conn, database);
+                return c;
+            }
+            triesWithoutDelay--;
+            if (triesWithoutDelay <= 0) {
+                triesWithoutDelay = 0;
+                try {
+                    // Intentional sleep to avoid busy waiting when no connections are available
+                    Thread.sleep(250);
+                }
+                catch (InterruptedException e) {
+                   throw new RuntimeException("Interrupted while waiting for a valid database connection.", e);
+                }
+            }
+            time = System.currentTimeMillis();
+            if (time >= timeoutTime) {
+               throw new TimeoutException("Timeout while waiting for a valid database connection.");
+            }
         }
     }
 
-    private synchronized java.sql.Connection getConnection3() throws SQLException {
-       if (isDisposed) {                                       // test again within synchronized lock
-          throw new IllegalStateException("Connection pool has been disposed."); }
-       PooledConnection pconn;
-       if (!recycledConnections.isEmpty()) {
-          pconn = recycledConnections.remove(); }
-        else {
-          pconn = dataSource.getPooledConnection();
-          pconn.addConnectionEventListener(poolConnectionEventListener); }
-       java.sql.Connection conn;
-       try {
-          // The JDBC driver may call ConnectionEventListener.connectionErrorOccurred()
-          // from within PooledConnection.getConnection(). To detect this within
-          // disposeConnection(), we temporarily set connectionInTransition.
-          connectionInTransition = pconn;
-          conn = pconn.getConnection();
-       }
-        finally {
-          connectionInTransition = null;
+    private java.sql.Connection getConnectionInternal(long time, long timeoutTime) {
+        long rtime = Math.max(1, timeoutTime - time);
+        java.sql.Connection conn;
+        try {
+           conn = acquireConnection(rtime);
         }
-       activeConnections++;
-       assertInnerState();
-       return conn;
-    }
-
-    /**
-    * Retrieves a connection from the connection pool and ensures that it is valid
-    * by calling {@link Connection#isValid(int)}.
-    *
-    * <p>If a connection is not valid, the method tries to get another connection
-    * until one is valid (or a timeout occurs).
-    *
-    * <p>Pooled connections may become invalid when e.g. the database server is
-    * restarted.
-    *
-    * <p>This method is slower than {@link #getConnection()} because the JDBC
-    * driver has to send an extra command to the database server to test the connection.
-    *
-    * <p>This method requires Java 1.6 or newer.
-    *
-    * @throws TimeoutException
-    *    when no valid connection becomes available within <code>timeout</code> seconds.
-    */
-    public Connection getValidConnection() {
-       long time = System.currentTimeMillis();
-       long timeoutTime = time + timeoutMs;
-       int triesWithoutDelay = getInactiveConnections() + 1;
-       while (true) {
-          java.sql.Connection conn = getValidConnection2(time, timeoutTime);
-          if (conn != null) {
-            Connection c = new Connection();
-            c.open(conn, database);
-            return c;
-          }
-          triesWithoutDelay--;
-          if (triesWithoutDelay <= 0) {
-             triesWithoutDelay = 0;
-             try {
-                Thread.sleep(250); }
-              catch (InterruptedException e) {
-                throw new RuntimeException("Interrupted while waiting for a valid database connection.", e); }
-          }
-          time = System.currentTimeMillis();
-          if (time >= timeoutTime) {
-             throw new TimeoutException("Timeout while waiting for a valid database connection."); }
-       }
-    }
-
-
-    private java.sql.Connection getValidConnection2 (long time, long timeoutTime) {
-       long rtime = Math.max(1, timeoutTime - time);
-       java.sql.Connection conn;
-       try {
-          conn = getConnection2(rtime); }
         catch (SQLException e) {
-          return null; }
-       rtime = timeoutTime - System.currentTimeMillis();
-       int rtimeSecs = Math.max(1, (int)((rtime+999)/1000));
-       try {
-          if (conn.isValid(rtimeSecs)) {
-             return conn; }}
-        catch (SQLException e) {}
+           return null;
+        }
+
+        // Calculate remaining time for validation
+        rtime = timeoutTime - System.currentTimeMillis();
+        int rtimeSecs = Math.max(1, (int)((rtime + 999) / 1000));
+
+        try {
+             if (conn.isValid(rtimeSecs)) {
+                return conn;
+             }
+        }
+        catch (SQLException e) {
+           log("isValid() failed: " + e.getMessage());
            // This Exception should never occur. If it nevertheless occurs, it's because of an error in the
            // JDBC driver which we ignore and assume that the connection is not valid.
-       // When isValid() returns false, the JDBC driver should have already called connectionErrorOccurred()
-       // and the PooledConnection has been removed from the pool, i.e. the PooledConnection will
-       // not be added to recycledConnections when Connection.close() is called.
-       // But to be sure that this works even with a faulty JDBC driver, we call purgeConnection().
-       purgeConnection(conn);
-       return null;
+        }
+
+        // When isValid() returns false, the JDBC driver should have already called connectionErrorOccurred()
+        // and the PooledConnection has been removed from the pool, i.e. the PooledConnection will
+        // not be added to recycledConnections when Connection.close() is called.
+        // But to be sure that this works even with a faulty JDBC driver, we call purgeConnection().
+        purgeConnection(conn);
+        return null;
     }
+
+    private java.sql.Connection acquireConnection(long timeoutMs) throws SQLException {
+        if (isDisposed.get()) {
+            throw new IllegalStateException("Connection pool has been disposed.");
+        }
+
+        long startTime = System.currentTimeMillis();
+        long timeoutTime = startTime + timeoutMs;
+
+        while (System.currentTimeMillis() < timeoutTime) {
+            // First, try to get a recycled connection (no semaphore needed)
+            java.sql.Connection recycledConn = tryGetRecycledConnection();
+            if (recycledConn != null) {
+                return recycledConn;
+            }
+
+            // No recycled connection available, try to create a new one
+            // Use semaphore to atomically control connection limit
+            try {
+                if (semaphore.tryAcquire(100, TimeUnit.MILLISECONDS)) {
+                    try {
+                        java.sql.Connection conn = createNewConnectionInternal();
+                        if (conn != null) {
+                            return conn;
+                        } else {
+                            // Connection creation failed, release the permit
+                            semaphore.release();
+                        }
+                    } catch (SQLException e) {
+                        // Connection creation failed, release the permit
+                        semaphore.release();
+                        // Continue to next iteration to try again
+                    }
+                }
+                // If we couldn't acquire a permit, wait a bit and try again
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for a database connection.", e);
+            }
+        }
+
+        throw new TimeoutException();
+    }
+
+    private java.sql.Connection tryGetRecycledConnection() throws SQLException {
+        PooledConnectionWrapper wrapper = recycledConnections.poll();
+        if (wrapper == null) {
+            return null; // No recycled connections available
+        }
+
+        PooledConnection pconn = wrapper.connection;
+
+        // Smart validation: skip validation for recently used connections if no validation query is configured
+        boolean needsValidation = (validationQuery != null && !validationQuery.trim().isEmpty()) ||
+                                wrapper.isExpired(connectionMaxAgeMs) ||
+                                wrapper.isIdle(connectionIdleTimeoutMs);
+
+        if (needsValidation && !validateConnection(pconn)) {
+            // Connection is invalid, dispose it properly
+            // Don't decrement totalConnections here - it will be decremented when the connection is actually disposed
+            doPurgeConnection.set(true);
+            try {
+                pconn.removeConnectionEventListener(poolConnectionEventListener);
+                pconn.close();
+            } catch (SQLException e) {
+                // Ignore close errors for invalid connections
+            } finally {
+                doPurgeConnection.set(false);
+            }
+            connectionWrappers.remove(pconn);
+            // Let the connectionClosed event handle the totalConnections decrement
+            return null; // Try another recycled connection or create new one
+        }
+
+        // Connection is valid, update its usage time and return it
+        wrapper = wrapper.markUsed();
+        connectionWrappers.put(pconn, wrapper);
+
+        java.sql.Connection conn;
+        try {
+            connectionInTransition = pconn;
+            conn = pconn.getConnection();
+            activeConnections.incrementAndGet();
+        } catch (SQLException e) {
+            connectionInTransition = null;
+            // Connection failed, dispose it
+            connectionWrappers.remove(pconn);
+            doPurgeConnection.set(true);
+            try {
+                pconn.removeConnectionEventListener(poolConnectionEventListener);
+                pconn.close();
+            } catch (SQLException ex) {
+                // Ignore close errors for failed connections
+            } finally {
+                doPurgeConnection.set(false);
+            }
+            // Let the connectionClosed event handle the totalConnections decrement
+            return null;
+        } finally {
+            connectionInTransition = null;
+        }
+
+        return conn;
+    }
+
+    private java.sql.Connection createNewConnectionInternal() throws SQLException {
+        PooledConnection pconn = null;
+        try {
+            pconn = dataSource.getPooledConnection();
+            pconn.addConnectionEventListener(poolConnectionEventListener);
+            PooledConnectionWrapper wrapper = new PooledConnectionWrapper(pconn);
+            connectionWrappers.put(pconn, wrapper);
+
+            java.sql.Connection conn;
+            try {
+                connectionInTransition = pconn;
+                conn = pconn.getConnection();
+                activeConnections.incrementAndGet();
+                return conn;
+            } catch (SQLException e) {
+                connectionInTransition = null;
+                // Connection creation failed, clean up
+                connectionWrappers.remove(pconn);
+                doPurgeConnection.set(true);
+                try {
+                    pconn.removeConnectionEventListener(poolConnectionEventListener);
+                    pconn.close();
+                } catch (SQLException ex) {
+                    // Ignore close errors for failed connections
+                } finally {
+                    doPurgeConnection.set(false);
+                }
+                throw e;
+            } finally {
+                connectionInTransition = null;
+            }
+        } catch (SQLException e) {
+            throw e;
+        }
+    }
+
+    private java.sql.Connection getConnectionFromPool() throws SQLException {
+        if (isDisposed.get()) {
+           throw new IllegalStateException("Connection pool has been disposed.");
+        }
+
+        PooledConnection pconn = null;
+        PooledConnectionWrapper wrapper = null;
+
+        // Try to get a recycled connection
+        while ((wrapper = recycledConnections.poll()) != null) {
+           pconn = wrapper.connection;
+
+           // Connection being taken out of recycled pool
+
+            // Smart validation: skip validation for recently used connections if no validation query is configured
+            boolean needsValidation = (validationQuery != null && !validationQuery.trim().isEmpty()) ||
+                                    wrapper.isExpired(connectionMaxAgeMs) ||
+                                    wrapper.isIdle(connectionIdleTimeoutMs);
+
+            if (!needsValidation || validateConnection(pconn)) {
+               // Connection is valid, update its usage time and continue
+               wrapper = wrapper.markUsed();
+               break;
+            }
+            else {
+               // Connection is invalid, dispose it properly and try the next one
+               // Set flag to prevent connectionClosed events from affecting active count
+               doPurgeConnection.set(true);
+               try {
+                  // Remove the connection event listener temporarily to prevent connectionClosed events
+                  pconn.removeConnectionEventListener(poolConnectionEventListener);
+                  pconn.close();
+                  // Don't decrement here - we removed the event listener, so disposeConnection() won't be called
+               } catch (SQLException e) {
+                  // Ignore close errors for invalid connections
+               } finally {
+                  doPurgeConnection.set(false);
+               }
+               // Remove from wrapper map since we're disposing it
+               connectionWrappers.remove(pconn);
+               pconn = null;
+               wrapper = null;
+            }
+        }
+
+        // If no valid recycled connection found, create a new one
+        // But first check if we're already at the maximum
+        if (pconn == null) {
+            int currentActive = activeConnections.get();
+            int currentRecycled = recycledConnections.size();
+            int total = currentActive + currentRecycled;
+
+            if (total >= maxConnections) {
+                throw new SQLException("Maximum number of connections (" + maxConnections + ") has been reached");
+            }
+
+            pconn = dataSource.getPooledConnection();
+            pconn.addConnectionEventListener(poolConnectionEventListener);
+            wrapper = new PooledConnectionWrapper(pconn);
+        }
+
+        // Store the wrapper for later retrieval when the connection is returned
+        connectionWrappers.put(pconn, wrapper);
+
+        java.sql.Connection conn;
+        try {
+           // The JDBC driver may call ConnectionEventListener.connectionErrorOccurred()
+           // from within PooledConnection.getConnection(). To detect this within
+           // disposeConnection(), we temporarily set connectionInTransition.
+           connectionInTransition = pconn;
+           conn = pconn.getConnection();
+
+           // Only increment active connections AFTER we successfully get the connection
+           activeConnections.incrementAndGet();
+        } catch (SQLException e) {
+           connectionInTransition = null;
+
+           // If this is a recycled connection that failed, remove it from the wrapper map
+           // and close it, then try to get a new connection
+           connectionWrappers.remove(pconn);
+           doPurgeConnection.set(true);
+           try {
+               pconn.close();
+           } catch (SQLException closeEx) {
+               // Ignore close errors for failed connections
+           } finally {
+               doPurgeConnection.set(false);
+           }
+
+           // Try to create a new connection
+           // Check if we're already at the maximum before creating a new one
+           int currentActive = activeConnections.get();
+           int currentRecycled = recycledConnections.size();
+           int total = currentActive + currentRecycled;
+
+           if (total >= maxConnections) {
+               throw new SQLException("Maximum number of connections (" + maxConnections + ") has been reached");
+           }
+
+           pconn = dataSource.getPooledConnection();
+           pconn.addConnectionEventListener(poolConnectionEventListener);
+           PooledConnectionWrapper newWrapper = new PooledConnectionWrapper(pconn);
+           connectionWrappers.put(pconn, newWrapper);
+
+           connectionInTransition = pconn;
+           conn = pconn.getConnection();
+
+           // Only increment active connections AFTER we successfully get the connection
+           activeConnections.incrementAndGet();
+        } finally {
+           connectionInTransition = null;
+        }
+
+        assertInnerState();
+        return conn;
+    }
+
+
+
+
+  //**************************************************************************
+  //** getActiveConnections
+  //**************************************************************************
+  /** Returns the number of active (open) connections of this pool.
+   *
+   * <p>This is the number of <code>Connection</code> objects that have been
+   * issued by {@link #getConnection()}, for which <code>Connection.close()</code>
+   * has not yet been called.</p>
+   */
+    public int getActiveConnections() {
+        return activeConnections.get();
+    }
+
+
+  //**************************************************************************
+  //** getInactiveConnections
+  //**************************************************************************
+  /** Returns the number of inactive (unused) connections in this pool.
+   *
+   * <p>This is the number of internally kept recycled connections,
+   * for which <code>Connection.close()</code> has been called and which
+   * have not yet been reused.</p>
+   */
+    public int getInactiveConnections() {
+        return recycledConnections.size();
+    }
+
+
+  //**************************************************************************
+  //** getMaxConnections
+  //**************************************************************************
+  /** Returns the configured maximum number of connections in the pool.
+   */
+    public int getMaxConnections(){
+        return maxConnections;
+    }
+
+
+  //**************************************************************************
+  //** getConnectionPoolDataSource
+  //**************************************************************************
+  /** Returns the ConnectionPoolDataSource backing this connection pool.
+   */
+    public ConnectionPoolDataSource getConnectionPoolDataSource(){
+        return dataSource;
+    }
+
+
+  //**************************************************************************
+  //** getTimeout
+  //**************************************************************************
+  /** Returns the maximum time to wait for a free connection, in seconds.
+   */
+    public int getTimeout(){
+        return Math.round(timeoutMs/1000);
+    }
+
+    /**
+     * Returns the connection idle timeout in seconds.
+     */
+    public int getConnectionIdleTimeout() {
+        return Math.round(connectionIdleTimeoutMs/1000);
+    }
+
+    /**
+     * Returns the maximum connection age in seconds.
+     */
+    public long getConnectionMaxAge() {
+        return Math.round(connectionMaxAgeMs/1000);
+    }
+
+    /**
+     * Returns the validation query used to test connections.
+     */
+    public String getValidationQuery() {
+        return validationQuery;
+    }
+
+    /**
+     * Returns the validation timeout in seconds.
+     */
+    public int getValidationTimeout() {
+        return validationTimeout;
+    }
+
+    /**
+     * Sets the validation timeout in seconds.
+     */
+    public void setValidationTimeout(int validationTimeout) {
+        if (validationTimeout <= 0) {
+            throw new IllegalArgumentException("Validation timeout must be positive");
+        }
+        this.validationTimeout = validationTimeout;
+    }
+
+
+
+    /**
+     * Starts the background health monitoring thread.
+     */
+    private void startHealthMonitoring() {
+        healthCheckExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "ConnectionPool-HealthCheck");
+            t.setDaemon(true);
+            return t;
+        });
+
+        // Run health check every 30 seconds
+        healthCheckTask = healthCheckExecutor.scheduleWithFixedDelay(
+            this::performHealthCheck, 30, 30, TimeUnit.SECONDS);
+    }
+
+
+    /**
+     * Stops the health monitoring thread.
+     */
+    private void stopHealthMonitoring() {
+        if (healthCheckTask != null) {
+            healthCheckTask.cancel(false);
+            healthCheckTask = null;
+        }
+        if (healthCheckExecutor != null) {
+            healthCheckExecutor.shutdown();
+            try {
+                if (!healthCheckExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    healthCheckExecutor.shutdownNow();
+                    log("Health monitoring thread did not terminate gracefully");
+                }
+            } catch (InterruptedException e) {
+                healthCheckExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+            healthCheckExecutor = null;
+        }
+    }
+
+
+    /**
+     * Performs health check on idle connections.
+     */
+    private void performHealthCheck() {
+        try {
+            log("Health check started");
+            int removedCount = 0;
+            long now = System.currentTimeMillis();
+
+            // Check for idle and expired connections
+            log("Checking " + recycledConnections.size() + " recycled connections for idle/expired");
+            for (PooledConnectionWrapper wrapper : recycledConnections) {
+                if (wrapper.isIdle(connectionIdleTimeoutMs) || wrapper.isExpired(connectionMaxAgeMs)) {
+                    if (recycledConnections.remove(wrapper)) {
+                        // Use disposeConnection to properly handle the totalConnectionCount decrement
+                        disposeConnection(wrapper.connection);
+                        removedCount++;
+                        log("Removed " + (wrapper.isExpired(connectionMaxAgeMs) ? "expired" : "idle") +
+                            " connection from pool. Age: " + (now - wrapper.createdTime) + "ms");
+                    }
+                }
+            }
+
+            if (removedCount > 0) {
+                log("Health check completed: removed " + removedCount + " connections");
+            }
+
+            // Log pool statistics periodically
+            PoolStatistics stats = getPoolStatistics();
+            log("Pool stats - Active: " + stats.activeConnections +
+                ", Recycled: " + stats.recycledConnections +
+                ", Available permits: " + stats.availablePermits +
+                ", Max: " + stats.maxConnections +
+                ", Min: " + stats.minConnections +
+                ", Total: " + stats.totalConnections);
+
+            // Ensure at least minConnections are available (warmed) in the pool
+            int currentRecycled = recycledConnections.size();
+            int currentActive = activeConnections.get();
+            int total = currentActive + currentRecycled;
+
+            if (currentRecycled < minConnections && total < maxConnections && !isDisposed.get()) {
+                log("Pool warm-up: ensuring minimum " + minConnections + " connections available");
+                int maxAttempts = 3; // Limit attempts to prevent infinite loops
+                int attempts = 0;
+
+                while (currentRecycled < minConnections && total < maxConnections && !isDisposed.get() && attempts < maxAttempts) {
+                    attempts++;
+
+                    // Try to acquire a semaphore permit for the warm-up connection
+                    if (!semaphore.tryAcquire()) {
+                        log("No semaphore permits available for pool warm-up");
+                        break;
+                    }
+
+                    PooledConnection pconn = null;
+                    try {
+                        pconn = dataSource.getPooledConnection();
+                        pconn.addConnectionEventListener(poolConnectionEventListener);
+
+                        if (validateConnection(pconn)) {
+                            PooledConnectionWrapper wrapper = new PooledConnectionWrapper(pconn);
+                            connectionWrappers.put(pconn, wrapper);
+                            recycledConnections.offer(wrapper);
+                            currentRecycled++;
+                            total = currentActive + currentRecycled;
+                            log("Pool warm-up: added connection " + currentRecycled + "/" + minConnections);
+                        } else {
+                            // If validation fails, dispose the connection and release the permit
+                            disposeConnection(pconn);
+                            pconn = null; // Ensure pconn is null so finally block doesn't try to close it again
+                        }
+                    } catch (SQLException e) {
+                        log("Failed to create or validate connection during warm-up: " + e.getMessage());
+                        if (pconn != null) {
+                            disposeConnection(pconn); // Dispose and release permit
+                        } else {
+                            semaphore.release(); // Release permit if connection creation failed before pconn was assigned
+                        }
+                    }
+                }
+
+                if (attempts >= maxAttempts) {
+                    log("Pool warm-up: reached maximum attempts (" + maxAttempts + ")");
+                }
+            }
+        } catch (Exception e) {
+            log("Error during health check: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Validates a connection using the configured validation query.
+     * This method is completely isolated from the pool lifecycle to prevent race conditions.
+     */
+    private boolean validateConnection(PooledConnection pooledConnection) {
+        if (validationQuery == null || validationQuery.trim().isEmpty()) {
+            return true;
+        }
+
+        try {
+            // Temporarily remove the event listener to prevent validation from triggering pool events
+            pooledConnection.removeConnectionEventListener(poolConnectionEventListener);
+
+            try {
+                // Create a temporary connection for validation only
+                java.sql.Connection tempConn = pooledConnection.getConnection();
+
+                // Check if the connection is still valid before attempting validation
+                if (tempConn.isClosed()) {
+                    return false;
+                }
+
+                try (java.sql.PreparedStatement stmt = tempConn.prepareStatement(validationQuery)) {
+                    stmt.setQueryTimeout(validationTimeout);
+                    try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                        return rs.next();
+                    }
+                }
+                // Note: We don't close tempConn here because it belongs to the PooledConnection
+                // and closing it would corrupt the JdbcXAConnection
+            } finally {
+                // Always re-add the event listener, even if validation fails
+                pooledConnection.addConnectionEventListener(poolConnectionEventListener);
+            }
+        } catch (SQLException e) {
+            // If we get an exception, the connection is likely invalid
+            return false;
+        }
+    }
+
+
 
     // Purges the PooledConnection associated with the passed Connection from the connection pool.
-    private synchronized void purgeConnection (java.sql.Connection conn) {
-       try {
-          doPurgeConnection = true;
-          // (A potential problem of this program logic is that setting the doPurgeConnection flag
-          // has an effect only if the JDBC driver calls connectionClosed() synchronously within
-          // Connection.close().)
-          conn.close(); }
-        catch (SQLException e) {}
-          // ignore exception from close()
-        finally {
-          doPurgeConnection = false; }
+    private void purgeConnection (java.sql.Connection conn) {
+        doPurgeConnection.set(true);
+        try {
+           // (A potential problem of this program logic is that setting the doPurgeConnection flag
+           // has an effect only if the JDBC driver calls connectionClosed() synchronously within
+           // Connection.close().)
+           conn.close();
+        } catch (SQLException e) {
+           log("Error closing connection during purge: " + e.getMessage());
+        } finally {
+           doPurgeConnection.set(false);
+        }
     }
 
-    private synchronized void recycleConnection (PooledConnection pconn) {
-       if (isDisposed || doPurgeConnection) {
-          disposeConnection(pconn);
-          return; }
-       if (activeConnections <= 0) {
-          throw new AssertionError(); }
-       activeConnections--;
-       semaphore.release();
-       recycledConnections.add(pconn);
-       assertInnerState();
+    private void recycleConnection (PooledConnection pconn) {
+        if (isDisposed.get() || doPurgeConnection.get()) {
+           disposeConnection(pconn);
+           return;
+        }
+
+        // Check if this connection is currently being processed to prevent duplicate processing
+        if (pconn == connectionInTransition) {
+           return;
+        }
+
+        int currentActive = activeConnections.get();
+        if (currentActive <= 0) {
+           throw new AssertionError("Active connections count is invalid: " + currentActive);
+        }
+
+        if (activeConnections.decrementAndGet() < 0) {
+           throw new AssertionError("Active connections count went negative");
+        }
+
+       // Get the existing wrapper and update its usage time
+       PooledConnectionWrapper wrapper = connectionWrappers.get(pconn);
+       if (wrapper != null) {
+          // Update the wrapper with current usage time and add to recycled connections
+          wrapper = wrapper.markUsed();
+          recycledConnections.offer(wrapper);
+       } else {
+          // Fallback: create new wrapper if not found (shouldn't happen in normal operation)
+          wrapper = new PooledConnectionWrapper(pconn);
+          recycledConnections.offer(wrapper);
+       }
+
+       // Connection successfully recycled
+       // Note: We don't call assertInnerState() here because the total count
+       // can temporarily exceed maxConnections during the recycling process
+       // The semaphore ensures the total never exceeds maxConnections for new connections
     }
 
-    private synchronized void disposeConnection (PooledConnection pconn) {
+    private void disposeConnection (PooledConnection pconn) {
        pconn.removeConnectionEventListener(poolConnectionEventListener);
-       if (!recycledConnections.remove(pconn) && pconn != connectionInTransition) {
-          // If the PooledConnection is not in the recycledConnections list
-          // and is not currently within a PooledConnection.getConnection() call,
-          // we assume that the connection was active.
-          if (activeConnections <= 0) {
-             throw new AssertionError(); }
-          activeConnections--;
-          semaphore.release(); }
+
+       // Remove from wrapper map
+       connectionWrappers.remove(pconn);
+
+       // Try to remove from recycled connections
+       boolean foundInRecycled = false;
+       for (PooledConnectionWrapper wrapper : recycledConnections) {
+          if (wrapper.connection == pconn) {
+             if (recycledConnections.remove(wrapper)) {
+                foundInRecycled = true;
+             }
+             break;
+          }
+       }
+
+       // If not found in recycled connections and not currently in transition,
+       // and not being purged (validation connections), we assume that the connection was active
+       if (!foundInRecycled && pconn != connectionInTransition && !doPurgeConnection.get()) {
+          // Only decrement if we have active connections and this connection was actually active
+          int currentActive = activeConnections.get();
+          if (currentActive > 0) {
+             activeConnections.decrementAndGet();
+          }
+          // If currentActive is 0 or negative, it means this connection was never counted as active
+          // This can happen with validation connections or connections that failed during creation
+       }
+
+       // Only release a semaphore permit when disposing a connection (not recycling)
+       // This ensures that the total connection count is properly managed
+       if (!foundInRecycled) {
+           semaphore.release();
+       }
+
        closeConnectionAndIgnoreException(pconn);
        assertInnerState();
     }
@@ -330,75 +898,131 @@ public class ConnectionPool {
        try {
           pconn.close(); }
         catch (SQLException e) {
-          log("Error while closing database connection: "+e.toString()); }
+          log("Error while closing database connection: "+e.toString());
+        }
     }
 
     private void log (String msg) {
-       String s = "ConnectionPool: "+msg;
-       try {
-          if (logWriter == null) {
-             System.err.println(s); }
-           else {
-             logWriter.println(s); }}
+        String s = "ConnectionPool: "+msg;
+        try {
+            if (logWriter == null) {
+                //System.err.println(s);
+            }
+            else {
+                logWriter.println(s);
+            }
+        }
         catch (Exception e) {}
     }
 
-    private synchronized void assertInnerState() {
-       if (activeConnections < 0) {
-          throw new AssertionError(); }
-       if (activeConnections + recycledConnections.size() > maxConnections) {
-          throw new AssertionError(); }
-       if (activeConnections + semaphore.availablePermits() > maxConnections) {
-          throw new AssertionError(); }
+    private void assertInnerState() {
+        int active = activeConnections.get();
+        int recycled = recycledConnections.size();
+        int total = active + recycled;
+
+        if (active < 0) {
+            throw new AssertionError("Active connections count is negative: " + active);
+        }
+        if (total < 0) {
+            throw new AssertionError("Total connections count is negative: " + total);
+        }
+        if (total > maxConnections) {
+            throw new AssertionError("Total connections exceed maximum: total=" + total +
+                                    ", max=" + maxConnections);
+        }
     }
 
     private class PoolConnectionEventListener implements ConnectionEventListener {
+       @Override
        public void connectionClosed (ConnectionEvent event) {
           PooledConnection pconn = (PooledConnection)event.getSource();
           recycleConnection(pconn); }
+       @Override
        public void connectionErrorOccurred (ConnectionEvent event) {
           PooledConnection pconn = (PooledConnection)event.getSource();
           disposeConnection(pconn); }
     }
 
-    /**
-    * Returns the number of active (open) connections of this pool.
-    *
-    * <p>This is the number of <code>Connection</code> objects that have been
-    * issued by {@link #getConnection()}, for which <code>Connection.close()</code>
-    * has not yet been called.
-    *
-    * @return
-    *    the number of active connections.
-    **/
-    public synchronized int getActiveConnections() {
-       return activeConnections;
+    // Wrapper class to track connection metadata
+    private static class PooledConnectionWrapper {
+        final PooledConnection connection;
+        final long createdTime;
+        final long lastUsedTime;
+
+        PooledConnectionWrapper(PooledConnection connection) {
+            this.connection = connection;
+            this.createdTime = System.currentTimeMillis();
+            this.lastUsedTime = System.currentTimeMillis();
+        }
+
+        PooledConnectionWrapper(PooledConnection connection, long createdTime, long lastUsedTime) {
+            this.connection = connection;
+            this.createdTime = createdTime;
+            this.lastUsedTime = lastUsedTime;
+        }
+
+        boolean isIdle(long idleTimeoutMs) {
+            return System.currentTimeMillis() - lastUsedTime > idleTimeoutMs;
+        }
+
+        boolean isExpired(long maxAgeMs) {
+            return System.currentTimeMillis() - createdTime > maxAgeMs;
+        }
+
+        PooledConnectionWrapper markUsed() {
+            return new PooledConnectionWrapper(connection, createdTime, System.currentTimeMillis());
+        }
+    }
+
+
+
+  //**************************************************************************
+  //** getPoolStatistics
+  //**************************************************************************
+  /** Returns current pool statistics for monitoring.
+   */
+    public PoolStatistics getPoolStatistics() {
+        int active = activeConnections.get();
+        int recycled = recycledConnections.size();
+        int total = active + recycled;
+        int available = semaphore.availablePermits();
+
+        return new PoolStatistics(
+            active,
+            recycled,
+            available,
+            maxConnections,
+            minConnections,
+            total
+        );
     }
 
     /**
-    * Returns the number of inactive (unused) connections in this pool.
-    *
-    * <p>This is the number of internally kept recycled connections,
-    * for which <code>Connection.close()</code> has been called and which
-    * have not yet been reused.
-    *
-    * @return
-    *    the number of inactive connections.
-    **/
-    public synchronized int getInactiveConnections() {
-       return recycledConnections.size();
+     * Pool statistics for monitoring connection pool health.
+     */
+    public static class PoolStatistics {
+        public final int activeConnections;
+        public final int recycledConnections;
+        public final int availablePermits;
+        public final int maxConnections;
+        public final int minConnections;
+        public final int totalConnections;
+
+        public PoolStatistics(int activeConnections, int recycledConnections,
+                            int availablePermits, int maxConnections, int minConnections, int totalConnections) {
+            this.activeConnections = activeConnections;
+            this.recycledConnections = recycledConnections;
+            this.availablePermits = availablePermits;
+            this.maxConnections = maxConnections;
+            this.minConnections = minConnections;
+            this.totalConnections = totalConnections;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("PoolStatistics{active=%d, recycled=%d, available=%d, max=%d, min=%d, total=%d}",
+                activeConnections, recycledConnections, availablePermits, maxConnections, minConnections, totalConnections);
+        }
     }
 
-
-    public int getMaxConnections(){
-        return maxConnections;
-    }
-
-    public ConnectionPoolDataSource getConnectionPoolDataSource(){
-        return dataSource;
-    }
-
-    public int getTimeout(){
-        return Math.round(timeoutMs/1000);
-    }
 }
