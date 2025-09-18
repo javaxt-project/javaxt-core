@@ -1,5 +1,7 @@
 package javaxt.sql;
 
+import java.util.Map;
+import java.util.HashMap;
 import java.io.PrintWriter;
 import java.sql.SQLException;
 import javax.sql.ConnectionEvent;
@@ -45,24 +47,23 @@ public class ConnectionPool {
     private final ConcurrentLinkedQueue<PooledConnectionWrapper> recycledConnections = new ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<PooledConnection, PooledConnectionWrapper> connectionWrappers = new ConcurrentHashMap<>();
     private volatile PooledConnection      connectionInTransition;       // a PooledConnection which is currently within a PooledConnection.getConnection() call, or null
-    private Database database;
 
     // Validation caching for performance optimization
     private final ConcurrentHashMap<PooledConnection, Long> validationCache = new ConcurrentHashMap<>();
     private static final long VALIDATION_CACHE_TTL = 30000; // 30 seconds
 
 
+    private Database database;
+
+
     /**
-    * Thrown in {@link #getConnection()} or {@link #getValidConnection()} when no free connection becomes
+    * Thrown in {@link #getConnection()} when no free connection becomes
     * available within <code>timeout</code> seconds.
     */
     public static class TimeoutException extends RuntimeException {
-       private static final long serialVersionUID = 1;
-       public TimeoutException () {
-          super("Timeout while waiting for a free database connection."); }
-       public TimeoutException (String msg) {
-          super(msg);
-       }
+        private static final long serialVersionUID = 1;
+        public TimeoutException () { super("Timeout while waiting for a free database connection."); }
+        public TimeoutException (String msg) { super(msg); }
     }
 
 
@@ -70,9 +71,7 @@ public class ConnectionPool {
   //** Constructor
   //**************************************************************************
     public ConnectionPool(Database database, int maxConnections) throws SQLException {
-        this(database == null ? null : database.getConnectionPoolDataSource(), maxConnections);
-        if (database == null) throw new IllegalArgumentException("database is required");
-        this.database = database;
+        this(database, maxConnections, null);
     }
 
 
@@ -80,9 +79,35 @@ public class ConnectionPool {
   //** Constructor
   //**************************************************************************
     public ConnectionPool(Database database, int maxConnections, int timeout) throws SQLException{
-        this(database == null ? null : database.getConnectionPoolDataSource(), maxConnections, timeout);
-        if (database == null) throw new IllegalArgumentException("database is required");
+        this(database, maxConnections, new HashMap<String, Object>() {{
+            put("timeout", timeout);
+        }});
+    }
+
+
+  //**************************************************************************
+  //** Constructor
+  //**************************************************************************
+  /** Used to instantiate the ConnectionPool using with a javaxt.sql.Database
+   *  @param database javaxt.sql.Database with database connection information
+   *  including a valid getConnectionPoolDataSource() response. The database
+   *  object provides additional run-time query optimizations (e.g. connection
+   *  metadata).
+   *  @param maxConnections Maximum number of database connections for the
+   *  connection pool.
+   *  @param options Additional pool configuration options including:
+   *  <ul>
+   *  <li>timeout: The maximum time to wait for a free connection, in seconds. Default is 20 seconds.</li>
+   *  <li>idleTimeout: Connection idle timeout in seconds. Default is 300 seconds (5 minutes).</li>
+   *  <li>maxAge: Maximum connection age in seconds. Default is 1800 seconds (30 minutes).</li>
+   *  <li>validationQuery: Query to validate connections. Default is "SELECT 1".</li>
+   *  <li>validationTimeout: Interval used to execute validation queries. Default is 5 seconds.</li>
+   *  </ul>
+   */
+    public ConnectionPool(Database database, int maxConnections, Map<String, Object> options) throws SQLException {
+        if (database==null) throw new IllegalArgumentException("Database is required");
         this.database = database;
+        init(database.getConnectionPoolDataSource(), maxConnections, options);
     }
 
 
@@ -90,48 +115,51 @@ public class ConnectionPool {
   //** Constructor
   //**************************************************************************
     public ConnectionPool(ConnectionPoolDataSource dataSource, int maxConnections) {
-        this(dataSource, maxConnections, null);
+        init(dataSource, maxConnections, null);
     }
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Constructs a ConnectionPool object.
-   *  @param dataSource JDBC ConnectionPoolDataSource for the connections.
-   *  @param maxConnections The maximum number of connections.
-   *  @param timeout The maximum time in seconds to wait for a free connection.
-   *  Defaults to 20 seconds
-   */
     public ConnectionPool(ConnectionPoolDataSource dataSource, int maxConnections, Integer timeout) {
-        this(dataSource, maxConnections, timeout, null, null, null, null);
+        init(dataSource, maxConnections, new HashMap<String, Object>() {{
+            put("timeout", timeout);
+        }});
     }
 
 
   //**************************************************************************
   //** Constructor
   //**************************************************************************
-  /** Constructs a ConnectionPool object with health monitoring configuration.
-   *  @param dataSource JDBC ConnectionPoolDataSource for the connections.
-   *  @param maxConnections The maximum number of connections.
-   *  @param timeout The maximum time to wait for a free connection, in seconds. Default is 20 seconds.
-   *  @param idleTimeout Connection idle timeout in seconds. Default is 300 seconds (5 minutes).
-   *  @param maxAge Maximum connection age in seconds. Default is 1800 seconds (30 minutes).
-   *  @param validationQuery Query to validate connections. Default is "SELECT 1".
-   *  @param validationTimeout
-   */
-    public ConnectionPool(ConnectionPoolDataSource dataSource, int maxConnections,
-        Integer timeout, Integer idleTimeout, Integer maxAge,
-        String validationQuery, Integer validationTimeout) {
+    public ConnectionPool(ConnectionPoolDataSource dataSource, int maxConnections, Map<String, Object> options) throws SQLException {
+        init(dataSource, maxConnections, options);
+    }
 
+
+  //**************************************************************************
+  //** init
+  //**************************************************************************
+    private void init(ConnectionPoolDataSource dataSource, int maxConnections, Map<String, Object> options) {
 
         if (dataSource==null) throw new IllegalArgumentException("dataSource is required");
         if (maxConnections<1) throw new IllegalArgumentException("Invalid maxConnections");
-        if (timeout==null) timeout = 20; //20 seconds default
-        if (timeout<0) throw new IllegalArgumentException("Invalid timeout: " + timeout);
+
+
+        if (options==null) options = new HashMap<>();
+        Integer timeout = new Value(options.get("timeout")).toInteger();
+        if (timeout==null || timeout <= 0) timeout = 20; // 20 seconds default
+
+        Integer idleTimeout = new Value(options.get("idleTimeout")).toInteger();
         if (idleTimeout==null || idleTimeout <= 0) idleTimeout = 300; // 5 minutes default
+
+        Integer maxAge = new Value(options.get("maxAge")).toInteger();
         if (maxAge==null || maxAge <= 0) maxAge = 1800; // 30 minutes default
-        if (validationTimeout==null || validationTimeout <= 0) validationTimeout = 5;
+
+        Integer validationTimeout = new Value(options.get("validationTimeout")).toInteger();
+        if (validationTimeout==null || validationTimeout <= 0) validationTimeout = 5; // 5 seconds
+
+        String validationQuery = new Value(options.get("validationQuery")).toString();
         if (validationQuery == null || validationQuery.trim().isEmpty()) {
             validationQuery = "SELECT 1";
         }
@@ -191,7 +219,6 @@ public class ConnectionPool {
     public boolean isClosed() {
         return isDisposed.get();
     }
-
 
 
   //**************************************************************************
@@ -597,9 +624,17 @@ public class ConnectionPool {
         return Math.round(timeoutMs/1000);
     }
 
-    /**
-     * Returns the connection idle timeout in seconds.
-     */
+
+  //**************************************************************************
+  //** getConnectionIdleTimeout
+  //**************************************************************************
+  /** Returns the connection idle timeout in seconds. Connections that remain
+   *  unused in the pool for more than the idle timeout are automatically
+   *  removed. This prevents accumulation of stale connections that may have
+   *  been closed by the database server. Note that this only affects
+   *  connections sitting idle in the pool, not active connections being used
+   *  by your application.
+   */
     public int getConnectionIdleTimeout() {
         return Math.round(connectionIdleTimeoutMs/1000);
     }
@@ -946,7 +981,7 @@ public class ConnectionPool {
         String s = "ConnectionPool: "+msg;
         try {
             if (logWriter == null) {
-                System.err.println(s);
+                //System.err.println(s);
             }
             else {
                 logWriter.println(s);
@@ -957,7 +992,6 @@ public class ConnectionPool {
 
     private void assertInnerState() {
         int active = activeConnections.get();
-        int recycled = recycledConnections.size();
         int total = totalConnections.get();
 
         if (active < 0) {
@@ -1015,7 +1049,6 @@ public class ConnectionPool {
     }
 
 
-
   //**************************************************************************
   //** getPoolStatistics
   //**************************************************************************
@@ -1037,9 +1070,12 @@ public class ConnectionPool {
         );
     }
 
-    /**
-     * Pool statistics for monitoring connection pool health.
-     */
+
+  //**************************************************************************
+  //** PoolStatistics Class
+  //**************************************************************************
+  /** Pool statistics for monitoring connection pool health.
+   */
     public static class PoolStatistics {
         public final int activeConnections;
         public final int recycledConnections;
