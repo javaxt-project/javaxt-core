@@ -137,6 +137,26 @@ public class ConnectionPool {
    *  using the connection, it must ne closed in order to return it to the pool.
    */
     public Connection getConnection() throws SQLException {
+        java.sql.Connection conn = getRawConnection();
+        if (conn == null) {
+            return null;
+        }
+        else{
+            Connection c = new Connection();
+            c.open(conn, database);
+            return c;
+        }
+    }
+
+
+  //**************************************************************************
+  //** getRawConnection
+  //**************************************************************************
+  /** Retrieves a raw, java.sql.Connection from the connection pool. This
+   *  method is called by the getConnection() method which simply wraps the
+   *  java.sql.Connection into a javaxt.sql.Connection.
+   */
+    public java.sql.Connection getRawConnection() throws SQLException {
         long time = System.currentTimeMillis();
         long timeoutTime = time + timeoutMs;
         int triesWithoutDelay = getInactiveConnections() + 1;
@@ -144,9 +164,7 @@ public class ConnectionPool {
         while (true) {
             java.sql.Connection conn = getConnection(time, timeoutTime);
             if (conn != null) {
-                Connection c = new Connection();
-                c.open(conn, database);
-                return c;
+                return conn;
             }
             triesWithoutDelay--;
             if (triesWithoutDelay <= 0) {
@@ -360,9 +378,9 @@ public class ConnectionPool {
   //** getConnection
   //**************************************************************************
     private java.sql.Connection getConnection(long time, long timeoutTime) {
-        long rtime = Math.max(1, timeoutTime - time);
-        java.sql.Connection conn;
-        try {
+       long rtime = Math.max(1, timeoutTime - time);
+       java.sql.Connection conn;
+       try {
             conn = acquireConnection(rtime);
         }
         catch (SQLException e) {
@@ -370,26 +388,26 @@ public class ConnectionPool {
         }
 
         // Calculate remaining time for validation
-        rtime = timeoutTime - System.currentTimeMillis();
+       rtime = timeoutTime - System.currentTimeMillis();
         int rtimeSecs = Math.max(1, (int)((rtime + 999) / 1000));
 
-        try {
-            if (conn.isValid(rtimeSecs)) {
+       try {
+          if (conn.isValid(rtimeSecs)) {
                 return conn;
             }
         }
         catch (SQLException e) {
             log("isValid() failed: " + e.getMessage());
-            // This Exception should never occur. If it nevertheless occurs, it's because of an error in the
-            // JDBC driver which we ignore and assume that the connection is not valid.
+           // This Exception should never occur. If it nevertheless occurs, it's because of an error in the
+           // JDBC driver which we ignore and assume that the connection is not valid.
         }
 
-        // When isValid() returns false, the JDBC driver should have already called connectionErrorOccurred()
-        // and the PooledConnection has been removed from the pool, i.e. the PooledConnection will
-        // not be added to recycledConnections when Connection.close() is called.
-        // But to be sure that this works even with a faulty JDBC driver, we call purgeConnection().
-        purgeConnection(conn);
-        return null;
+       // When isValid() returns false, the JDBC driver should have already called connectionErrorOccurred()
+       // and the PooledConnection has been removed from the pool, i.e. the PooledConnection will
+       // not be added to recycledConnections when Connection.close() is called.
+       // But to be sure that this works even with a faulty JDBC driver, we call purgeConnection().
+       purgeConnection(conn);
+       return null;
     }
 
 
@@ -679,7 +697,7 @@ public class ConnectionPool {
                             log("Pool warm-up: added connection " + currentRecycled + "/" + minConnections);
                         } else {
                             // If validation fails, dispose the connection and decrement counter
-                            disposeConnection(pconn);
+          disposeConnection(pconn);
                             pconn = null; // Ensure pconn is null so finally block doesn't try to close it again
                         }
                     } catch (SQLException e) {
@@ -862,12 +880,12 @@ public class ConnectionPool {
   //** log
   //**************************************************************************
     private void log(String msg) {
-        String s = "ConnectionPool: "+msg;
-        try {
-            if (logWriter == null) {
+       String s = "ConnectionPool: "+msg;
+       try {
+          if (logWriter == null) {
                 //System.err.println(s);
             }
-            else {
+           else {
                 logWriter.println(s);
             }
         }
@@ -902,13 +920,13 @@ public class ConnectionPool {
   //**************************************************************************
     private class PoolConnectionEventListener implements ConnectionEventListener {
         @Override
-        public void connectionClosed (ConnectionEvent event) {
-            PooledConnection pconn = (PooledConnection)event.getSource();
+       public void connectionClosed (ConnectionEvent event) {
+          PooledConnection pconn = (PooledConnection)event.getSource();
             recycleConnection(pconn);
         }
         @Override
-        public void connectionErrorOccurred (ConnectionEvent event) {
-            PooledConnection pconn = (PooledConnection)event.getSource();
+       public void connectionErrorOccurred (ConnectionEvent event) {
+          PooledConnection pconn = (PooledConnection)event.getSource();
             disposeConnection(pconn);
         }
     }
