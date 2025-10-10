@@ -378,9 +378,9 @@ public class ConnectionPool {
   //** getConnection
   //**************************************************************************
     private java.sql.Connection getConnection(long time, long timeoutTime) {
-       long rtime = Math.max(1, timeoutTime - time);
-       java.sql.Connection conn;
-       try {
+        long rtime = Math.max(1, timeoutTime - time);
+        java.sql.Connection conn;
+        try {
             conn = acquireConnection(rtime);
         }
         catch (SQLException e) {
@@ -388,11 +388,11 @@ public class ConnectionPool {
         }
 
         // Calculate remaining time for validation
-       rtime = timeoutTime - System.currentTimeMillis();
+        rtime = timeoutTime - System.currentTimeMillis();
         int rtimeSecs = Math.max(1, (int)((rtime + 999) / 1000));
 
-       try {
-          if (conn.isValid(rtimeSecs)) {
+        try {
+            if (conn.isValid(rtimeSecs)) {
                 return conn;
             }
         }
@@ -402,12 +402,12 @@ public class ConnectionPool {
            // JDBC driver which we ignore and assume that the connection is not valid.
         }
 
-       // When isValid() returns false, the JDBC driver should have already called connectionErrorOccurred()
-       // and the PooledConnection has been removed from the pool, i.e. the PooledConnection will
-       // not be added to recycledConnections when Connection.close() is called.
-       // But to be sure that this works even with a faulty JDBC driver, we call purgeConnection().
-       purgeConnection(conn);
-       return null;
+        // When isValid() returns false, the JDBC driver should have already called connectionErrorOccurred()
+        // and the PooledConnection has been removed from the pool, i.e. the PooledConnection will
+        // not be added to recycledConnections when Connection.close() is called.
+        // But to be sure that this works even with a faulty JDBC driver, we call purgeConnection().
+        purgeConnection(conn);
+        return null;
     }
 
 
@@ -702,7 +702,7 @@ public class ConnectionPool {
                             log("Pool warm-up: added connection " + currentRecycled + "/" + minConnections);
                         } else {
                             // If validation fails, dispose the connection and decrement counter
-          disposeConnection(pconn);
+                            disposeConnection(pconn);
                             pconn = null; // Ensure pconn is null so finally block doesn't try to close it again
                         }
                     } catch (SQLException e) {
@@ -887,10 +887,10 @@ public class ConnectionPool {
     private void log(String msg) {
        String s = "ConnectionPool: "+msg;
        try {
-          if (logWriter == null) {
+            if (logWriter == null) {
                 //System.err.println(s);
             }
-           else {
+            else {
                 logWriter.println(s);
             }
         }
@@ -925,13 +925,13 @@ public class ConnectionPool {
   //**************************************************************************
     private class PoolConnectionEventListener implements ConnectionEventListener {
         @Override
-       public void connectionClosed (ConnectionEvent event) {
-          PooledConnection pconn = (PooledConnection)event.getSource();
+        public void connectionClosed (ConnectionEvent event) {
+            PooledConnection pconn = (PooledConnection)event.getSource();
             recycleConnection(pconn);
         }
         @Override
-       public void connectionErrorOccurred (ConnectionEvent event) {
-          PooledConnection pconn = (PooledConnection)event.getSource();
+        public void connectionErrorOccurred (ConnectionEvent event) {
+            PooledConnection pconn = (PooledConnection)event.getSource();
             disposeConnection(pconn);
         }
     }
@@ -1009,7 +1009,7 @@ public class ConnectionPool {
         public final int totalConnections;
 
         public PoolStatistics(int activeConnections, int recycledConnections,
-                            int availablePermits, int maxConnections, int minConnections, int totalConnections) {
+            int availablePermits, int maxConnections, int minConnections, int totalConnections) {
             this.activeConnections = activeConnections;
             this.recycledConnections = recycledConnections;
             this.availablePermits = availablePermits;
