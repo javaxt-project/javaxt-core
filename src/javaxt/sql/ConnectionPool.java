@@ -474,25 +474,30 @@ public class ConnectionPool {
 
         PooledConnection pconn = wrapper.connection;
 
-        // Smart validation: skip validation for recently used connections
-        boolean needsValidation = wrapper.isExpired(connectionMaxAgeMs) ||
-                                wrapper.isIdle(connectionIdleTimeoutMs) ||
-                                !isRecentlyValidated(pconn);
+        // Skip all validation for very recently recycled connections (< 5 seconds)
+        // This dramatically improves performance for high-frequency connection reuse scenarios
+        boolean validateConnection = (System.currentTimeMillis() - wrapper.lastUsedTime) > 5000;
+        if (validateConnection) {
+            // Standard validation path for older connections
+            boolean needsValidation = wrapper.isExpired(connectionMaxAgeMs) ||
+                                    wrapper.isIdle(connectionIdleTimeoutMs) ||
+                                    !isRecentlyValidated(pconn);
 
-        if (needsValidation && !validateConnection(pconn)) {
-            // Connection is invalid, dispose it properly
-            doPurgeConnection.set(true);
-            try {
-                pconn.removeConnectionEventListener(poolConnectionEventListener);
-                pconn.close();
-            } catch (SQLException e) {
-                // Ignore close errors for invalid connections
-            } finally {
-                doPurgeConnection.set(false);
+            if (needsValidation && !validateConnection(pconn)) {
+                // Connection is invalid, dispose it properly
+                doPurgeConnection.set(true);
+                try {
+                    pconn.removeConnectionEventListener(poolConnectionEventListener);
+                    pconn.close();
+                } catch (SQLException e) {
+                    // Ignore close errors for invalid connections
+                } finally {
+                    doPurgeConnection.set(false);
+                }
+                connectionWrappers.remove(pconn);
+                totalConnections.decrementAndGet();
+                return null; // Try another recycled connection or create new one
             }
-            connectionWrappers.remove(pconn);
-            totalConnections.decrementAndGet();
-            return null; // Try another recycled connection or create new one
         }
 
         // Connection is valid, update its usage time and return it
