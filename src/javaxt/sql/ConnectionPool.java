@@ -134,35 +134,16 @@ public class ConnectionPool {
   /** Retrieves a connection from the connection pool. If all the connections
    *  are in use, the method waits until a connection becomes available or
    *  <code>timeout</code> seconds elapsed. When the application is finished
-   *  using the connection, it must ne closed in order to return it to the pool.
+   *  using the connection, it must be closed in order to return it to the
+   *  pool.
    */
     public Connection getConnection() throws SQLException {
-        java.sql.Connection conn = getRawConnection();
-        if (conn == null) {
-            return null;
-        }
-        else{
-            Connection c = new Connection();
-            c.open(conn, database);
-            return c;
-        }
-    }
-
-
-  //**************************************************************************
-  //** getRawConnection
-  //**************************************************************************
-  /** Retrieves a raw, java.sql.Connection from the connection pool. This
-   *  method is called by the getConnection() method which simply wraps the
-   *  java.sql.Connection into a javaxt.sql.Connection.
-   */
-    public java.sql.Connection getRawConnection() throws SQLException {
         long time = System.currentTimeMillis();
         long timeoutTime = time + timeoutMs;
         int triesWithoutDelay = getInactiveConnections() + 1;
 
         while (true) {
-            java.sql.Connection conn = getConnection(time, timeoutTime);
+            Connection conn = getConnection(time, timeoutTime);
             if (conn != null) {
                 return conn;
             }
@@ -306,7 +287,7 @@ public class ConnectionPool {
         // Use disposeConnection to properly handle the totalConnectionCount decrement
         PooledConnectionWrapper wrapper;
         while ((wrapper = recycledConnections.poll()) != null) {
-            disposeConnection(wrapper.connection);
+            disposeConnection(wrapper.pooledConnection);
         }
 
         connectionWrappers.clear();
@@ -377,11 +358,11 @@ public class ConnectionPool {
   //**************************************************************************
   //** getConnection
   //**************************************************************************
-    private java.sql.Connection getConnection(long time, long timeoutTime) {
+    private Connection getConnection(long time, long timeoutTime) {
         long rtime = Math.max(1, timeoutTime - time);
-        java.sql.Connection conn;
+        Connection connection;
         try {
-            conn = acquireConnection(rtime);
+            connection = acquireConnection(rtime);
         }
         catch (SQLException e) {
             return null;
@@ -391,9 +372,11 @@ public class ConnectionPool {
         rtime = timeoutTime - System.currentTimeMillis();
         int rtimeSecs = Math.max(1, (int)((rtime + 999) / 1000));
 
+        // Validate using the underlying raw connection
+        java.sql.Connection rawConn = connection.getConnection();
         try {
-            if (conn.isValid(rtimeSecs)) {
-                return conn;
+            if (rawConn.isValid(rtimeSecs)) {
+                return connection;
             }
         }
         catch (SQLException e) {
@@ -406,7 +389,7 @@ public class ConnectionPool {
         // and the PooledConnection has been removed from the pool, i.e. the PooledConnection will
         // not be added to recycledConnections when Connection.close() is called.
         // But to be sure that this works even with a faulty JDBC driver, we call purgeConnection().
-        purgeConnection(conn);
+        purgeConnection(rawConn);
         return null;
     }
 
@@ -414,7 +397,7 @@ public class ConnectionPool {
   //**************************************************************************
   //** acquireConnection
   //**************************************************************************
-    private java.sql.Connection acquireConnection(long timeoutMs) throws SQLException {
+    private Connection acquireConnection(long timeoutMs) throws SQLException {
         if (isDisposed.get()) {
             throw new IllegalStateException("Connection pool has been disposed.");
         }
@@ -424,7 +407,7 @@ public class ConnectionPool {
 
         while (System.currentTimeMillis() < timeoutTime) {
             // First, try to get a recycled connection
-            java.sql.Connection recycledConn = getRecycledConnection();
+            Connection recycledConn = getRecycledConnection();
             if (recycledConn != null) {
                 return recycledConn;
             }
@@ -435,7 +418,7 @@ public class ConnectionPool {
             if (currentTotal < maxConnections) {
                 if (totalConnections.compareAndSet(currentTotal, currentTotal + 1)) {
                     try {
-                        java.sql.Connection conn = createNewConnection();
+                        Connection conn = createNewConnection();
                         if (conn != null) {
                             return conn;
                         } else {
@@ -466,13 +449,13 @@ public class ConnectionPool {
   //**************************************************************************
   //** getRecycledConnection
   //**************************************************************************
-    private java.sql.Connection getRecycledConnection() throws SQLException {
+    private Connection getRecycledConnection() throws SQLException {
         PooledConnectionWrapper wrapper = recycledConnections.poll();
         if (wrapper == null) {
             return null; // No recycled connections available
         }
 
-        PooledConnection pconn = wrapper.connection;
+        PooledConnection pconn = wrapper.pooledConnection;
 
         // Skip all validation for very recently recycled connections (< 5 seconds)
         // This dramatically improves performance for high-frequency connection reuse scenarios
@@ -500,20 +483,27 @@ public class ConnectionPool {
             }
         }
 
-        // Connection is valid, update its usage time and return it
+        // Connection is valid, update its usage time
         wrapper = wrapper.markUsed();
         connectionWrappers.put(pconn, wrapper);
 
-        java.sql.Connection conn;
         try {
             connectionInTransition = pconn;
-            activeConnections.incrementAndGet(); // Increment before getConnection() to ensure it's always counted
-            conn = pconn.getConnection();
+            activeConnections.incrementAndGet(); // Increment before getting connection
+
+            // Get a fresh logical connection from the PooledConnection
+            java.sql.Connection rawConn = pconn.getConnection();
+
+            // Re-open the javaxt.sql.Connection wrapper with the fresh logical connection
+            // This updates the underlying connection reference without creating a new wrapper object
+            wrapper.connection.open(rawConn, database);
+
+            return wrapper.connection;  // Return reused wrapper with fresh connection
         } catch (SQLException e) {
             connectionInTransition = null;
-            // Connection failed, decrement the activeConnections counter we just incremented
+            // Failed, decrement the activeConnections counter we just incremented
             activeConnections.decrementAndGet();
-            // Connection failed, dispose it
+            // Dispose the wrapper
             connectionWrappers.remove(pconn);
             doPurgeConnection.set(true);
             try {
@@ -529,25 +519,34 @@ public class ConnectionPool {
         } finally {
             connectionInTransition = null;
         }
-
-        return conn;
     }
 
-    private java.sql.Connection createNewConnection() throws SQLException {
-        PooledConnection pconn = null;
+
+  //**************************************************************************
+  //** createNewConnection
+  //**************************************************************************
+    private Connection createNewConnection() throws SQLException {
+        PooledConnection pconn;
         try {
             pconn = dataSource.getPooledConnection();
             pconn.addConnectionEventListener(poolConnectionEventListener);
-            PooledConnectionWrapper wrapper = new PooledConnectionWrapper(pconn);
-            connectionWrappers.put(pconn, wrapper);
 
-            java.sql.Connection conn;
+            Connection connection;
             try {
                 connectionInTransition = pconn;
                 activeConnections.incrementAndGet(); // Increment before getConnection() to ensure it's always counted
-                conn = pconn.getConnection();
+
+                // Get raw connection and wrap it ONCE
+                java.sql.Connection rawConn = pconn.getConnection();
+                connection = new Connection();
+                connection.open(rawConn, database);
+
+                // Store the pre-wrapped connection for reuse
+                PooledConnectionWrapper wrapper = new PooledConnectionWrapper(connection, pconn);
+                connectionWrappers.put(pconn, wrapper);
+
                 // totalConnections was already incremented in acquireConnection
-                return conn;
+                return connection;
             } catch (SQLException e) {
                 connectionInTransition = null;
                 // Connection creation failed, decrement the activeConnections counter we just incremented
@@ -642,7 +641,7 @@ public class ConnectionPool {
             // Process connections and re-add valid ones
             for (PooledConnectionWrapper w : toCheck) {
                 if (w.isIdle(connectionIdleTimeoutMs) || w.isExpired(connectionMaxAgeMs)) {
-                    disposeConnection(w.connection);
+                    disposeConnection(w.pooledConnection);
                     removedCount++;
                     log("Removed " + (w.isExpired(connectionMaxAgeMs) ? "expired" : "idle") +
                         " connection from pool. Age: " + (now - w.createdTime) + "ms");
@@ -694,9 +693,20 @@ public class ConnectionPool {
                         pconn.addConnectionEventListener(poolConnectionEventListener);
 
                         if (validateConnection(pconn)) {
-                            PooledConnectionWrapper w = new PooledConnectionWrapper(pconn);
+                            // Create and wrap connection for warm-up
+                            java.sql.Connection rawConn = pconn.getConnection();
+                            Connection connection = new Connection();
+                            connection.open(rawConn, database);
+
+                            // Store the wrapper (but don't add to recycled yet - it's active)
+                            PooledConnectionWrapper w = new PooledConnectionWrapper(connection, pconn);
                             connectionWrappers.put(pconn, w);
-                            recycledConnections.offer(w);
+
+                            // Close the connection to recycle it
+                            // This will trigger connectionClosed event which calls recycleConnection()
+                            // recycleConnection() will add it to the recycled queue
+                            rawConn.close();
+
                             currentRecycled++;
                             total = currentActive + currentRecycled;
                             log("Pool warm-up: added connection " + currentRecycled + "/" + minConnections);
@@ -812,13 +822,13 @@ public class ConnectionPool {
         PooledConnectionWrapper wrapper = connectionWrappers.get(pconn);
         if (wrapper != null) {
             // Update the wrapper with current usage time and add to recycled connections
+            // The javaxt.sql.Connection wrapper is reused - no new object creation!
             wrapper = wrapper.markUsed();
             recycledConnections.offer(wrapper);
         }
         else {
-            // Fallback: create new wrapper if not found (shouldn't happen in normal operation)
-            wrapper = new PooledConnectionWrapper(pconn);
-            recycledConnections.offer(wrapper);
+            // This shouldn't happen in normal operation - log a warning
+            log("Warning: Wrapper not found for PooledConnection during recycle");
         }
 
         // Connection successfully recycled
@@ -846,7 +856,7 @@ public class ConnectionPool {
         // Try to remove from recycled connections
         boolean foundInRecycled = false;
         for (PooledConnectionWrapper wrapper : recycledConnections) {
-            if (wrapper.connection == pconn) {
+            if (wrapper.pooledConnection == pconn) {
                 if (recycledConnections.remove(wrapper)) {
                     foundInRecycled = true;
                 }
@@ -885,8 +895,8 @@ public class ConnectionPool {
   //** log
   //**************************************************************************
     private void log(String msg) {
-       String s = "ConnectionPool: "+msg;
-       try {
+        String s = "ConnectionPool: "+msg;
+        try {
             if (logWriter == null) {
                 //System.err.println(s);
             }
@@ -943,18 +953,21 @@ public class ConnectionPool {
   /** Wrapper class to track connection metadata
    */
     private static class PooledConnectionWrapper {
-        final PooledConnection connection;
+        final Connection connection;
+        final PooledConnection pooledConnection;
         final long createdTime;
         final long lastUsedTime;
 
-        PooledConnectionWrapper(PooledConnection connection) {
+        PooledConnectionWrapper(Connection connection, PooledConnection pooledConnection) {
             this.connection = connection;
+            this.pooledConnection = pooledConnection;
             this.createdTime = System.currentTimeMillis();
             this.lastUsedTime = System.currentTimeMillis();
         }
 
-        PooledConnectionWrapper(PooledConnection connection, long createdTime, long lastUsedTime) {
+        PooledConnectionWrapper(Connection connection, PooledConnection pooledConnection, long createdTime, long lastUsedTime) {
             this.connection = connection;
+            this.pooledConnection = pooledConnection;
             this.createdTime = createdTime;
             this.lastUsedTime = lastUsedTime;
         }
@@ -968,7 +981,7 @@ public class ConnectionPool {
         }
 
         PooledConnectionWrapper markUsed() {
-            return new PooledConnectionWrapper(connection, createdTime, System.currentTimeMillis());
+            return new PooledConnectionWrapper(connection, pooledConnection, createdTime, System.currentTimeMillis());
         }
     }
 
