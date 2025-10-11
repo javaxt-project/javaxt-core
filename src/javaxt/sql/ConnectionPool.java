@@ -693,19 +693,14 @@ public class ConnectionPool {
                         pconn.addConnectionEventListener(poolConnectionEventListener);
 
                         if (validateConnection(pconn)) {
-                            // Create and wrap connection for warm-up
-                            java.sql.Connection rawConn = pconn.getConnection();
+                            // Create unopened wrapper for warm-up
+                            // The wrapper will be opened when first acquired from the pool
                             Connection connection = new Connection();
-                            connection.open(rawConn, database);
-
-                            // Store the wrapper (but don't add to recycled yet - it's active)
                             PooledConnectionWrapper w = new PooledConnectionWrapper(connection, pconn);
                             connectionWrappers.put(pconn, w);
 
-                            // Close the connection to recycle it
-                            // This will trigger connectionClosed event which calls recycleConnection()
-                            // recycleConnection() will add it to the recycled queue
-                            rawConn.close();
+                            // Add directly to recycled queue (skip the active state for warm-up)
+                            recycledConnections.offer(w);
 
                             currentRecycled++;
                             total = currentActive + currentRecycled;
