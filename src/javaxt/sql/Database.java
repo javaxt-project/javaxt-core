@@ -641,7 +641,7 @@ public class Database implements Cloneable {
         }
         else if (driver.equals("mysql")){
 
-            className = ("com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource");
+            className = ("com.mysql.cj.jdbc.MysqlConnectionPoolDataSource");
 
             methods.put("setDatabaseName", name);
             methods.put("setServerName", host);
