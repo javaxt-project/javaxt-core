@@ -412,7 +412,11 @@ public class Database implements Cloneable {
                 try{
                     if (d==null) d = driver.load();
                     if (d.getMajorVersion()>1){
-                        path = driver.getProtocol() + ":file:";
+                        if (host == null || host.trim().isEmpty() || host.equalsIgnoreCase("memory")) {
+                            path = driver.getProtocol() + ":mem:";
+                        } else {
+                            path = driver.getProtocol() + ":file:";
+                        }
                     }
                 }
                 catch(Exception e){
