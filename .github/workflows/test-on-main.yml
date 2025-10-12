@@ -55,7 +55,8 @@ jobs:
 
       - name: Configure PostgreSQL for tests
         run: |
-          cd javaxt-core-test/javaxt-core-test/src/test/resources
+          mkdir -p javaxt-core-test/src/test/resources
+          cd javaxt-core-test/src/test/resources
           cat > postgresql.properties << EOF
           db.host=localhost
           db.port=5432
@@ -66,7 +67,8 @@ jobs:
 
       - name: Configure MySQL for tests
         run: |
-          cd javaxt-core-test/javaxt-core-test/src/test/resources
+          mkdir -p javaxt-core-test/src/test/resources
+          cd javaxt-core-test/src/test/resources
           cat > mysql.properties << EOF
           db.host=localhost
           db.port=3306
