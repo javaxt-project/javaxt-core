@@ -10,6 +10,36 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: test_db
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
+
     steps:
       - name: Checkout javaxt-core
         uses: actions/checkout@v4
@@ -22,6 +52,28 @@ jobs:
 
       - name: Clone javaxt-core-test
         run: git clone https://github.com/javaxt-project/javaxt-core-test.git
+
+      - name: Configure PostgreSQL for tests
+        run: |
+          cd javaxt-core-test/javaxt-core-test/src/test/resources
+          cat > postgresql.properties << EOF
+          db.host=localhost
+          db.port=5432
+          db.name=test_db
+          db.user=test_user
+          db.password=test_password
+          EOF
+
+      - name: Configure MySQL for tests
+        run: |
+          cd javaxt-core-test/javaxt-core-test/src/test/resources
+          cat > mysql.properties << EOF
+          db.host=localhost
+          db.port=3306
+          db.name=test_db
+          db.user=test_user
+          db.password=test_password
+          EOF
 
       - name: Build and test with javaxt-core-test
         run: |
