@@ -26,7 +26,7 @@ public class Driver {
         new Driver("SQLServer","com.microsoft.sqlserver.jdbc.SQLServerDriver","jdbc:sqlserver"),
         new Driver("DB2","com.ibm.db2.jcc.DB2Driver","jdbc:db2"), //"COM.ibm.db2.jdbc.net.DB2Driver"
         new Driver("Sybase","com.sybase.jdbc3.jdbc.SybDriver","jdbc:sybase"),
-        new Driver("MySQL", "com.mysql.jdbc.Driver", "jdbc:mysql"),
+        new Driver("MySQL", "com.mysql.cj.jdbc.Driver", "jdbc:mysql"),
         new Driver("Derby","org.apache.derby.jdbc.EmbeddedDriver","jdbc:derby"),
         new Driver("SQLite","org.sqlite.JDBC","jdbc:sqlite"),
         new Driver("H2", "org.h2.Driver", "jdbc:h2"),
