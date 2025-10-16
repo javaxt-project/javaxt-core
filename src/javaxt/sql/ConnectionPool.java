@@ -457,10 +457,17 @@ public class ConnectionPool {
 
         PooledConnection pconn = wrapper.pooledConnection;
 
-        // Skip all validation for very recently recycled connections (< 5 seconds)
+        // Check if this is a warm-up connection that was never opened
+        boolean isWarmupConnection =
+        (wrapper.lastUsedTime == wrapper.createdTime && wrapper.connection.getConnection() == null);
+
+        // Check if the connection was recently recycled (< 5 seconds)
+        boolean connectionIsStale = (System.currentTimeMillis() - wrapper.lastUsedTime) > 5000;
+
+        // Skip validation for very recently recycled connections (< 5 seconds)
         // This dramatically improves performance for high-frequency connection reuse scenarios
-        boolean validateConnection = (System.currentTimeMillis() - wrapper.lastUsedTime) > 5000;
-        if (validateConnection) {
+        if (!isWarmupConnection && connectionIsStale) {
+
             // Standard validation path for older connections
             boolean needsValidation = wrapper.isExpired(connectionMaxAgeMs) ||
                                     wrapper.isIdle(connectionIdleTimeoutMs) ||
