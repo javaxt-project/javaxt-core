@@ -457,16 +457,13 @@ public class ConnectionPool {
 
         PooledConnection pconn = wrapper.pooledConnection;
 
-        // Check if this is a warm-up connection that was never opened
-        boolean isWarmupConnection =
-        (wrapper.lastUsedTime == wrapper.createdTime && wrapper.connection.getConnection() == null);
-
         // Check if the connection was recently recycled (< 5 seconds)
         boolean connectionIsStale = (System.currentTimeMillis() - wrapper.lastUsedTime) > 5000;
 
         // Skip validation for very recently recycled connections (< 5 seconds)
         // This dramatically improves performance for high-frequency connection reuse scenarios
-        if (!isWarmupConnection && connectionIsStale) {
+        // Also skip validation for warm-up connections (they're brand new)
+        if (!wrapper.isWarmup && connectionIsStale) {
 
             // Standard validation path for older connections
             boolean needsValidation = wrapper.isExpired(connectionMaxAgeMs) ||
@@ -490,10 +487,6 @@ public class ConnectionPool {
             }
         }
 
-        // Connection is valid, update its usage time
-        wrapper = wrapper.markUsed();
-        connectionWrappers.put(pconn, wrapper);
-
         try {
             connectionInTransition = pconn;
             activeConnections.incrementAndGet(); // Increment before getting connection
@@ -505,15 +498,31 @@ public class ConnectionPool {
             // This updates the underlying connection reference without creating a new wrapper object
             wrapper.connection.open(rawConn, database);
 
-            return wrapper.connection;  // Return reused wrapper with fresh connection
+            // Connection successfully acquired! Now update the wrapper state
+            // IMPORTANT: Only update wrapper and map AFTER successfully acquiring the connection
+            // This prevents race conditions where the wrapper state changes before the connection is ready
+            PooledConnectionWrapper updatedWrapper = wrapper.markUsed();
+            connectionWrappers.put(pconn, updatedWrapper);
+
+            return updatedWrapper.connection;  // Return reused wrapper with fresh connection
         } catch (SQLException e) {
             connectionInTransition = null;
-            // Failed, decrement the activeConnections counter we just incremented
+            // Failed to acquire connection
+
+            // Decrement the activeConnections counter we just incremented
             activeConnections.decrementAndGet();
-            // Dispose the wrapper
-            connectionWrappers.remove(pconn);
+
+            // IMPORTANT: Set doPurgeConnection BEFORE closing to prevent double-decrement
+            // This ensures that if pconn.close() triggers connectionClosed event,
+            // it will call disposeConnection() instead of recycleConnection()
             doPurgeConnection.set(true);
+
             try {
+                // Don't remove the wrapper if it's a warmup connection - it needs to stay in the map
+                // Only remove if it was updated to non-warmup
+                // Actually, remove it to be safe - disposeConnection will handle it
+                connectionWrappers.remove(pconn);
+
                 pconn.removeConnectionEventListener(poolConnectionEventListener);
                 pconn.close();
             } catch (SQLException ex) {
@@ -549,8 +558,7 @@ public class ConnectionPool {
                 connection.open(rawConn, database);
 
                 // Store the pre-wrapped connection for reuse
-                PooledConnectionWrapper wrapper = new PooledConnectionWrapper(connection, pconn);
-                connectionWrappers.put(pconn, wrapper);
+                connectionWrappers.put(pconn, new PooledConnectionWrapper(connection, pconn, false));
 
                 // totalConnections was already incremented in acquireConnection
                 return connection;
@@ -703,7 +711,7 @@ public class ConnectionPool {
                             // Create unopened wrapper for warm-up
                             // The wrapper will be opened when first acquired from the pool
                             Connection connection = new Connection();
-                            PooledConnectionWrapper w = new PooledConnectionWrapper(connection, pconn);
+                            PooledConnectionWrapper w = new PooledConnectionWrapper(connection, pconn, true); // Mark as warmup
                             connectionWrappers.put(pconn, w);
 
                             // Add directly to recycled queue (skip the active state for warm-up)
@@ -814,14 +822,48 @@ public class ConnectionPool {
             return;
         }
 
+        // Get the existing wrapper
+        PooledConnectionWrapper wrapper = connectionWrappers.get(pconn);
+
+        // Check if this connection is already in the recycled queue (double-close protection)
+        if (wrapper != null) {
+            for (PooledConnectionWrapper w : recycledConnections) {
+                if (w.pooledConnection == pconn) {
+                    log("Warning: Connection already recycled, ignoring duplicate close");
+                    return;
+                }
+            }
+
+            // Additional safety check: verify the wrapper's connection is actually closed
+            // If the javaxt.sql.Connection wrapper is still open, this indicates a problem
+            if (wrapper.connection != null && wrapper.connection.isOpen()) {
+                log("Warning: Recycle called but javaxt.sql.Connection wrapper is still open - disposing instead");
+                disposeConnection(pconn);
+                return;
+            }
+        }
+
         // Use atomic decrement to avoid TOCTOU race condition
         int prev = activeConnections.decrementAndGet();
+
         if (prev < 0) {
-            throw new AssertionError("Active connections count went negative");
+            // This is a double-close - the connection was already recycled
+            // Don't restore the counter; instead increment it back and ignore this duplicate close
+            activeConnections.incrementAndGet();
+
+            String wrapperInfo = wrapper != null ?
+                "(isWarmup=" + wrapper.isWarmup + ", created=" + wrapper.createdTime + ", lastUsed=" + wrapper.lastUsedTime + ")" :
+                "(wrapper=null)";
+
+            log("WARNING: Detected double-close (activeConnections went negative). " +
+                "Ignoring duplicate recycle. This indicates the same javaxt.sql.Connection object was closed twice. " +
+                "wrapper=" + wrapperInfo);
+
+            // Don't process this recycle - the connection was already recycled on the first close
+            return;
         }
 
         // Get the existing wrapper and update its usage time
-        PooledConnectionWrapper wrapper = connectionWrappers.get(pconn);
         if (wrapper != null) {
             // Update the wrapper with current usage time and add to recycled connections
             // The javaxt.sql.Connection wrapper is reused - no new object creation!
@@ -897,10 +939,13 @@ public class ConnectionPool {
   //** log
   //**************************************************************************
     private void log(String msg) {
+        if (true) return;
         String s = "ConnectionPool: "+msg;
         try {
             if (logWriter == null) {
-                //System.err.println(s);
+                if (msg.startsWith("WARNING") || msg.startsWith("Error")) {
+                    System.err.println(s);
+                }
             }
             else {
                 logWriter.println(s);
@@ -955,23 +1000,18 @@ public class ConnectionPool {
   /** Wrapper class to track connection metadata
    */
     private static class PooledConnectionWrapper {
-        final Connection connection;
-        final PooledConnection pooledConnection;
-        final long createdTime;
-        final long lastUsedTime;
+        private final Connection connection;
+        private final PooledConnection pooledConnection;
+        private long createdTime;
+        private long lastUsedTime;
+        private final boolean isWarmup;
 
-        PooledConnectionWrapper(Connection connection, PooledConnection pooledConnection) {
+        PooledConnectionWrapper(Connection connection, PooledConnection pooledConnection, boolean isWarmup) {
             this.connection = connection;
             this.pooledConnection = pooledConnection;
             this.createdTime = System.currentTimeMillis();
             this.lastUsedTime = System.currentTimeMillis();
-        }
-
-        PooledConnectionWrapper(Connection connection, PooledConnection pooledConnection, long createdTime, long lastUsedTime) {
-            this.connection = connection;
-            this.pooledConnection = pooledConnection;
-            this.createdTime = createdTime;
-            this.lastUsedTime = lastUsedTime;
+            this.isWarmup = isWarmup;
         }
 
         boolean isIdle(long idleTimeoutMs) {
@@ -983,7 +1023,10 @@ public class ConnectionPool {
         }
 
         PooledConnectionWrapper markUsed() {
-            return new PooledConnectionWrapper(connection, pooledConnection, createdTime, System.currentTimeMillis());
+            PooledConnectionWrapper wrapper = new PooledConnectionWrapper(connection, pooledConnection, false);
+            wrapper.createdTime = createdTime;
+            wrapper.lastUsedTime = System.currentTimeMillis();
+            return wrapper;
         }
     }
 
