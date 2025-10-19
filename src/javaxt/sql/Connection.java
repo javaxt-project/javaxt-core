@@ -13,9 +13,9 @@ import java.util.*;
 public class Connection implements AutoCloseable {
 
 
-    private java.sql.Connection Conn = null;
-    private long Speed;
+    private java.sql.Connection conn = null;
     private Database database;
+    private long t;
 
 
   //**************************************************************************
@@ -49,7 +49,7 @@ public class Connection implements AutoCloseable {
    */
     public boolean isClosed(){
         try{
-            return Conn.isClosed();
+            return conn.isClosed();
         }
         catch(Exception e){
             return true;
@@ -64,7 +64,7 @@ public class Connection implements AutoCloseable {
    * (in milliseconds)
    */
     public long getConnectionSpeed(){
-        return Speed;
+        return t;
     }
 
 
@@ -74,7 +74,7 @@ public class Connection implements AutoCloseable {
   /** Used to retrieve the java.sql.Connection for this Connection
    */
     public java.sql.Connection getConnection(){
-        return Conn;
+        return conn;
     }
 
 
@@ -130,17 +130,17 @@ public class Connection implements AutoCloseable {
             }
 
 
-            Conn = Driver.connect(url, properties);
+            conn = Driver.connect(url, properties);
         }
         else{
-            Conn = connectionPool.getConnection().getConnection();
+            conn = connectionPool.getConnection().getConnection();
         }
 
 
-        boolean isClosed = Conn.isClosed();
+        boolean isClosed = conn.isClosed();
 
 
-        Speed = System.currentTimeMillis()-startTime;
+        t = System.currentTimeMillis()-startTime;
         return !isClosed;
     }
 
@@ -172,8 +172,8 @@ public class Connection implements AutoCloseable {
         boolean isClosed;
         try{
             if (database==null) database = new Database(conn);
-            Conn = conn;
-            isClosed = Conn.isClosed();
+            this.conn = conn;
+            isClosed = conn.isClosed();
         }
         catch(Exception e){
             //System.out.println("Failed");
@@ -181,7 +181,7 @@ public class Connection implements AutoCloseable {
             isClosed = true;
         }
 
-        Speed = 0;
+        t = 0;
         return !isClosed;
     }
 
@@ -206,9 +206,11 @@ public class Connection implements AutoCloseable {
    */
     public void close(){
         //System.out.println("Closing connection...");
-        try{Conn.close();}
-        catch(Exception e){
+        if (isOpen()) {
+            try{conn.close();}
+            catch(Exception e){
             //e.printStackTrace();
+            }
         }
     }
 
@@ -372,9 +374,9 @@ public class Connection implements AutoCloseable {
   /** Used to execute a prepared sql statement (e.g. "delete from my_table").
    */
     public void execute(String sql) throws SQLException {
-        try (java.sql.PreparedStatement stmt = Conn.prepareStatement(sql)){
+        try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)){
             stmt.execute();
-            try { Conn.commit(); } catch(Exception e){}
+            try { conn.commit(); } catch(Exception e){}
         }
     }
 
