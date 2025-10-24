@@ -1748,9 +1748,21 @@ public class Image {
    *  perceptual hash values for the images.
    */
     public int getHammingDistance(Image image){
+        /*
         long hash1 = getPHash();
         long hash2 = image.getPHash();
         return Long.bitCount(hash1 ^ hash2);
+        */
+        
+        String hash = Long.toBinaryString(getPHash());
+        String target = Long.toBinaryString(image.getPHash());
+        int d = 0;
+        for (int i=0; i<hash.length(); i++) {
+            if (hash.charAt(i) != target.charAt(i)) {
+                d++;
+            }
+        }
+        return d;
     }
 
 
