@@ -2614,18 +2614,22 @@ private static class DirectorySearch implements Runnable {
 
 
       //Update the lut
+        long directoryID = getDirectoryID();
         synchronized(lut){
-            long directoryID = getDirectoryID();
             java.util.Iterator it = lut.keySet().iterator();
             while (it.hasNext()){
                 String parentThread = (String) it.next();
-                if ((Long) lut.get(parentThread) == directoryID){
+                if (((Long) lut.get(parentThread)).longValue() == directoryID){
                     lut.remove(parentThread);
                     lut.notifyAll();
                     break;
                 }
             }
         }
+
+
+      //Clean up the map
+        map.remove(directoryID);
 
     }
 
@@ -2638,10 +2642,6 @@ private static class DirectorySearch implements Runnable {
     public static List getItems(){
         return (List) getVars().get("items");
     }
-
-
-
-
 
 
   //**************************************************************************
