@@ -1,6 +1,16 @@
 package javaxt.io;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.IOException;
+
+//Includes for iNotify
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
+import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
+
 
 //******************************************************************************
 //**  Directory Class
@@ -31,6 +41,7 @@ public class Directory implements Comparable {
 
     public static final String PathSeparator = System.getProperty("file.separator");
     protected static final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
+    private static final boolean isMac = System.getProperty("os.name").toLowerCase().contains("mac");
 
     private boolean directorySearchInitialized = false;
 
@@ -1561,7 +1572,7 @@ public class Directory implements Comparable {
             }
         }
       //Catch Exceptions thrown by cmd.run()
-        catch(java.io.IOException e){
+        catch(IOException e){
         }
         catch(InterruptedException e){
             Thread.currentThread().interrupt();
@@ -2899,6 +2910,7 @@ private class FileSystemWatcher implements Runnable {
 
     private Directory directory;
     private Timer timer;
+    private INotify iNotify;
     private boolean includeSubdirectories = true;
     private boolean terminationRequested = false;
     private Long osHandle = null;
@@ -2909,25 +2921,20 @@ private class FileSystemWatcher implements Runnable {
   //**************************************************************************
   //** Constructors
   //**************************************************************************
-  /** Creates a new instance of FileSystemWatcher using a directory and a dll.
+  /** Creates a new instance of FileSystemWatcher using a directory.
    */
-    public FileSystemWatcher(Directory directory) throws java.io.IOException {
-        if (!directory.exists()) throw new java.io.IOException("Directory not found.");
+    public FileSystemWatcher(Directory directory) throws IOException {
+        if (!directory.exists()) throw new IOException("Directory not found.");
         this.directory = directory;
     }
 
 
   //**************************************************************************
-  //** Run
+  //** run
   //**************************************************************************
-
     public final void run(){
 
-        if (!File.loadDLL()){
-            this.timer = new Timer();
-            timer.schedule( new EventMonitor(), new java.util.Date(), 1000 );
-        }
-        else{
+        if (File.loadDLL()){
             try {
                 long osWaitHandle = FileSystemWatcherNative.FindFirstChangeNotification(directory.getPath(), includeSubdirectories, -1);
                 this.osHandle = new Long(osWaitHandle);
@@ -2966,16 +2973,64 @@ private class FileSystemWatcher implements Runnable {
                 }
             }
         }
+        else{
+            if (javaxt.utils.Java.version>6 && !isWindows && !isMac){
+                try {
+                    this.iNotify = new INotify();
+                    iNotify.start();
+                }
+                catch (Exception ex) {
+                  //inotify setup failed (e.g. max user watches exceeded);
+                  //close the partially-constructed watcher to release its OS
+                  //handle, then fall back to polling so the watcher still
+                  //functions. Null-check guards the case where the INotify
+                  //constructor itself threw before assignment.
+                    if (this.iNotify != null) {
+                        try { this.iNotify.stop(); }
+                        catch (Exception ignore) {}
+                        this.iNotify = null;
+                    }
+                    startPolling();
+                }
+            }
+            else{
+                startPolling();
+            }
+        }
+
+    }
+
+
+  //**************************************************************************
+  //** startPolling
+  //**************************************************************************
+  /** Fallback event monitor.
+   */
+    private void startPolling(){
+        this.timer = new Timer();
+        timer.schedule( new EventMonitor(), new java.util.Date(), 1000 );
     }
 
 
   //**************************************************************************
   //** addEvent
   //**************************************************************************
-
+  /** Parses a raw event string (produced by the Windows JNI) and forwards to
+   *  the Event-based overload below for filtering and dispatch.
+   */
     private void addEvent(String str){
+        addEvent(new Directory.Event(str));
+    }
 
-        Directory.Event event = new Directory.Event(str);
+
+  //**************************************************************************
+  //** addEvent
+  //**************************************************************************
+  /** Applies the cross-platform event filter (Modify dedup, Rename pair
+   *  coalescing) and appends the event to the events queue when appropriate.
+   */
+    private void addEvent(Directory.Event event){
+
         String action = event.getAction();
         String path = event.getFile();
         java.util.Date date = event.getDate();
@@ -2984,7 +3039,14 @@ private class FileSystemWatcher implements Runnable {
         boolean exists = true;
         boolean isDirectory = false;
         try{
-            isDirectory = new File.FileAttributes(path).isDirectory();
+            if (File.loadDLL()){ //calls GetFileAttributesEx (fast)
+                isDirectory = new File.FileAttributes(path).isDirectory();
+            }
+            else{
+                java.io.File f = new java.io.File(path);
+                exists = f.exists();
+                isDirectory = exists && f.isDirectory();
+            }
         }
         catch(Exception e){
             exists = false;
@@ -3043,16 +3105,14 @@ private class FileSystemWatcher implements Runnable {
   //**************************************************************************
   //** getEvents
   //**************************************************************************
-
     public List getEvents() {
         return events;
     }
 
 
   //**************************************************************************
-  //** Stop
+  //** stop
   //**************************************************************************
-
     public void stop(){
 
         terminationRequested = true;
@@ -3061,14 +3121,18 @@ private class FileSystemWatcher implements Runnable {
             timer.cancel();
             timer = null;
         }
+
+        if (iNotify!=null){
+            iNotify.stop();
+            iNotify = null;
+        }
     }
 
 
   //**************************************************************************
   //** EventMonitor
   //**************************************************************************
-  /** Used to periodically check for changes made to the file system. This
-   *  class is only used on non-windows machines.
+  /** Used to periodically check for changes made to the file system.
    */
     private class EventMonitor extends TimerTask {
 
@@ -3223,6 +3287,220 @@ private class FileSystemWatcher implements Runnable {
         } // End Item
 
     } //End EventMonitor Class
+
+
+  //**************************************************************************
+  //** INotify
+  //**************************************************************************
+  /** Linux-only event-driven directory watcher. Uses inotify via the JDK's
+   *  java.nio.file.WatchService. Recursively watches an entire directory tree,
+   *  registering inotify watches for every subdirectory and for any new
+   *  subdirectories created at runtime.
+   */
+    public class INotify {
+
+        private final WatchService watchService;
+        private final ConcurrentHashMap<WatchKey, Path> keyToDir = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<Path, WatchKey> pathToKey = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<Path, Long> syntheticAt = new ConcurrentHashMap<>();
+        private static final long SYNTH_TTL_NANOS = 2_000_000_000L; // 2 seconds
+        private int eventsSinceSweep = 0;
+        private static final int SWEEP_INTERVAL = 1000;
+        private volatile boolean closed = false;
+        private Thread eventThread;
+
+
+        public INotify() throws Exception {
+            this.watchService = FileSystems.getDefault().newWatchService();
+        }
+
+        public synchronized void start() throws Exception {
+            if (eventThread != null) {
+                throw new IllegalStateException("Watcher already started");
+            }
+
+            Files.walkFileTree(directory.toFile().toPath(), new SimpleFileVisitor<Path>(){
+
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    try { register(dir); }
+                    catch (IOException ioe) { throw ioe; }
+                    catch (Exception e) { throw new IOException(e); }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException{
+                    return FileVisitResult.CONTINUE;
+                }
+
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+
+            eventThread = new Thread(this::eventLoop, "INotify-" + directory.getName());
+            eventThread.setDaemon(true);
+            eventThread.start();
+        }
+
+        public void stop() {
+            Thread t;
+            synchronized (this) {
+                if (closed) return;
+                closed = true;
+                try { watchService.close(); }
+                catch (Exception ignore) {}
+                t = eventThread;
+            }
+
+            if (t != null) {
+                try { t.join(5000); }
+                catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
+        private void register(Path dir) throws Exception {
+            if (pathToKey.containsKey(dir)) return;
+            WatchKey key = dir.register(
+                watchService,
+                ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY
+            );
+            keyToDir.put(key, dir);
+            pathToKey.put(dir, key);
+        }
+
+        private void eventLoop() {
+            while (!closed) {
+                WatchKey key;
+                try {
+                    key = watchService.take();
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                catch (ClosedWatchServiceException e) {
+                    return;
+                }
+
+                Path watchedDir = keyToDir.get(key);
+                if (watchedDir == null) {
+                    key.pollEvents();
+                    key.reset();
+                    continue;
+                }
+
+                drain(key, watchedDir);
+
+                if (!key.reset()) {
+                    drain(key, watchedDir);
+                    keyToDir.remove(key);
+                    pathToKey.remove(watchedDir);
+                    if (keyToDir.isEmpty()) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void drain(WatchKey key, Path watchedDir) {
+            for (WatchEvent<?> raw : key.pollEvents()) {
+                WatchEvent.Kind<?> kind = raw.kind();
+
+                if (kind == OVERFLOW) {
+                    addEvent(new Directory.Event("Overflow", watchedDir.toString()));
+                    continue;
+                }
+
+                @SuppressWarnings("unchecked")
+                WatchEvent<Path> ev = (WatchEvent<Path>) raw;
+                Path child = watchedDir.resolve(ev.context());
+
+                try {
+                    if (kind == ENTRY_CREATE) {
+                        if (consumeSynthEcho(child)) continue;
+                        handleCreate(child);
+                    }
+                    else if (kind == ENTRY_MODIFY) {
+                        addEvent(new Directory.Event("Modify", child.toString()));
+                    }
+                    else if (kind == ENTRY_DELETE) {
+                        syntheticAt.remove(child);
+                        addEvent(new Directory.Event("Delete", child.toString()));
+                    }
+                }
+                catch (Exception ex) {
+                    //ex.printStackTrace();
+                }
+            }
+
+            if (++eventsSinceSweep >= SWEEP_INTERVAL) {
+                eventsSinceSweep = 0;
+                sweepSynthetic();
+            }
+        }
+
+        private void markSynthesized(Path p) {
+            syntheticAt.put(p, System.nanoTime());
+        }
+
+        private boolean consumeSynthEcho(Path p) {
+            Long t = syntheticAt.remove(p);
+            if (t == null) return false;
+            return (System.nanoTime() - t) < SYNTH_TTL_NANOS;
+        }
+
+        private void sweepSynthetic() {
+            long now = System.nanoTime();
+            Iterator<Map.Entry<Path, Long>> it = syntheticAt.entrySet().iterator();
+            while (it.hasNext()) {
+                if (now - it.next().getValue() > SYNTH_TTL_NANOS) it.remove();
+            }
+        }
+
+        private void handleCreate(Path child) throws Exception {
+            boolean isDir;
+            try {
+                isDir = Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS);
+            }
+            catch (Exception e) {
+              //Path may have already vanished (create+delete in quick succession)
+                addEvent(new Directory.Event("Create", child.toString()));
+                return;
+            }
+
+            addEvent(new Directory.Event("Create", child.toString()));
+
+            if (!isDir) return;
+
+
+            try {
+                register(child);
+            }
+            catch (Exception e) {
+                return;
+            }
+
+            Directory newDir = new Directory(child.toFile());
+            List items = newDir.getChildren(true, null, true);
+            for (Object item : items) {
+                if (item instanceof Directory) {
+                    Directory d = (Directory) item;
+                    Path p = d.toFile().toPath();
+                    try { register(p); } catch (Exception ignore) {}
+                    markSynthesized(p);
+                    addEvent(new Directory.Event("Create", p.toString()));
+                }
+                else if (item instanceof File) {
+                    Path p = ((File) item).toFile().toPath();
+                    markSynthesized(p);
+                    addEvent(new Directory.Event("Create", p.toString()));
+                }
+            }
+        }
+
+    } //End INotify Class
 
 
   //**************************************************************************
