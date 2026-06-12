@@ -833,14 +833,6 @@ public class ConnectionPool {
                     return;
                 }
             }
-
-            // Additional safety check: verify the wrapper's connection is actually closed
-            // If the javaxt.sql.Connection wrapper is still open, this indicates a problem
-            if (wrapper.connection != null && wrapper.connection.isOpen()) {
-                log("Warning: Recycle called but javaxt.sql.Connection wrapper is still open - disposing instead");
-                disposeConnection(pconn);
-                return;
-            }
         }
 
         // Use atomic decrement to avoid TOCTOU race condition
