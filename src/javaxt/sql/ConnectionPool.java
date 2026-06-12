@@ -1024,6 +1024,18 @@ public class ConnectionPool {
 
 
   //**************************************************************************
+  //** forceHealthCheck
+  //**************************************************************************
+  /** Synchronously runs a single health-check pass. In normal operation the
+   *  same health-check runs on a background scheduler every 30 seconds. Safe
+   *  to call at any time.
+   */
+    public void forceHealthCheck() {
+        performHealthCheck();
+    }
+
+
+  //**************************************************************************
   //** getPoolStatistics
   //**************************************************************************
   /** Returns current pool statistics for monitoring.
