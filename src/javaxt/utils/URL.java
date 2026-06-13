@@ -303,7 +303,7 @@ public class URL {
   //**************************************************************************
   //** setParameter
   //**************************************************************************
-  /** Used to set or update a value for a given parameter.
+  /** Used to set or update a value for a given parameter in the query string.
    */
     public void setParameter(String key, String value){
         setParameter(key, value, false);

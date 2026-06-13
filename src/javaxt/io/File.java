@@ -1433,9 +1433,10 @@ public class File implements Comparable {
   //**************************************************************************
   //** getContentType
   //**************************************************************************
-  /** Returns the mime type associated with the file extension. This method
-   *  only covers the most common/popular mime types. The returned mime type
-   *  is NOT authoritative.
+  /** Returns the MIME content type associated with the file extension (e.g.
+   *  "image/png", "text/plain", etc). Defaults to "application/octet-stream"
+   *  if a matching type is not found. This method covers some the most
+   *  common/popular mime types. The returned mime type is NOT authoritative.
    */
     public String getContentType(){
         return getContentType(this.getName());
