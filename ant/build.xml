@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Self-contained Ant build for javaxt-core.
+
+  javaxt-core has no third-party dependencies, so a plain javac + jar is all
+  that's needed.
+
+  Usage:
+    ant -f ant/build.xml                       (clean + jar, version "dev")
+    ant -f ant/build.xml -Dversion.num=2.3.0   (override the version)
+
+  The release workflow passes -Dversion.num=<tag>, so "dev" is only used
+  for local/ad-hoc builds.
+
+  Produces: dist/javaxt-core.jar
+-->
+<project name="javaxt-core" default="jar" basedir=".">
+
+    <property name="project.name"  value="JavaXT Core"/>
+    <property name="version.num"   value="dev"/>
+
+    <property name="src.dir"       value="../src"/>
+    <property name="build.dir"     value="../build"/>
+    <property name="classes.dir"   value="${build.dir}/classes"/>
+    <property name="dist.dir"      value="../dist"/>
+    <property name="dist.jar"      value="${dist.dir}/javaxt-core.jar"/>
+
+    <tstamp>
+        <format property="build.date" pattern="yyyy-MM-dd HH:mm:ss z"/>
+    </tstamp>
+
+
+    <target name="clean" description="Delete build artifacts">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>
+
+
+    <target name="compile" description="Compile the source">
+        <mkdir dir="${classes.dir}"/>
+        <javac srcdir="${src.dir}"
+               destdir="${classes.dir}"
+               source="1.8"
+               target="1.8"
+               encoding="UTF-8"
+               includeantruntime="false"
+               debug="true">
+        </javac>
+    </target>
+
+
+    <target name="copy-resources" depends="compile"
+            description="Copy non-java resources (e.g. native dlls) into the jar root">
+        <copy todir="${classes.dir}">
+            <fileset dir="${src.dir}" excludes="**/*.java,**/*.form"/>
+        </copy>
+    </target>
+
+
+    <target name="jar" depends="copy-resources" description="Build the jar">
+        <mkdir dir="${dist.dir}"/>
+        <jar destfile="${dist.jar}" basedir="${classes.dir}">
+            <manifest>
+                <attribute name="Bundle-Name"            value="${project.name}"/>
+                <attribute name="Bundle-Version"         value="${version.num}"/>
+                <attribute name="Bundle-Date"            value="${build.date}"/>
+                <attribute name="Implementation-Title"   value="${project.name}"/>
+                <attribute name="Implementation-Version" value="${version.num}"/>
+                <attribute name="Implementation-URL"     value="http://www.javaxt.com"/>
+                <attribute name="Main-Class"             value="javaxt.utils.Console"/>
+            </manifest>
+        </jar>
+        <echo message="Built ${dist.jar} (version ${version.num})"/>
+    </target>
+
+</project>

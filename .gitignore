@@ -9,6 +9,7 @@
 /.idea/
 /nbproject/
 *build.xml
+!ant/build.xml
 manifest.mf
 
 
