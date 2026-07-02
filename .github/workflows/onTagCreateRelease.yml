@@ -39,7 +39,7 @@ jobs:
 
 
       - name: Build jar using Ant
-        run: ant -Dversion.num=${{ env.releaseLabel }} clean jar
+        run: ant -f ant/build.xml -Dversion.num=${{ env.releaseLabel }} clean jar
 
 
     ### Assemble release directory
