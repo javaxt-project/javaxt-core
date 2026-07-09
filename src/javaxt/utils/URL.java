@@ -42,6 +42,7 @@ public class URL {
         url = url.trim();
         parameters = new LinkedHashMap<>();
         extendedParameters = new LinkedHashMap<>();
+        protocol = "";
 
 
         if (url.contains("://")){
@@ -50,8 +51,11 @@ public class URL {
         }
         else{
             if (url.startsWith("jdbc")){
-                protocol = url.substring(0, url.indexOf(";"));
-                url = url.substring(url.indexOf(";")+1);
+                int idx = url.indexOf(";");
+                if (idx>-1){
+                    protocol = url.substring(0, idx);
+                    url = url.substring(idx+1);
+                }
             }
         }
 
@@ -409,7 +413,13 @@ public class URL {
         }
     }
 
-
+    
+  //**************************************************************************
+  //** getParameter
+  //**************************************************************************
+  /**  Returns values associated with a given key and parameter list. Performs
+   *   a case insensitive search for the given key.
+   */
     public static List<String> getParameter(String key, HashMap<String, List<String>> parameters){
         List<String> values = parameters.get(key);
         if (values==null){
@@ -422,18 +432,34 @@ public class URL {
         return values;
     };
 
+
+  //**************************************************************************
+  //** setParameter
+  //**************************************************************************
+  /**  Used to set or update a parameter value in a parameter list. Performs a
+   *   case insensitive search for the given key. When updating a value,
+   *   preserves the case of the matched key (e.g. given "foo", matches to
+   *   "Foo", parameters retains "Foo" not "foo").
+   */
     public static void setParameter(String key, List<String> values, HashMap<String, List<String>> parameters){
         Iterator<String> it = parameters.keySet().iterator();
         while (it.hasNext()){
             String s = it.next();
             if (s.equalsIgnoreCase(key)){
-                parameters.put(key, values);
+                parameters.put(s, values);
                 return;
             }
         }
         parameters.put(key, values);
     }
 
+
+  //**************************************************************************
+  //** removeParameter
+  //**************************************************************************
+  /**  Used to remove a parameter from a parameter list. Performs a case
+   *   insensitive search for the given key.
+   */
     public static List<String> removeParameter(String key, HashMap<String, List<String>> parameters){
         List<String> values = parameters.remove(key);
         if (values==null){
@@ -463,9 +489,11 @@ public class URL {
   /** Used to update the host name or IP address found in the URL.
    */
     public void setHost(String host){
-        if (host.contains(":")){
-            port = Integer.valueOf(host.substring(host.indexOf(":")+1));
-            host = host.substring(0, host.indexOf(":"));
+        int idx = host.indexOf(":");
+        if (idx>-1){
+            try{ port = Integer.valueOf(host.substring(idx+1)); }
+            catch(Exception e){}
+            host = host.substring(0, idx);
         }
         this.host = host;
     }
@@ -519,8 +547,7 @@ public class URL {
     public String getQueryString(){
 
         StringBuilder str = new StringBuilder();
-        HashSet<String> keys = getKeys();
-        Iterator<String> it = keys.iterator();
+        Iterator<String> it = parameters.keySet().iterator();
         while (it.hasNext()){
             String key = it.next();
             List<String> values = getParameter(key, parameters);
