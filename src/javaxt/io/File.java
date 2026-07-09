@@ -1579,6 +1579,10 @@ public class File implements Comparable {
               //Find dll entry in the zip/jar file
                 Jar jar = new Jar(Jar.class);
                 Jar.Entry entry = jar.getEntry(null, dllName);
+                if (entry==null){
+                    dllLoaded = false;
+                    return dllLoaded;
+                }
                 long checksum = entry.checksum();
 
 
