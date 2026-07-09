@@ -80,4 +80,7 @@ jobs:
       - name: Build and test with javaxt-core-test
         run: |
           cd javaxt-core-test
-          mvn clean install -Djavaxt.core.local.dir=$GITHUB_WORKSPACE/src
+          # runStressTests enables the Linux inotify watcher stress test
+          # (DirectoryWatcherStressTest), which is opt-in because it is heavy
+          # (~4k events, ~10s). The ubuntu runner is the correct env for it.
+          mvn clean install -Djavaxt.core.local.dir=$GITHUB_WORKSPACE/src -DrunStressTests=true
