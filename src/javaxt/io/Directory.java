@@ -2935,43 +2935,23 @@ private class FileSystemWatcher implements Runnable {
     public final void run(){
 
         if (File.loadDLL()){
-            try {
-                long osWaitHandle = FileSystemWatcherNative.FindFirstChangeNotification(directory.getPath(), includeSubdirectories, -1);
-                this.osHandle = new Long(osWaitHandle);
 
-                FileSystemWatcherNative.FindNextChangeNotification(osWaitHandle);
 
-              //Process events. Note that the ReadDirectoryChangesW method will
-              //block until the next event comes in.
-                String event = null;
-                while(!terminationRequested && ( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
-                    for (String e : event.split("\n")) addEvent(e.trim());
-                }
+          //Generate list of folders to watch. The FileSystemWatcherNative DLL
+          //skips events generated within junctions (symlinked folders). As a
+          //workaround, we have to create FileWatchers for individual junctions.
+            HashSet<Directory> watchFolders = new HashSet<>();
+            watchFolders.add(directory);
+            for (Directory link : getLinks(directory)){
+                watchFolders.add(link);
+            }
 
-              //I have no idea what this block of code does. Probably safe to delete.
-                if (FileSystemWatcherNative.WaitForSingleObject(osWaitHandle,
-                    FileSystemWatcherNative.INFINITE) !=  FileSystemWatcherNative.WAIT_OBJECT_0) {
-                    throw new Exception("Wait failed while waiting for OS to signal file system event.");
-                }
+
+          //Start streaming events for each watch folder
+            for (Directory dir: watchFolders){
+                initFileSystemWatcherDLL(dir);
             }
-            catch (Exception ex) {
-              //nothing can be done here except logging the error.
-              //Logger.getLogger("FileSystemWatcher").log(Level.WARNING, "Exception encountered.", ex);
-            }
-            finally {
-                if (this.osHandle != null) {
-                    System.out.println("Shutting down...");
-                    try {
-                      FileSystemWatcherNative.FindCloseChangeNotification(this.osHandle.longValue());
-                    }
-                    catch (Exception ex2) {
-                      //nothing can be done here except logging the error.
-                      //Logger.getLogger("FileSystemWatcher").log(Level.WARNING,
-                      //"Unable to close file system watch handle.", ex2);
-                    }
-                    this.osHandle = null;
-                }
-            }
+
         }
         else{
             if (javaxt.utils.Java.version>6 && !isWindows && !isMac){
@@ -2998,6 +2978,89 @@ private class FileSystemWatcher implements Runnable {
             }
         }
 
+    }
+
+
+  //**************************************************************************
+  //** getLinks
+  //**************************************************************************
+  /** Used to find symlinks in a given directory
+   */
+    private HashSet<Directory> getLinks(Directory directory){
+        HashSet<Directory> links = new HashSet<>();
+        java.util.List files = directory.getChildren(true, null, false);
+        Object obj;
+        while (true){
+            synchronized (files) {
+                while (files.isEmpty()) {
+                    try {
+                        files.wait();
+                    }
+                    catch (InterruptedException e) {
+                        break;
+                    }
+                }
+                obj = files.remove(0);
+                files.notifyAll();
+            }
+
+            if (obj==null){
+                break;
+            }
+            else{
+                if (obj instanceof Directory){
+                    Directory dir = (Directory) obj;
+                    if (dir.isLink()) links.add(dir);
+                }
+            }
+        }
+        return links;
+    }
+
+
+  //**************************************************************************
+  //** initFileSystemWatcherDLL
+  //**************************************************************************
+  /** Used to instantiate FileSystemWatcherNative (Windows DLL)
+   */
+    private void initFileSystemWatcherDLL(Directory dir){
+        try {
+            long osWaitHandle = FileSystemWatcherNative.FindFirstChangeNotification(dir.getPath(), includeSubdirectories, -1);
+            this.osHandle = new Long(osWaitHandle);
+
+            FileSystemWatcherNative.FindNextChangeNotification(osWaitHandle);
+
+          //Process events. Note that the ReadDirectoryChangesW method will
+          //block until the next event comes in.
+            String event = null;
+            while(!terminationRequested && ( event = FileSystemWatcherNative.ReadDirectoryChangesW()) != null){
+                for (String e : event.split("\n")) addEvent(e.trim());
+            }
+
+          //I have no idea what this block of code does. Probably safe to delete.
+            if (FileSystemWatcherNative.WaitForSingleObject(osWaitHandle,
+                FileSystemWatcherNative.INFINITE) !=  FileSystemWatcherNative.WAIT_OBJECT_0) {
+                throw new Exception("Wait failed while waiting for OS to signal file system event.");
+            }
+        }
+        catch (Exception ex) {
+          //nothing can be done here except logging the error.
+          //Logger.getLogger("FileSystemWatcher").log(Level.WARNING, "Exception encountered.", ex);
+        }
+        finally {
+            if (this.osHandle != null) {
+                System.out.println("Shutting down...");
+                try {
+                  FileSystemWatcherNative.FindCloseChangeNotification(this.osHandle.longValue());
+                }
+                catch (Exception ex2) {
+                  //nothing can be done here except logging the error.
+                  //Logger.getLogger("FileSystemWatcher").log(Level.WARNING,
+                  //"Unable to close file system watch handle.", ex2);
+                }
+                this.osHandle = null;
+            }
+        }
     }
 
 
