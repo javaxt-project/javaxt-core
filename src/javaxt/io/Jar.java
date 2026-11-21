@@ -1,9 +1,7 @@
 package javaxt.io;
 
 import java.io.ByteArrayOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.FileOutputStream;
-import java.io.FileInputStream;
 
 //Imports for dealing with ZIP files
 import java.net.URI;
@@ -170,18 +168,15 @@ public class Jar {
    </pre>
    */
     public java.util.jar.Manifest getManifest(){
-        try{
-            Entry entry = this.getEntry("META-INF", "MANIFEST.MF");
-            if (entry!=null) {
-                ByteArrayInputStream is = new ByteArrayInputStream(entry.getBytes());
-                java.util.jar.Manifest manifest = new java.util.jar.Manifest(is);
-                is.close();
-                return manifest;
-            }
+        Entry entry = this.getEntry("META-INF", "MANIFEST.MF");
+        if (entry==null) return null;
+        try (java.io.InputStream is = entry.getInputStream()){
+            if (is==null) return null;
+            return new java.util.jar.Manifest(is);
         }
         catch(Exception e){
+            return null;
         }
-        return null;
     }
 
 
@@ -230,30 +225,32 @@ public class Jar {
   /**  Used to return a list of all the entries found in the jar file.
    */
     public Entry[] getEntries(){
-        java.util.ArrayList<Entry> entries = new java.util.ArrayList<Entry>();
-        try{
+        final java.util.ArrayList<Entry> entries = new java.util.ArrayList<>();
+        java.io.File root = getRoot();
+        if (root==null) return new Entry[0];
 
-            if (file.isDirectory()){
-                Directory dir = new Directory(file);
-                java.util.List items = dir.getChildren(true);
-                for (int i=0; i<items.size(); i++){
-                     Object item = items.get(i);
-                     if (item instanceof File){
-                         entries.add(new Entry(((File) item).toFile()));
-                     }
-                }
-            }
-            else{
-                ZipInputStream in = new ZipInputStream(new FileInputStream(file));
-                ZipEntry zipEntry = null;
-                while((zipEntry = in.getNextEntry())!=null){
-                    entries.add(new Entry(zipEntry));
-                }
-                in.close();
+        if (root.isDirectory()){
+
+          //All the files under the root directory
+            for (Object item : new Directory(root).getChildren(true)){
+                if (item instanceof File) entries.add(new Entry(((File) item).toFile()));
             }
         }
-        catch(Exception e){
+        else{
+
+          //All the entries in the jar file. ZipFile reads the jar's central
+          //directory, so entry sizes and checksums are known (unlike when
+          //scanning the file with a ZipInputStream).
+            try (ZipFile zip = new ZipFile(root)){
+                java.util.Enumeration<? extends ZipEntry> en = zip.entries();
+                while (en.hasMoreElements()){
+                    entries.add(new Entry(en.nextElement()));
+                }
+            }
+            catch(Exception e){
+            }
         }
+
         return entries.toArray(new Entry[entries.size()]);
     }
 
@@ -279,46 +276,44 @@ public class Jar {
    *  (e.g. "Jar.class").
    */
     public Entry getEntry(String Package, String Entry){
+        if (Entry==null) return null;
 
-        ZipInputStream in = null;
-        try{
 
-            if (file.isDirectory()){
-                return new Entry(new java.io.File(file, Entry));
-            }
-            else{
+      //Update package name and entry
+        if (Package!=null){
+            Package = Package.trim();
+            if (Package.length()==0) Package = null;
+        }
+        if (Package!=null){
+            if (Package.contains(".")) Package = Package.replace(".","/");
+            Entry = Package + "/" + Entry;
+        }
 
-              //Update package name and entry
-                if (Package!=null){
-                    Package = Package.trim();
-                    if (Package.length()==0) Package = null;
+
+      //Classes in a directory: the entry is a file under the root of the
+      //classpath (it may not exist yet, e.g. a config file to create, see
+      //Entry.setText)
+        java.io.File root = getRoot();
+        if (root==null) return null;
+        if (root.isDirectory()){
+            return new Entry(new java.io.File(root, Entry));
+        }
+
+
+      //Find entry in the jar file (names are compared case-insensitively)
+        try (ZipFile zip = new ZipFile(root)){
+            ZipEntry zipEntry = zip.getEntry(Entry);
+            if (zipEntry!=null) return new Entry(zipEntry);
+
+            java.util.Enumeration<? extends ZipEntry> en = zip.entries();
+            while (en.hasMoreElements()){
+                zipEntry = en.nextElement();
+                if (zipEntry.getName().equalsIgnoreCase(Entry)){
+                    return new Entry(zipEntry);
                 }
-                if (Package!=null){
-                    if (Package.contains(".")) Package = Package.replace(".","/");
-                    Entry = Package + "/" + Entry;
-                }
-
-
-              //Find entry in the jar file
-                in = new ZipInputStream(new FileInputStream(file));
-                ZipEntry zipEntry = null;
-                while((zipEntry = in.getNextEntry())!=null){
-                    if (zipEntry.getName().equalsIgnoreCase(Entry)){
-                        //System.out.println(zipEntry.getName() + " <--");
-                        Entry entry = new Entry(zipEntry);
-                        in.close();
-                        return entry;
-                    }
-                }
-                in.close();
             }
         }
         catch(Exception e){
-            if (in!=null){
-                try{ in.close(); }
-                catch(Exception ex){}
-            }
-            //e.printStackTrace();
         }
 
         return null;
@@ -357,6 +352,9 @@ public class Jar {
                 catch(Exception e){
                     try{
                         if (child==null){
+
+                          //Note: this class loader is never closed, on
+                          //purpose. Classes it loads need it to stay open.
                             child = new java.net.URLClassLoader(
                                 new java.net.URL[] {file.toURI().toURL()},
                                 this.getClass().getClassLoader()
@@ -375,10 +373,38 @@ public class Jar {
 
 
   //**************************************************************************
+  //** getRoot
+  //**************************************************************************
+  /** Returns the jar file, or the root of the classpath directory if the
+   *  classes aren't in a jar (e.g. unit tests, or an IDE running classes
+   *  from a build directory).
+   */
+    public java.io.File getRoot(){
+        if (file==null) return null;
+
+      //Jar file
+        if (file.isFile() && !file.getName().toLowerCase().endsWith(".class")) return file;
+
+      //Directory
+        java.io.File dir = file.isDirectory() ? file : file.getParentFile();
+        if (Package==null || dir==null) return dir;
+
+      //If we're still here, walk up the package folders
+        String[] folders = Package.getName().split("\\.");
+        java.io.File root = dir;
+        for (int i=folders.length-1; i>-1; i--){
+            if (root==null || !root.getName().equals(folders[i])) return dir;
+            root = root.getParentFile();
+        }
+        return root==null ? dir : root;
+    }
+
+
+  //**************************************************************************
   //** toString
   //**************************************************************************
-  /**  Returns the path to the jar file. */
-
+  /** Returns the path to the jar file.
+   */
     public String toString(){
         return file.toString();
     }
@@ -500,6 +526,39 @@ public class Jar {
 
 
   //**************************************************************************
+  //** readAll
+  //**************************************************************************
+  /** Returns the bytes in a stream
+   */
+    private static byte[] readAll(java.io.InputStream is) throws java.io.IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = is.read(buf)) > -1) out.write(buf, 0, n);
+        return out.toByteArray();
+    }
+
+
+  //**************************************************************************
+  //** replace
+  //**************************************************************************
+  /** Replaces a file with another one (e.g. a temp file written next to it),
+   *  atomically if the file system supports it.
+   */
+    private static void replace(java.io.File src, java.io.File dest) throws java.io.IOException {
+        try{
+            java.nio.file.Files.move(src.toPath(), dest.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        }
+        catch(java.nio.file.AtomicMoveNotSupportedException e){
+            java.nio.file.Files.move(src.toPath(), dest.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+
+  //**************************************************************************
   //** JAR Entry Class
   //**************************************************************************
   /** Used to represent an entry in a jar/war file. The jar file might be
@@ -535,7 +594,8 @@ public class Jar {
        */
         public long checksum(){
             if (fileEntry==null) return zipEntry.getCrc();
-            else return new javaxt.io.File(fileEntry).checksum();
+            if (!fileEntry.isFile()) return -1;
+            return new File(fileEntry).checksum();
         }
 
 
@@ -553,138 +613,186 @@ public class Jar {
         }
 
 
-        public byte[] getBytes(){
-            ZipFile zip = null;
+      /** Returns a stream to read the entry, or null if the entry doesn't
+       *  exist (e.g. it was removed from the jar file, or a file that hasn't
+       *  been created yet).
+       */
+        public java.io.InputStream getInputStream(){
             try{
-
                 if (fileEntry==null){
-                    zip = new ZipFile(file);
-                    java.io.DataInputStream is = new java.io.DataInputStream(zip.getInputStream(zipEntry));
-
-                    int bufferSize = 1024;
-                    ByteArrayOutputStream bas = new ByteArrayOutputStream();
-                    byte[] b = new byte[bufferSize];
-                    int x=0;
-                    while((x=is.read(b,0,bufferSize))>-1) {
-                        bas.write(b,0,x);
+                    final ZipFile zip = new ZipFile(file);
+                    try{
+                        ZipEntry entry = zip.getEntry(zipEntry.getName());
+                        java.io.InputStream is = (entry==null) ? null : zip.getInputStream(entry);
+                        if (is==null){
+                            zip.close();
+                            return null;
+                        }
+                        return new java.io.FilterInputStream(is){
+                            public void close() throws java.io.IOException {
+                                try{ super.close(); }
+                                finally{ zip.close(); }
+                            }
+                        };
                     }
-                    bas.close();
-
-                    zip.close();
-                    return bas.toByteArray();
+                    catch(Exception e){
+                        zip.close();
+                        throw e;
+                    }
                 }
                 else{
-                    return new javaxt.io.File(fileEntry).getBytes().toByteArray();
+                    if (!fileEntry.isFile()) return null;
+                    return new File(fileEntry).getInputStream();
                 }
             }
             catch(Exception e){
-                if (zip!=null){
-                    try{ zip.close(); }
-                    catch(Exception ex){}
-                }
                 return null;
             }
         }
 
 
-      /** Used to extract the zip entry to a file. */
+      /** Returns the content of the entry, or null if the entry doesn't exist
+       *  or can't be read.
+       */
+        public byte[] getBytes(){
+            if (fileEntry!=null){
+                if (!fileEntry.isFile()) return null;
+                ByteArrayOutputStream bytes = new File(fileEntry).getBytes();
+                return bytes==null ? null : bytes.toByteArray();
+            }
+            try (java.io.InputStream is = getInputStream()){
+                if (is==null) return null;
+                return readAll(is);
+            }
+            catch(Exception e){
+                return null;
+            }
+        }
+
+
+      /** Used to extract the entry to a file. If the destination is an
+       *  existing directory, the entry is extracted into it (with the same
+       *  name). The file is written next to the destination first, then moved
+       *  into place, so an error never leaves a partial file. Nothing is
+       *  written if the entry doesn't exist.
+       */
         public void extractFile(java.io.File destination){
-            try{
-                if (fileEntry==null){
-                    destination.getParentFile().mkdirs();
-                    FileOutputStream out = new FileOutputStream(destination);
-                    ZipInputStream in = new ZipInputStream(new FileInputStream(file));
-                    ZipEntry zipEntry = null;
-                    while((zipEntry = in.getNextEntry())!=null){
-                        if (zipEntry.getName().equals(this.zipEntry.getName())){
+            if (destination.isDirectory()){
+                destination = new java.io.File(destination, new java.io.File(getName()).getName());
+            }
 
-                            byte[] buf = new byte[1024];
-                            int len;
-                            while ((len = in.read(buf)) > 0) {
-                                out.write(buf, 0, len);
-                            }
-                            break;
-                        }
-                    }
-                    in.close();
-                    out.close();
-                }
-                else{
-
-                  //Simply copy the file to the destination
-                    if (destination.isFile()){
-                        new File(fileEntry).copyTo(new File(destination),false);
-                    }
-                    else{
-                        new File(fileEntry).copyTo(new Directory(destination),false);
+          //Folder: copy the file with javaxt.io.File (keeps the date)
+            if (fileEntry!=null){
+                if (!fileEntry.isFile()) return; //missing entry: don't create a file
+                java.io.File tmp = null;
+                try{
+                    java.io.File dir = destination.getAbsoluteFile().getParentFile();
+                    if (dir!=null) dir.mkdirs();
+                    tmp = java.io.File.createTempFile("jar-", ".tmp", dir);
+                    if (new File(fileEntry).copyTo(new File(tmp), true)){
+                        replace(tmp, destination);
+                        tmp = null;
                     }
                 }
+                catch(Exception e){
+                    e.printStackTrace();
+                }
+                finally{
+                    if (tmp!=null) tmp.delete();
+                }
+                return;
+            }
+
+          //Jar file: stream the entry to a temp file, then replace
+            java.io.File tmp = null;
+            try (java.io.InputStream is = getInputStream()){
+                if (is==null) return; //missing entry: don't create a file
+
+                java.io.File dir = destination.getAbsoluteFile().getParentFile();
+                if (dir!=null) dir.mkdirs();
+                tmp = java.io.File.createTempFile("jar-", ".tmp", dir);
+                java.nio.file.Files.copy(is, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                replace(tmp, destination);
+                tmp = null;
             }
             catch(Exception e){
                 e.printStackTrace();
             }
+            finally{
+                if (tmp!=null) tmp.delete();
+            }
         }
 
 
+      /** Used to update/replace an entry with new text. For jar files, a new
+       *  jar is written next to the original, then replaces it, so an error
+       *  never leaves a partial jar. Note that a jar file can't be replaced
+       *  while it's in use.
+       */
         public void setText(String text){
+            if (text==null) return;
+            byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+
+          //Directory
+            if (fileEntry!=null){
+                new File(fileEntry).write(bytes);
+                return;
+            }
+
+
+          //Jar file: copy the jar to a temp file, with the new content for
+          //this entry, then replace the original
+            java.io.File tmp = null;
             try{
-                if (fileEntry==null){
-                    ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
-                    ByteArrayInputStream byteInput = new ByteArrayInputStream(text.getBytes());
-                    ZipOutputStream zipOutput = new ZipOutputStream(byteOutput);
-                    ZipInputStream zipInput = new ZipInputStream(new FileInputStream(file));
+                tmp = java.io.File.createTempFile("jar-", ".tmp", file.getAbsoluteFile().getParentFile());
+                boolean found = false;
+                try (ZipFile zip = new ZipFile(file);
+                     ZipOutputStream out = new ZipOutputStream(new FileOutputStream(tmp))){
 
+                    java.util.Enumeration<? extends ZipEntry> en = zip.entries();
+                    while (en.hasMoreElements()){
+                        ZipEntry entry = en.nextElement();
 
-                    ZipEntry zipEntry = null;
-                    while((zipEntry = zipInput.getNextEntry())!=null){
+                        ZipEntry copy = new ZipEntry(entry.getName());
+                        copy.setTime(entry.getTime());
+                        if (entry.getComment()!=null) copy.setComment(entry.getComment());
+                        if (entry.getExtra()!=null) copy.setExtra(entry.getExtra());
+                        out.putNextEntry(copy);
 
-                        if (zipEntry.getName().equals(this.zipEntry.getName())){
-
-                          //Write Updated Config File
-                            zipOutput.putNextEntry(new ZipEntry(this.zipEntry.getName()));
-                            byte[] buf = new byte[1024];
-                            int len;
-                            while ((len = byteInput.read(buf)) > 0) {
-                                zipOutput.write(buf, 0, len);
-                            }
-                            byteInput.close();
+                        if (entry.getName().equals(zipEntry.getName())){
+                            out.write(bytes);
+                            found = true;
                         }
-                        else{
-                            zipOutput.putNextEntry(zipEntry);
-                            byte[] buf = new byte[1024];
-                            int len;
-                            while ((len = zipInput.read(buf)) > 0) {
-                                zipOutput.write(buf, 0, len);
+                        else if (!entry.isDirectory()){
+                            try (java.io.InputStream is = zip.getInputStream(entry)){
+                                byte[] buf = new byte[8192];
+                                int n;
+                                while ((n = is.read(buf)) > -1) out.write(buf, 0, n);
                             }
                         }
-
-                        zipInput.closeEntry();
-                        zipOutput.closeEntry();
+                        out.closeEntry();
                     }
-
-                    zipInput.close();
-                    zipOutput.close();
-
-
-                    FileOutputStream fos = new FileOutputStream(file);
-                    fos.write(byteOutput.toByteArray());
-                    fos.close();
-
-                    byteOutput.close();
-
                 }
-                else{
-                    new File(fileEntry).write(text);
+
+                if (found){
+                    replace(tmp, file);
+                    tmp = null;
                 }
             }
             catch(Exception e){
             }
+            finally{
+                if (tmp!=null) tmp.delete();
+            }
         }
+
 
       /** Used to extract the contents to a string. */
         public String getText(){
             return getText("UTF-8");
         }
+
 
       /** Used to extract the contents to a string. Returns null if the
        *  extraction failed.
@@ -692,34 +800,16 @@ public class Jar {
        *  file. Examples include UTF-8 and ISO-8859-1
        */
         public String getText(String charsetName){
+            byte[] bytes = getBytes();
+            if (bytes==null) return null;
             try{
-                if (fileEntry==null){
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
-                    ZipInputStream in = new ZipInputStream(new FileInputStream(file));
-                    ZipEntry zipEntry = null;
-                    while((zipEntry = in.getNextEntry())!=null){
-                        if (zipEntry.getName().equals(this.zipEntry.getName())){
-
-                            byte[] buf = new byte[1024];
-                            int len;
-                            while ((len = in.read(buf)) > 0) {
-                                out.write(buf, 0, len);
-                            }
-                            break;
-                        }
-                    }
-                    in.close();
-                    return out.toString(charsetName);
-                }
-                else{
-                    return new File(fileEntry).getText(charsetName);
-                }
+                return new String(bytes, charsetName);
             }
             catch(Exception e){
                 return null;
             }
-
         }
+
 
         public String toString(){
             return getName();
