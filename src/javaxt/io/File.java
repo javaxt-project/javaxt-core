@@ -153,8 +153,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Get File Name
   //**************************************************************************
-  /**  Returns the name of the file, excluding the path. */
-
+  /**  Returns the name of the file, excluding the path.
+   */
     public String getName(){
         return name;
     }
@@ -163,10 +163,10 @@ public class File implements Comparable {
   //**************************************************************************
   //** Get File Name
   //**************************************************************************
-  /**  Returns the name of the file, excluding the path.
+  /** Returns the name of the file, excluding the path.
    *
-   *   @param IncludeFileExtension If true, includes the file extension.
-   *   Otherwise, will return the file name without the extension.
+   *  @param IncludeFileExtension If true, includes the file extension.
+   *  Otherwise, will return the file name without the extension.
    */
     public String getName(boolean IncludeFileExtension){
         if (!IncludeFileExtension){
@@ -180,8 +180,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Get File Path
   //**************************************************************************
-  /**  Used to retrieve the path to the file, excluding the file name. Appends
-   *   a file separator to the end of the string.
+  /** Used to retrieve the path to the file, excluding the file name. Appends
+   *  a file separator to the end of the string.
    */
     public String getPath(){
         return path;
@@ -191,8 +191,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** Get Directory
   //**************************************************************************
-  /**  Returns the file's parent directory. Same as getParentDirectory() */
-
+  /** Returns the file's parent directory. Same as getParentDirectory()
+   */
     public Directory getDirectory(){
         return getParentDirectory();
     }
@@ -213,8 +213,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** toFile
   //**************************************************************************
-  /**  Returns the java.io.File representation of this object. */
-
+  /** Returns the java.io.File representation of this object.
+   */
     public java.io.File toFile(){
         return getFile();
     }
@@ -223,8 +223,8 @@ public class File implements Comparable {
   //**************************************************************************
   //** getFile
   //**************************************************************************
-  /**  Returns the java.io.File representation of this object. */
-
+  /** Returns the java.io.File representation of this object.
+   */
     private java.io.File getFile(){
         if (file==null) file = new java.io.File(path + name);
         return file;
@@ -234,9 +234,9 @@ public class File implements Comparable {
   //**************************************************************************
   //** Get File Extension
   //**************************************************************************
-  /**  Returns the file's extension, excluding the last dot/period
-   *   (e.g. "C:\image.jpg" will return "jpg"). Returns a zero-length string
-   *   if there is no extension.
+  /** Returns the file's extension, excluding the last dot/period
+   *  (e.g. "C:\image.jpg" will return "jpg"). Returns a zero-length string
+   *  if there is no extension.
    */
     public String getExtension(){
         int idx = name.lastIndexOf(".");
@@ -1562,99 +1562,111 @@ public class File implements Comparable {
         if (isWindows){
 
             if (dllLoaded==null){ //haven't tried to load the dll yet...
-                String jvmPlatform = System.getProperty("os.arch");
-                String dllName;
-                if (jvmPlatform.equalsIgnoreCase("x86")){
-                    dllName = "javaxt-core.dll";
-                }
-                else if(jvmPlatform.equalsIgnoreCase("amd64")){
-                    dllName = "javaxt-core64.dll";
-                }
-                else{
-                    dllLoaded = false;
-                    return dllLoaded;
-                }
 
 
-              //Find dll entry in the zip/jar file
-                Jar jar = new Jar(Jar.class);
-                Jar.Entry entry = jar.getEntry(null, dllName);
-                if (entry==null){
-                    dllLoaded = false;
-                    return dllLoaded;
-                }
-                long checksum = entry.checksum();
+                if (loadingDLL) return false;
+                loadingDLL = true;
 
-
-              //Construct list of possible file locations for the dll
-                java.util.ArrayList<java.io.File> files = new java.util.ArrayList<>();
-                files.add(new java.io.File(jar.getFile().getParentFile(), dllName));
-                javaxt.io.Directory dir = new javaxt.io.Directory(System.getProperty("user.home"));
-                for (String appDir : new String[]{"AppData\\Local", "Application Data"}){
-                    javaxt.io.Directory d = new javaxt.io.Directory(dir + appDir);
-                    java.io.File f = d.toFile(); //flip to file to prevent infinite recursion
-                    if (f.exists() && f.canWrite()){
-                        dir = d;
-                        break;
+                try{
+                    String jvmPlatform = System.getProperty("os.arch");
+                    String dllName;
+                    if (jvmPlatform.equalsIgnoreCase("x86")){
+                        dllName = "javaxt-core.dll";
                     }
-                }
-                files.add(new java.io.File(dir + "JavaXT\\" + dllName));
-
-
-              //Try to load dll
-                for (java.io.File dll : files){
-
-                    if (dll.exists()){
-
-                      //Check whether the dll equals the jar entry. Extract as needed.
-                        byte[] b = new byte[(int)dll.length()];
-                        java.io.DataInputStream is = null;
-                        try{
-                            is = new java.io.DataInputStream(new FileInputStream(dll));
-                            is.readFully(b, 0, b.length);
-                            is.close();
-                            java.util.zip.CRC32 crc = new java.util.zip.CRC32();
-                            crc.update(b);
-                            if (checksum!=crc.getValue()){
-                                dll.delete();
-                                entry.extractFile(dll);
-                            }
-                        }
-                        catch(Exception e){
-                            try{is.close();}catch(Exception ex){}
-                        }
+                    else if(jvmPlatform.equalsIgnoreCase("amd64")){
+                        dllName = "javaxt-core64.dll";
                     }
                     else{
-
-                      //File does not exist so extract the dll
-                        entry.extractFile(dll);
+                        dllLoaded = false;
+                        return dllLoaded;
                     }
 
 
-                  //Load the dll
-                    if (dll.exists()){
-                        try{
-                            System.load(dll.toString());
-                            dllLoaded = true;
+                  //Find dll entry in the zip/jar file
+                    Jar jar = new Jar(Jar.class);
+                    Jar.Entry entry = jar.getEntry(null, dllName);
+                    if (entry==null){
+                        dllLoaded = false;
+                        return dllLoaded;
+                    }
+                    long checksum = entry.checksum();
+
+
+                  //Construct list of possible file locations for the dll
+                    java.util.ArrayList<java.io.File> files = new java.util.ArrayList<>();
+                    java.io.File root = jar.getRoot(); //the jar file, or the classpath directory
+                    files.add(new java.io.File(root.isDirectory() ? root : root.getParentFile(), dllName));
+                    javaxt.io.Directory dir = new javaxt.io.Directory(System.getProperty("user.home"));
+                    for (String appDir : new String[]{"AppData\\Local", "Application Data"}){
+                        javaxt.io.Directory d = new javaxt.io.Directory(dir + appDir);
+                        java.io.File f = d.toFile(); //flip to file to prevent infinite recursion
+                        if (f.exists() && f.canWrite()){
+                            dir = d;
                             break;
                         }
-                        catch(Throwable t){
-                            String msg = "already loaded in another classloader";
-                            if (t.getMessage().contains(msg)){ //UnsatisfiedLinkError
-                                System.err.println(System.mapLibraryName("javaxt_core") + " " + msg);
+                    }
+                    files.add(new java.io.File(dir + "JavaXT\\" + dllName));
+
+
+                  //Try to load dll
+                    for (java.io.File dll : files){
+
+                        if (dll.exists()){
+
+                          //Check whether the dll equals the jar entry. Extract as needed.
+                            byte[] b = new byte[(int)dll.length()];
+                            java.io.DataInputStream is = null;
+                            try{
+                                is = new java.io.DataInputStream(new FileInputStream(dll));
+                                is.readFully(b, 0, b.length);
+                                is.close();
+                                java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+                                crc.update(b);
+                                if (checksum!=crc.getValue()){
+                                    dll.delete();
+                                    entry.extractFile(dll);
+                                }
                             }
-                            else{
-                                t.printStackTrace();
+                            catch(Exception e){
+                                try{is.close();}catch(Exception ex){}
+                            }
+                        }
+                        else{
+
+                          //File does not exist so extract the dll
+                            entry.extractFile(dll);
+                        }
+
+
+                      //Load the dll
+                        if (dll.exists()){
+                            try{
+                                System.load(dll.toString());
+                                dllLoaded = true;
+                                break;
+                            }
+                            catch(Throwable t){
+                                String msg = "already loaded in another classloader";
+                                if (t.getMessage().contains(msg)){ //UnsatisfiedLinkError
+                                    System.err.println(System.mapLibraryName("javaxt_core") + " " + msg);
+                                }
+                                else{
+                                    t.printStackTrace();
+                                }
                             }
                         }
                     }
+
+
+                  //Don't update the static variable to give users a chance to fix
+                  //the load error (e.g. manually extract the dll and copy it into
+                  //one of the directories).
+                    //dllLoaded = false;
+                }
+                finally{
+                    loadingDLL = false;
                 }
 
-
-              //Don't update the static variable to give users a chance to fix
-              //the load error (e.g. manually extract the dll and copy it into
-              //one of the directories).
-                //dllLoaded = false;
             }
 
             return dllLoaded==null ? false : dllLoaded;
@@ -1677,6 +1689,11 @@ public class File implements Comparable {
    *  to modify the value directly. Use the loadDLL() method instead.
    */
     private static Boolean dllLoaded;
+
+  /** True while loadDLL() is running. Used to detect nested calls from the
+   *  same thread (other threads wait on the lock).
+   */
+    private static boolean loadingDLL = false;
 
 
     /** JNI entry point to retrieve file attributes. */
