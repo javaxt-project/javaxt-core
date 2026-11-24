@@ -553,35 +553,28 @@ public class File implements Comparable {
         Destination.getParentDirectory().create();
 
       //Copy File
-        ReadableByteChannel inputChannel = null;
-        WritableByteChannel outputChannel = null;
         try{
-            FileInputStream input = new FileInputStream(File);
-            FileOutputStream output = new FileOutputStream(Destination.toFile());
-            inputChannel = Channels.newChannel(input);
-            outputChannel = Channels.newChannel(output);
-            final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocateDirect(bufferSize);
+            try (
+                ReadableByteChannel inputChannel = Channels.newChannel(new FileInputStream(File));
+                WritableByteChannel outputChannel = Channels.newChannel(new FileOutputStream(Destination.toFile()));
+            ){
 
-            while (inputChannel.read(buffer) != -1) {
-                buffer.flip();
-                outputChannel.write(buffer);
-                buffer.compact();
-
+                final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocateDirect(bufferSize);
+                while (inputChannel.read(buffer) != -1) {
+                    ((java.nio.Buffer) buffer).flip();
+                    outputChannel.write(buffer);
+                    buffer.compact();
+                }
+                ((java.nio.Buffer) buffer).flip();
+                while (buffer.hasRemaining()) {
+                    outputChannel.write(buffer);
+                }
             }
-            buffer.flip();
-            while (buffer.hasRemaining()) {
-                outputChannel.write(buffer);
-            }
-
-            inputChannel.close();
-            outputChannel.close();
 
             Destination.toFile().setLastModified(File.lastModified());
             return true;
         }
         catch(Exception e){
-            try{inputChannel.close();}catch(Exception ex){}
-            try{outputChannel.close();}catch(Exception ex){}
             return false;
         }
     }
